@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Futuristic Todo</title>
+    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1 class="title">
+                <span class="glow">Todo</span> Manager
+            </h1>
+        </header>
+
+        <div class="centerColumn">
+            <div class="task-counter">
+                <span class="counter-number">{{ tasks.count }}</span>
+                <span class="counter-label">Active Tasks</span>
+            </div>
+
+            <form action="/" method="POST" class="task-form">
+                {% csrf_token %}
+                <div class="input-wrapper">
+                    {{form.title}}
+                    <button type="submit" class="submit-btn">
+                        <span>+</span>
+                    </button>
+                </div>
+            </form>
+
+            <div class="tasks-list">
+                {% for task in tasks %}
+                <div class="task-item {% if task.complete %}completed{% endif %}">
+                    <div class="task-content">
+                        {% if task.complete %}
+                            <h4 class="task-title completed-title">{{ task.title }}</h4>
+                        {% else %}
+                            <h4 class="task-title">{{ task.title }}</h4>
+                        {% endif %}
+                    </div>
+                    <div class="task-actions">
+                        <a href="{% url 'update' task.id %}" class="action-btn update-btn">
+                            <span>✏️</span>
+                        </a>
+                        <a href="{% url 'delete' task.id %}" class="action-btn delete-btn">
+                            <span>🗑️</span>
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state">
+                    <p>✨ No tasks yet. Create one to get started!</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
