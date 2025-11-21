@@ -1,0 +1,54 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delete Task</title>
+    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
+</head>
+
+<body>
+    <div class="container">
+        <div class="delete-modal">
+            <div class="warning-icon">
+                <span class="icon-pulse">⚠️</span>
+            </div>
+
+            <h2 class="delete-title">
+                <span class="danger-text">Danger Zone</span>
+            </h2>
+
+            <p class="delete-message">
+                Are you sure you want to delete this task?
+            </p>
+
+            <div class="task-preview">
+                <span class="preview-label">Task:</span>
+                <span class="preview-title">"{{ item.title }}"</span>
+            </div>
+
+            <p class="warning-text">
+                ⚡ This action cannot be undone!
+            </p>
+
+            <div class="delete-actions">
+                <form action="" method="POST" class="delete-form">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-delete">
+                        <span>🗑️</span>
+                        <span>Yes, Delete Forever</span>
+                    </button>
+                </form>
+
+                <a href="/" class="btn btn-safe">
+                    <span>🛡️</span>
+                    <span>No, Keep It Safe</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

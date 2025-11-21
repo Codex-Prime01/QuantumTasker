@@ -1,0 +1,37 @@
+# Python junk
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment (very important!)
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Django stuff
+*.log
+db.sqlite3
+db.sqlite3-journal
+/media/
+/staticfiles/
+/static/admin/
+
+# Your secret files (MOST IMPORTANT!!!)
+.env
+*.env
+*.secret
+
+# Editor/IDE rubbish
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Mac and Windows nonsense
+.DS_Store
+Thumbs.db
