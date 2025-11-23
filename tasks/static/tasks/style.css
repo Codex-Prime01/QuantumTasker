@@ -980,3 +980,185 @@ body:has(.delete-modal)::before {
         radial-gradient(circle at 20% 50%, rgba(255, 68, 68, 0.2) 0%, transparent 50%),
         radial-gradient(circle at 80% 80%, rgba(204, 0, 0, 0.2) 0%, transparent 50%);
 }
+
+/* Authentication Pages Styles */
+
+.auth-form-wrapper {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+/* Error Box */
+.error-box {
+    background: rgba(244, 67, 54, 0.1);
+    border: 2px solid rgba(244, 67, 54, 0.5);
+    border-radius: 12px;
+    padding: 20px;
+    animation: shake 0.5s ease-in-out;
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-5px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(5px);
+    }
+}
+
+.error-title {
+    font-size: 1.1rem;
+    color: #ff4444;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.error-message {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.95rem;
+    margin: 5px 0;
+}
+
+/* Auth Form Inputs */
+.form-input {
+    width: 100%;
+    padding: 18px 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(0, 245, 255, 0.3);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1.1rem;
+    font-family: 'Rajdhani', sans-serif;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.form-input:focus {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: #00f5ff;
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+/* Register Button */
+.btn-register {
+    background: linear-gradient(135deg, #00f5ff, #00a8ff);
+    color: #0f0c29;
+    box-shadow: 0 4px 15px rgba(0, 245, 255, 0.4);
+}
+
+.btn-register:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 25px rgba(0, 245, 255, 0.6);
+}
+
+/* Auth Switch Link */
+.auth-switch {
+    text-align: center;
+    margin-top: 10px;
+}
+
+.auth-switch p {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+}
+
+.auth-link {
+    color: #00f5ff;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+.auth-link:hover {
+    color: #00a8ff;
+    text-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .auth-form-wrapper {
+        padding: 10px;
+    }
+
+    .form-input {
+        padding: 15px;
+        font-size: 1rem;
+    }
+}
+
+/* Password Visibility Toggle */
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-wrapper .form-input {
+    padding-right: 55px;
+    /* Make room for the eye button */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 15px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.5);
+    transition: all 0.3s ease;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.toggle-password:hover {
+    color: #00f5ff;
+    transform: scale(1.1);
+}
+
+.toggle-password:active {
+    transform: scale(0.95);
+}
+
+.eye-icon {
+    display: block;
+    pointer-events: none;
+    /* Clicks go through to button */
+}
+
+/* When password is visible, change the icon 
+.toggle-password.visible .eye-icon::after {
+    content: 'Hide';
+    /* Closed eye emoji 
+    position: absolute;
+}
+
+.toggle-password.visible .eye-icon {
+    opacity: 0;
+}
+    */
