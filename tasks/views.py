@@ -1,8 +1,11 @@
 from encodings.punycode import T
+from multiprocessing import context
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from .models import *
 from .forms import *
+from django.contrib.auth import login
+from .forms import CustomUserForm
 
  
 # Create your views here.                              
@@ -45,3 +48,17 @@ def deleteTask(request, pk):
     
     context = {'item' : item}
     return render(request, 'tasks/delete.html', context)
+
+# user registration view
+def registerUser(request):
+    if request.method == 'POST':
+        form = CustomUserForm(request.POST) #use our custom user form
+        if form.is_valid():
+            user = form.save()
+            login(request, user) #log the user in after registration
+            return redirect('/')
+    else:
+        form = CustomUserForm()#empty form for GET request
+    context = {'form': form} #context to pass to template
+    
+    return render(request, 'tasks/register.html', context) #render the registration template
