@@ -80,3 +80,8 @@ def loginUser(request):
         form = AuthenticationForm()#empty form for GET request
     context = {'form': form} #context to pass to template
     return render(request, 'tasks/login.html', context) #render the login template
+
+
+def logoutUser(request):
+    logout(request)
+    return redirect('/login/')
