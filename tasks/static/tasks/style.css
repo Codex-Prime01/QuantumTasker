@@ -1102,7 +1102,7 @@ body:has(.delete-modal)::before {
         padding: 10px;
     }
 
-    .form-input {
+    .form-input, .password-wrapper {
         padding: 15px;
         font-size: 1rem;
     }
@@ -1115,9 +1115,25 @@ body:has(.delete-modal)::before {
     align-items: center;
 }
 
-.password-wrapper .form-input {
-    padding-right: 55px;
-    /* Make room for the eye button */
+.password-wrapper input {
+    width: 100%;
+ 
+    padding: 18px 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(0, 245, 255, 0.3);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1.1rem;
+    font-family: 'Rajdhani', sans-serif;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.password-wrapper:focus {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: #00f5ff;
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+    transform: translateY(-2px);
 }
 
 .toggle-password {
@@ -1162,3 +1178,19 @@ body:has(.delete-modal)::before {
     opacity: 0;
 }
     */
+
+/* Login Button */
+.btn-login {
+    background: linear-gradient(135deg, #00f5ff, #00a8ff);
+    color: #0f0c29;
+    box-shadow: 0 4px 15px rgba(0, 245, 255, 0.4);
+}
+
+.btn-login:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 25px rgba(0, 245, 255, 0.6);
+}
+
+.btn-login:active {
+    transform: translateY(-1px);
+}
