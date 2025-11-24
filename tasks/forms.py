@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import ModelForm
 from .models import *
-from .models import Task
+from .models import Task, Category
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
@@ -26,7 +26,10 @@ class CustomUserForm(UserCreationForm):
 class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
-        fields = ['title', 'complete'] 
+        fields = ['title', 'complete', 'categories']
+        widgets = {
+            'categories': forms.Select()
+        } 
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -37,6 +40,8 @@ class TaskForm(forms.ModelForm):
                 'class': 'form-input',
                 'placeholder': "Enter task"
             })
+            
+        self.fields['categories'].required = False
 
 
 

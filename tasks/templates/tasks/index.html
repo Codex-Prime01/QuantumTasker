@@ -11,7 +11,7 @@
 
 <body>
     <div class="container">
-        
+
         <header>
             <div class="header-content">
                 <h1 class="title">
@@ -19,7 +19,7 @@
                 </h1>
                 <h1 class="titleName">
                     Welcome
-                    <span class="glowName">{{user}}</span> 
+                    <span class="glowName">{{user}}</span>
                 </h1>
                 <a href="/logout/" class="logout-btn">
                     <span>🚪</span>
@@ -36,11 +36,21 @@
 
             <form action="/" method="POST" class="task-form">
                 {% csrf_token %}
-                <div class="input-wrapper">
-                    {{form.title}}
-                    <button type="submit" class="submit-btn">
-                        <span>+</span>
-                    </button>
+                <div class="form-group">
+                    <div class="input-wrapper">
+                        {{form.title}}
+
+                        <div class="form-group">
+                            <label class="form-label">Categories (optional)</label>
+                            <div class="categories-checkboxes">
+                                {{form.categories}}
+                            </div>
+                        </div>
+
+                        <button type="submit" class="submit-btn">
+                            <span>+</span>
+                        </button>
+                    </div>
                 </div>
             </form>
 
@@ -49,9 +59,9 @@
                 <div class="task-item {% if task.complete %}completed{% endif %}">
                     <div class="task-content">
                         {% if task.complete %}
-                            <h4 class="task-title completed-title">{{ task.title }}</h4>
+                        <h4 class="task-title completed-title">{{ task.title }}</h4>
                         {% else %}
-                            <h4 class="task-title">{{ task.title }}</h4>
+                        <h4 class="task-title">{{ task.title }}</h4>
                         {% endif %}
                     </div>
                     <div class="task-actions">
