@@ -6,26 +6,34 @@ from .forms import *
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import AuthenticationForm
 from .forms import CustomUserForm
+from django.contrib.auth.decorators import login_required
 
- 
-# Create your views here.                              
+
+# Create your views here.           
+@login_required                   
 def index(request):
-    tasks = Task.objects.all()
+    tasks = Task.objects.filter(user=request.user)
       
     form = TaskForm()
      
     if request.method == 'POST':
         form = TaskForm(request.POST)
         if form.is_valid():
+            task = form.save(commit=False)
+            task.user = request.user
             form.save()
         return redirect('/')
     
     context = {'tasks': tasks, 'form': form} 
     return render(request, 'tasks/index.html', context)
  
+@login_required
 def updateTask(request, pk):
      
      task = Task.objects.get(id=pk)
+     
+     if task.user != request.user:
+         return redirect('/')
      
      form = TaskForm(instance=task)
      
@@ -39,8 +47,12 @@ def updateTask(request, pk):
      
      return render(request, 'tasks/update.html', context) 
  
+@login_required
 def deleteTask(request, pk):
     item = Task.objects.get(id=pk)
+    
+    if item.user != request.user:
+        return redirect('/')
     
     if request.method == 'POST':
         item.delete()

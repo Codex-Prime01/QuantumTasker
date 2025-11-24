@@ -90,6 +90,26 @@ header {
     animation: glow 2s ease-in-out infinite alternate;
 }
 
+.titleName {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1.5rem, 5vw, 3rem);
+    font-weight: 900;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin: 20px 0;
+}
+
+.glowName {
+    font-size: clamp(2.2rem, 5vw, 3.5rem);
+    color: #ff9900;
+    text-shadow:
+        0 0 10px #00f5ff,
+        0 0 20px #00f5ff,
+        0 0 30px #91ff00,
+        0 0 40px #fffb00;
+    animation: glow 2s ease-in-out infinite alternate;
+}
+
 @keyframes glow {
     from {
         text-shadow:
@@ -1102,7 +1122,8 @@ body:has(.delete-modal)::before {
         padding: 10px;
     }
 
-    .form-input, .password-wrapper {
+    .form-input,
+    .password-wrapper {
         padding: 15px;
         font-size: 1rem;
     }
@@ -1117,7 +1138,7 @@ body:has(.delete-modal)::before {
 
 .password-wrapper input {
     width: 100%;
- 
+
     padding: 18px 20px;
     background: rgba(255, 255, 255, 0.08);
     border: 2px solid rgba(0, 245, 255, 0.3);
@@ -1193,4 +1214,56 @@ body:has(.delete-modal)::before {
 
 .btn-login:active {
     transform: translateY(-1px);
+}
+
+/* Header with logout button */
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+/* Logout Button */
+.logout-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 68, 68, 0.3);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: none;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.logout-btn:hover {
+    background: rgba(244, 67, 54, 0.2);
+    border-color: #ff4444;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(244, 67, 54, 0.3);
+    color: #ff4444;
+}
+
+.logout-btn:active {
+    transform: translateY(0);
+}
+
+/* Responsive header */
+@media (max-width: 768px) {
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .logout-btn {
+        width: 100%;
+        justify-content: center;
+    }
 }

@@ -3,12 +3,14 @@ from . import views
 
 urlpatterns = [
     path('', views.index, name='list'),
-    path('update/', views.updateTask, name='update'),
-    path('delete/', views.deleteTask, name='delete'),
+    path('update_task/<str:pk>', views.updateTask, name='update'),
+    path('delete/<str:pk>', views.deleteTask, name='delete'),
     path('register/', views.registerUser, name='register'),    
     path('login/', views.loginUser, name='login'),
     path('logout/', views.logoutUser, name='logout' )
 ]
+
+
 
 
 
