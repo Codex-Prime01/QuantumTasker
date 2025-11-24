@@ -1,10 +1,10 @@
-from encodings.punycode import T
-from multiprocessing import context
+import re
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from .models import *
 from .forms import *
-from django.contrib.auth import login
+from django.contrib.auth import login, authenticate, logout
+from django.contrib.auth.forms import AuthenticationForm
 from .forms import CustomUserForm
 
  
@@ -62,3 +62,21 @@ def registerUser(request):
     context = {'form': form} #context to pass to template
     
     return render(request, 'tasks/register.html', context) #render the registration template
+
+
+# user login view
+def loginUser(request):
+    if request.method == 'POST':
+        form = AuthenticationForm(request, data=request.POST) #use django's built-in authentication form
+        
+        if form.is_valid():
+            username = form.cleaned_data.get('username') #get username from the form
+            password = form.cleaned_data.get('password')
+            user = authenticate(username=username, password=password) #authenticate the user
+            if user is not None:
+                login(request, user)
+                return redirect('/')
+    else:
+        form = AuthenticationForm()#empty form for GET request
+    context = {'form': form} #context to pass to template
+    return render(request, 'tasks/login.html', context) #render the login template

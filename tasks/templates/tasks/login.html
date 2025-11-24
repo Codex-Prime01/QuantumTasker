@@ -1,0 +1,85 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1 class="title">
+                <span class="glow">Welcome</span> Back
+            </h1>
+        </header>
+
+        <div class="centerColumn">
+            <div class="auth-form-wrapper">
+                <form method="POST" class="auth-form">
+                    {% csrf_token %}
+                    
+                    {% if form.errors %}
+                        <div class="error-box">
+                            <p class="error-title">⚠️ Login Failed</p>
+                            <p class="error-message">Please check your username or password.</p>
+                        </div>
+                    {% endif %}
+                    
+                    <div class="form-group">
+                        <label for="{{ form.username.id_for_label }}" class="form-label">Username</label>
+                        {{ form.username }}
+                    </div>
+
+                    <div class="form-group">
+                        <label for="{{ form.password.id_for_label }}" class="form-label">Password</label>
+                        <div class="password-wrapper">
+                            {{ form.password }}
+                            <button type="button" class="toggle-password" data-target="id_password">
+                                <span class="eye-icon">👁️</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-login">
+                            <span>🔓</span>
+                            <span>Login</span>
+                        </button>
+                    </div>
+
+                    <div class="auth-switch">
+                        <p>Don't have an account? <a href="/register/" class="auth-link">Create one here</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Password visibility toggle (same as register page)
+        const toggleButtons = document.querySelectorAll('.toggle-password');
+
+        toggleButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const targetId = this.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    this.classList.add('visible');
+                    this.querySelector('.eye-icon').textContent = 'Hide';
+                } else {
+                    passwordInput.type = 'password';
+                    this.classList.remove('visible');
+                    this.querySelector('.eye-icon').textContent = '👁️';
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>
