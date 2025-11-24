@@ -22,6 +22,7 @@ def index(request):
             task = form.save(commit=False)
             task.user = request.user
             form.save()
+            form.save_m2m() #this saves the categories
         return redirect('/')
     
     context = {'tasks': tasks, 'form': form} 
