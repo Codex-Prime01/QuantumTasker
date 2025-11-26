@@ -29,9 +29,40 @@
         </header>
 
         <div class="centerColumn">
-            <div class="task-counter">
-                <span class="counter-number">{{ tasks.count }}</span>
-                <span class="counter-label">Active Tasks</span>
+
+            <div class="stats-container">
+                <div class="stat-box">
+                    <span class="stat-number">{{ tasks.count }}</span>
+                    <span class="stat-label">Total Tasks</span>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-number">{{ pending_count }}</span>
+                    <span class="stat-label">Pending</span>
+                </div>
+            </div>
+
+            <!-- Category Filter Buttons -->
+            <div class="filter-section">
+                <h3 class="filter-title">Filter by Category</h3>
+                <div class="filter-buttons">
+                    <a href="/" class="filter-btn {% if not selected_category %}active{% endif %}">
+                        <span>🌟</span>
+                        <span>All Tasks</span>
+                        <span class="filter-count">{{ total_tasks }}</span>
+                    </a>
+
+                    {% for category in categories %}
+                    <a href="?category={{ category.id }}"
+                        class="filter-btn {% if selected_category.id == category.id %}active{% endif %}"
+                        style="--filter-color: {{ category.color }};">
+                        <span>●</span>
+                        <span>{{ category.name }}</span>
+                        <span class="filter-count">
+                            {{ category.task_count }}
+                        </span>
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
 
             <form action="/" method="POST" class="task-form">
@@ -40,10 +71,15 @@
                     <div class="input-wrapper">
                         {{form.title}}
 
+                        <!-- Replace your old categories block with this -->
                         <div class="form-group">
                             <label class="form-label">Categories (optional)</label>
-                            <div class="categories-checkboxes">
-                                {{form.categories}}
+                            <div class="select-wrapper">
+                                {{ form.categories }}
+                                <span class="select-arrow">Down Arrow</span>
+                            </div>
+                            <div class="selected-categories-preview" id="selected-preview">
+                                <!-- Selected categories will appear here as tags here -->
                             </div>
                         </div>
 
@@ -63,6 +99,17 @@
                         {% else %}
                         <h4 class="task-title">{{ task.title }}</h4>
                         {% endif %}
+
+                        {% if task.categories.all %}
+                        <div class="task-categories">
+                            {% for category in task.categories.all %}
+                            <span class="category-tag" style="--tag-color: {{ category.color }};">
+                                {{ category.name }}
+                            </span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
                     </div>
                     <div class="task-actions">
                         <a href="{% url 'update' task.id %}" class="action-btn update-btn">
@@ -81,6 +128,41 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const select = document.querySelector('.category-select');
+            const preview = document.getElementById('selected-preview');
+
+            function updatePreview() {
+                preview.innerHTML = '';
+                const selectedOptions = Array.from(select.selectedOptions);
+
+                selectedOptions.forEach(option => {
+                    const tag = document.createElement('div');
+                    tag.className = 'selected-tag';
+                    tag.innerHTML = `
+                ${option.text}
+                <span class="remove-tag" data-value="${option.value}">×</span>
+            `;
+                    preview.appendChild(tag);
+                });
+
+                // Click X to remove
+                document.querySelectorAll('.remove-tag').forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        const value = this.dataset.value;
+                        const option = select.querySelector(`option[value="${value}"]`);
+                        option.selected = false;
+                        updatePreview();
+                    });
+                });
+            }
+
+            select.addEventListener('change', updatePreview);
+            updatePreview(); // initial load
+        });
+    </script>
 </body>
 
 </html>
