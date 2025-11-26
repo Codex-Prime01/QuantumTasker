@@ -427,7 +427,7 @@ header {
     }
 }
 
-/* Smooth scrollbar */
+/* Smooth scrollbar 
 ::-webkit-scrollbar {
     width: 10px;
 }
@@ -444,6 +444,7 @@ header {
 ::-webkit-scrollbar-thumb:hover {
     background: linear-gradient(180deg, #00a8ff, #0077ff);
 }
+*/
 
 /* Update Page Specific Styles */
 
@@ -1652,4 +1653,146 @@ body:has(.delete-modal)::before {
         padding: 5px 10px;
         font-size: 0.8rem;
     }
+}
+
+/* Textarea Styling */
+.form-textarea {
+    width: 100%;
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(0, 245, 255, 0.3);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1rem;
+    font-family: 'Rajdhani', sans-serif;
+    transition: all 0.3s ease;
+    outline: none;
+    resize: vertical;
+    /* 👈 Users can resize vertically only */
+    min-height: 100px;
+    line-height: 1.6;
+}
+
+.form-textarea:focus {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: #00f5ff;
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+.form-textarea::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* Scrollbar for textarea */
+.form-textarea::-webkit-scrollbar {
+    width: 8px;
+}
+
+.form-textarea::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.form-textarea::-webkit-scrollbar-thumb {
+    background: rgba(0, 245, 255, 0.5);
+    border-radius: 4px;
+}
+
+.form-textarea::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 245, 255, 0.7);
+}
+
+/* Task Header (Clickable) */
+.task-header {
+    cursor: pointer;
+    flex: 1;
+    user-select: none;
+    /* Prevent text selection when clicking */
+}
+
+.task-title-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+/* Expand/Collapse Icon */
+.expand-icon {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.5);
+    transition: transform 0.3s ease, color 1.7s ease-in-out;
+    display: inline-flex;
+    align-items: end;
+    justify-content: right;
+    min-width: 20px;
+}
+
+.task-header:hover .expand-icon {
+    color: #00f5ff;
+}
+
+/* Task Description (Expandable) */
+.task-description {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    animation: slideDown 1.3s ease-in-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.description-content {
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    border-left: 3px solid #00f5ff;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.6;
+    font-size: 0.95rem;
+}
+
+.description-content p {
+    margin: 0 0 10px 0;
+}
+
+.description-content p:last-child {
+    margin-bottom: 0;
+}
+
+/* Hover effect on task header */
+.task-header:hover {
+    opacity: 0.89;
+}
+
+.task-header:active {
+    transform: scale(0.89);
+}
+
+/* Style for tasks with descriptions */
+.task-item:has(.task-description) .task-header {
+    padding-bottom: 0;
+}
+
+/* Description Badge */
+.has-description-badge {
+    font-size: 0.8rem;
+    margin-left: 8px;
+    justify-content: right;
+    opacity: 0.7;
+    transition: opacity 1.7s ease;
+}
+
+.task-header:hover .has-description-badge {
+    opacity: 1;
 }

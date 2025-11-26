@@ -28,9 +28,19 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="id_title" class="form-label">Categories</label>
-                        <div class="categories-checkboxes">
-                            {{form.categories}}
+                        <label for="id_description" class="form-label">Description</label>
+                        {{ form.description }}
+                    </div>
+
+                    <!-- Replace your old categories block with this -->
+                    <div class="form-group">
+                        <label class="form-label">Categories (optional)</label>
+                        <div class="select-wrapper">
+                            {{ form.categories }}
+                            <span class="select-arrow"></span>
+                        </div>
+                        <div class="selected-categories-preview" id="selected-preview">
+                            <!-- Selected categories will appear here as tags here -->
                         </div>
                     </div>
 

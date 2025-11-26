@@ -71,12 +71,20 @@
                     <div class="input-wrapper">
                         {{form.title}}
 
+
+                        <!-- 👇 NEW! Description Field -->
+                        <div class="form-group">
+                            <label class="form-label">Description (optional)</label>
+                            {{form.description}}
+                        </div>
+
+
                         <!-- Replace your old categories block with this -->
                         <div class="form-group">
                             <label class="form-label">Categories (optional)</label>
                             <div class="select-wrapper">
                                 {{ form.categories }}
-                                <span class="select-arrow">Down Arrow</span>
+                                <span class="select-arrow"></span>
                             </div>
                             <div class="selected-categories-preview" id="selected-preview">
                                 <!-- Selected categories will appear here as tags here -->
@@ -94,23 +102,57 @@
                 {% for task in tasks %}
                 <div class="task-item {% if task.complete %}completed{% endif %}">
                     <div class="task-content">
-                        {% if task.complete %}
-                        <h4 class="task-title completed-title">{{ task.title }}</h4>
-                        {% else %}
-                        <h4 class="task-title">{{ task.title }}</h4>
-                        {% endif %}
+                        <!-- Task Header (Title + Categories) -->
+                        <div class="task-header" onclick="toggleDescription({{ task.id }})">
+                            <div class="task-title-row">
+                                {% if task.complete %}
+                                
 
-                        {% if task.categories.all %}
-                        <div class="task-categories">
-                            {% for category in task.categories.all %}
-                            <span class="category-tag" style="--tag-color: {{ category.color }};">
-                                {{ category.name }}
-                            </span>
-                            {% endfor %}
+                                <h4 class="task-title">
+                                    {{ task.title }}
+                                    {% if task.description %}
+                                    <span class="has-description-badge" title="Has description">📄</span>
+                                    {% endif %}
+                                </h4>  
+                                
+                                {% else %}
+                                
+                                <h4 class="task-title">
+                                    {{ task.title }}
+                                    {% if task.description %}
+                                    <span class="has-description-badge" title="Has description">📄</span>
+                                    {% endif %}
+                                </h4>
+                                {% endif %}
+
+                                <!-- Expand/Collapse Icon -->
+                                {% if task.description %}
+                                <span class="expand-icon" id="expand-icon-{{ task.id }}">▼</span>
+                                {% endif %}
+                            </div>
+
+                            <!-- Category Tags -->
+                            {% if task.categories.all %}
+                            <div class="task-categories">
+                                {% for category in task.categories.all %}
+                                <span class="category-tag" style="--tag-color: {{ category.color }};">
+                                    {{ category.name }}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Task Description (Hidden by default) -->
+                        {% if task.description %}
+                        <div class="task-description" id="description-{{ task.id }}" style="display: none;">
+                            <div class="description-content">
+                                {{ task.description|linebreaks }}
+                            </div>
                         </div>
                         {% endif %}
-
                     </div>
+
                     <div class="task-actions">
                         <a href="{% url 'update' task.id %}" class="action-btn update-btn">
                             <span>✏️</span>
@@ -162,6 +204,22 @@
             select.addEventListener('change', updatePreview);
             updatePreview(); // initial load
         });
+
+
+        function toggleDescription(taskId) {
+            const description = document.getElementById(`description-${taskId}`);
+            const icon = document.getElementById(`expand-icon-${taskId}`);
+
+            if (description.style.display === 'none') {
+                // Show description
+                description.style.display = 'block';
+                if (icon) icon.style.transform = 'rotate(180deg)';
+            } else {
+                // Hide description
+                description.style.display = 'none';
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            }
+        }
     </script>
 </body>
 
