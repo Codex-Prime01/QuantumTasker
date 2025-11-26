@@ -26,9 +26,13 @@ class CustomUserForm(UserCreationForm):
 class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
-        fields = ['title', 'complete', 'categories']
+        fields = ['title', 'description','complete', 'categories']
         widgets = {
             'categories': forms.SelectMultiple(attrs={'class': 'category-select', 'multiple': True, 'size': 1}),
+            'description' : forms.Textarea(attrs={
+                'rows': 3,
+                'placeholder' : 'Add details about this task (optional)...'
+            })
         } 
         
         
@@ -36,19 +40,24 @@ class TaskForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         
         #add custom styling to form fields
-        for fieldName in self.fields:
-            self.fields[fieldName].widget.attrs.update({
+        
+        self.fields['title'].widget.attrs.update({
                 'class': 'form-input',
                 'placeholder': "Enter task"
             })
+        #style the description field
+        self.fields['description'].widget.attrs.update({
+            'class' : 'form-textarea',
+        })
         
         #customize the complete field
         self.fields['categories'].widget.attrs.update({
             'class': 'category-select','multiple': True, 'size': 1
         })
+        
         # make categories field optional
         self.fields['categories'].required = False
         self.fields['categories'].label = "Categories (hold Ctrl or Cmd to select multiple)"
-
+        self.fields['description'].required = False 
 
 
