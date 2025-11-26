@@ -4,6 +4,7 @@ from django.http import HttpResponse
 from .models import *
 from .forms import *
 from django.contrib.auth import login, authenticate, logout
+from django.db.models import Count, Q
 from django.contrib.auth.forms import AuthenticationForm
 from .forms import CustomUserForm
 from django.contrib.auth.decorators import login_required
@@ -12,20 +13,38 @@ from django.contrib.auth.decorators import login_required
 # Create your views here.           
 @login_required                   
 def index(request):
+    from django.db.models import Count
     tasks = Task.objects.filter(user=request.user)
-      
-    form = TaskForm()
-     
+    pending_count = tasks.filter(complete=False).count()
+    #get all categories with task counts
+    categories = Category.objects.annotate(
+        task_count = Count('task', filter=models.Q(task__user=request.user))
+    )
+    
+    #checks filtering by category
+    category_id = request.GET.get('category')
+    selected_category = None
+    
+    if category_id:
+        try:
+            selected_category = Category.objects.get(id=category_id)
+            tasks = tasks.filter(categories=selected_category)
+        except:
+            pass 
+    
+    #handle task creation
     if request.method == 'POST':
         form = TaskForm(request.POST)
         if form.is_valid():
-            task = form.save(commit=False)
+            task = form.save(commit=False) #this doesnt save it yet, jus creates an instance
             task.user = request.user
             form.save()
             form.save_m2m() #this saves the categories
         return redirect('/')
+    else:
+        form = TaskForm() 
     
-    context = {'tasks': tasks, 'form': form} 
+    context = {'tasks': tasks, 'form': form, 'categories' : categories, 'selected_category': selected_category, 'total_tasks' : Task.objects.filter(user=request.user).count(), 'pending_count': pending_count} 
     return render(request, 'tasks/index.html', context)
  
 @login_required

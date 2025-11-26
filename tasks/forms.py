@@ -28,8 +28,9 @@ class TaskForm(forms.ModelForm):
         model = Task
         fields = ['title', 'complete', 'categories']
         widgets = {
-            'categories': forms.Select()
+            'categories': forms.SelectMultiple(attrs={'class': 'category-select', 'multiple': True, 'size': 1}),
         } 
+        
         
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -40,10 +41,14 @@ class TaskForm(forms.ModelForm):
                 'class': 'form-input',
                 'placeholder': "Enter task"
             })
-            
+        
+        #customize the complete field
+        self.fields['categories'].widget.attrs.update({
+            'class': 'category-select','multiple': True, 'size': 1
+        })
+        # make categories field optional
         self.fields['categories'].required = False
-
-
+        self.fields['categories'].label = "Categories (hold Ctrl or Cmd to select multiple)"
 
 
 
