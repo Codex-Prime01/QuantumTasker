@@ -7,7 +7,11 @@ urlpatterns = [
     path('delete/<str:pk>', views.deleteTask, name='delete'),
     path('register/', views.registerUser, name='register'),    
     path('login/', views.loginUser, name='login'),
-    path('logout/', views.logoutUser, name='logout' )
+    path('logout/', views.logoutUser, name='logout' ),
+    path('dashboard/', views.dashboard, name='dashboard'),
+    path('profile/', views.profile, name='profile'),  
+    path('settings/', views.settings, name='settings'),  
+
 ]
 
 

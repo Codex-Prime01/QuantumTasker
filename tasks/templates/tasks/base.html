@@ -1,0 +1,168 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Todo Manager{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <!-- Toast Notifications Container -->
+    <div class="toast-container" id="toastContainer">
+        {% if messages %}
+            {% for message in messages %}
+            <div class="toast toast-{{ message.tags }} show" role="alert">
+                <div class="toast-content">
+                    <span class="toast-message">{{ message }}</span>
+                    <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p class="loading-text">Processing...</p>
+        </div>
+    </div>
+
+    <!-- Hamburger Menu Button (Fixed) -->
+    <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()">
+        <span></span>
+        <span></span>
+        <span></span>
+    </button>
+
+    <!-- Sidebar Navigation -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="user-profile">
+                <div class="user-avatar">
+                    <span>{{ request.user.username|slice:":1"|upper }}</span>
+                </div>
+                <div class="user-info">
+                    <h3 class="user-name">{{ request.user.username }}</h3>
+                    <p class="user-email">{{ request.user.email }}</p>
+                </div>
+            </div>
+            <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
+                <span class="nav-icon">📝</span>
+                <span class="nav-text">My Tasks</span>
+            </a>
+            <a href="/dashboard/" class="nav-item {% if request.path == '/dashboard/' %}active{% endif %}">
+                <span class="nav-icon">📊</span>
+                <span class="nav-text">Dashboard</span>
+            </a>
+            <a href="/profile/" class="nav-item {% if request.path == '/profile/' %}active{% endif %}">
+                <span class="nav-icon">👤</span>
+                <span class="nav-text">Profile</span>
+            </a>
+            <a href="/settings/" class="nav-item {% if request.path == '/settings/' %}active{% endif %}">
+                <span class="nav-icon">⚙️</span>
+                <span class="nav-text">Settings</span>
+            </a>
+            <div class="nav-divider"></div>
+            <a href="/logout/" class="nav-item logout">
+                <span class="nav-icon">🚪</span>
+                <span class="nav-text">Logout</span>
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p class="app-version">Todo Manager v1.0</p>
+            <p class="tagline">Never forget again 💙</p>
+        </div>
+    </div>
+
+    <!-- Sidebar Overlay (Dark background when menu open) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+        {% block content %}
+        {% endblock %}
+    </div>
+
+    <!-- Floating Action Button (FAB) -->
+    {% if request.path == '/' %}
+    <a href="/create/" class="fab" title="Create New Task">
+        <span class="fab-icon">+</span>
+        <span class="fab-pulse"></span>
+    </a>
+    {% endif %}
+
+    <!-- Base Scripts -->
+    <script>
+        // Toggle Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const hamburger = document.getElementById('hamburgerBtn');
+            
+            sidebar.classList.toggle('active');
+            overlay.classList.toggle('active');
+            hamburger.classList.toggle('active');
+            
+            // Prevent body scroll when sidebar is open
+            if (sidebar.classList.contains('active')) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+
+        // Close sidebar on ESC key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const sidebar = document.getElementById('sidebar');
+                if (sidebar.classList.contains('active')) {
+                    toggleSidebar();
+                }
+            }
+        });
+
+        // Auto-hide toasts after 5 seconds
+        document.addEventListener('DOMContentLoaded', function() {
+            const toasts = document.querySelectorAll('.toast');
+            toasts.forEach(toast => {
+                setTimeout(() => {
+                    toast.style.animation = 'fadeOut 0.5s ease-in forwards';
+                    setTimeout(() => toast.remove(), 500);
+                }, 5000);
+            });
+
+            // Show loading overlay when form is submitted
+            const forms = document.querySelectorAll('form');
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            
+            forms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    if (loadingOverlay) {
+                        loadingOverlay.classList.add('active');
+                    }
+                    
+                    const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.classList.add('loading');
+                        submitBtn.disabled = true;
+                    }
+                });
+            });
+        });
+    </script>
+
+    {% block extra_js %}{% endblock %}
+</body>
+
+</html>

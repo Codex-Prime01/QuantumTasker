@@ -10,62 +10,127 @@
 </head>
 
 <body>
-    <div class="container">
-        <header>
-            <h1 class="title">
-                <span class="glow">Update</span> Task
-            </h1>
-        </header>
 
-        <div class="centerColumn">
-            <div class="update-form-wrapper">
-                <form action="" method="POST" class="update-form">
-                    {% csrf_token %}
+    <body>
+        <!-- Toast Notifications Container -->
+        <div class="toast-container" id="toastContainer">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="toast toast-{{ message.tags }} show" role="alert">
+                <div class="toast-content">
+                    <span class="toast-message">{{ message }}</span>
+                    <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
 
-                    <div class="form-group">
-                        <label for="id_title" class="form-label">Task Title</label>
-                        {{ form.title }}
-                    </div>
+        <!-- Rest of your page content -->
 
-                    <div class="form-group">
-                        <label for="id_description" class="form-label">Description</label>
-                        {{ form.description }}
-                    </div>
+        <div class="container">
+            <header>
+                <h1 class="title">
+                    <span class="glow">Update</span> Task
+                </h1>
+            </header>
 
-                    <!-- Replace your old categories block with this -->
-                    <div class="form-group">
-                        <label class="form-label">Categories (optional)</label>
-                        <div class="select-wrapper">
-                            {{ form.categories }}
-                            <span class="select-arrow"></span>
+            <div class="centerColumn">
+                <div class="update-form-wrapper">
+                    <form action="" method="POST" class="update-form">
+                        {% csrf_token %}
+
+                        <div class="form-group">
+                            <label for="id_title" class="form-label">Task Title</label>
+                            {{ form.title }}
                         </div>
-                        <div class="selected-categories-preview" id="selected-preview">
-                            <!-- Selected categories will appear here as tags here -->
+
+                        <div class="form-group">
+                            <label for="id_description" class="form-label">Description</label>
+                            {{ form.description }}
                         </div>
-                    </div>
 
-                    <div class="form-group">
-                        <label for="id_complete" class="checkbox-label">
-                            {{ form.complete }}
-                            <span class="checkbox-custom"></span>
-                            <span class="checkbox-text">Mark as Complete</span>
-                        </label>
-                    </div>
+                        <!-- 👇 NEW! Due Date & Priority -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="id_due_date" class="form-label">Due Date</label>
+                                {{ form.due_date }}
+                            </div>
 
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-update">
-                            <span>💾</span>
-                            <span>Update Task</span>
-                        </button>
-                        <a href="/" class="btn btn-cancel">
-                            <span>❌</span>
-                            <span>Cancel</span>
-                        </a>
-                    </div>
-                </form>
+                            <div class="form-group">
+                                <label for="id_priority" class="form-label">Priority</label>
+                                {{ form.priority }}
+                            </div>
+                        </div>
+
+
+                        <div class="form-group">
+                            <label class="form-label">Categories (optional)</label>
+                            <div class="select-wrapper">
+                                {{ form.categories }}
+                                <span class="select-arrow"></span>
+                            </div>
+                            <div class="selected-categories-preview" id="selected-preview">
+                                <!-- Selected categories will appear here as tags here -->
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="id_complete" class="checkbox-label">
+                                {{ form.complete }}
+                                <span class="checkbox-custom"></span>
+                                <span class="checkbox-text">Mark as Complete</span>
+                            </label>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-update">
+                                <span>💾</span>
+                                <span>Update Task</span>
+                            </button>
+                            <a href="/" class="btn btn-cancel">
+                                <span>❌</span>
+                                <span>Cancel</span>
+                            </a>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
-    </div>
-</body>
+
+        <script>
+            // Show loading overlay when form is submitted
+            document.addEventListener('DOMContentLoaded', function () {
+                const forms = document.querySelectorAll('form');
+                const loadingOverlay = document.getElementById('loadingOverlay');
+
+                forms.forEach(form => {
+                    form.addEventListener('submit', function (e) {
+                        // Show loading overlay
+                        if (loadingOverlay) {
+                            loadingOverlay.classList.add('active');
+                        }
+
+                        // Add loading class to submit button
+                        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.classList.add('loading');
+                            submitBtn.disabled = true;
+                        }
+                    });
+                });
+
+                // Auto-hide toasts after 5 seconds
+                const toasts = document.querySelectorAll('.toast');
+                toasts.forEach(toast => {
+                    setTimeout(() => {
+                        toast.style.animation = 'fadeOut 0.5s ease-in forwards';
+                        setTimeout(() => toast.remove(), 500);
+                    }, 5000);
+                });
+            });
+        </script>
+
+    </body>
 
 </html>
