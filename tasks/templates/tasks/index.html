@@ -1,226 +1,242 @@
+{% extends 'tasks/base.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="en">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> Todo App</title>
-    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
-</head>
+{% block title %}My Tasks - Todo Manager{% endblock %}
 
-<body>
-    <div class="container">
+{% block content %}
+<div class="container">
+    <!-- Page Header -->
+    <header class="page-header">
+        <h1 class="page-title">
+            <span class="glow">My</span> Tasks
+        </h1>
+    </header>
 
-        <header>
-            <div class="header-content">
-                <h1 class="title">
-                    <span class="glow">Todo</span> Manager
-                </h1>
-                <h1 class="titleName">
-                    Welcome
-                    <span class="glowName">{{user}}</span>
-                </h1>
-                <a href="/logout/" class="logout-btn">
-                    <span>🚪</span>
-                    <span>Logout</span>
-                </a>
-            </div>
-        </header>
+    <!-- Search Bar -->
+    <div class="search-container">
+        <form action="/" method="GET" class="search-form">
+            {% if selected_category %}
+            <input type="hidden" name="category" value="{{ selected_category.id }}">
+            {% endif %}
+            {% if sort_by %}
+            <input type="hidden" name="sort" value="{{ sort_by }}">
+            {% endif %}
+            {% if order %}
+            <input type="hidden" name="order" value="{{ order }}">
+            {% endif %}
 
-        <div class="centerColumn">
-
-            <div class="stats-container">
-                <div class="stat-box">
-                    <span class="stat-number">{{ tasks.count }}</span>
-                    <span class="stat-label">Total Tasks</span>
-                </div>
-                <div class="stat-box">
-                    <span class="stat-number">{{ pending_count }}</span>
-                    <span class="stat-label">Pending</span>
-                </div>
+            <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" name="search" class="search-input"
+                    placeholder="Search tasks by title or description..." value="{{ search_query }}" autocomplete="off">
+                {% if search_query %}
+                <a href="/" class="clear-search" title="Clear search">✕</a>
+                {% endif %}
             </div>
 
-            <!-- Category Filter Buttons -->
-            <div class="filter-section">
-                <h3 class="filter-title">Filter by Category</h3>
-                <div class="filter-buttons">
-                    <a href="/" class="filter-btn {% if not selected_category %}active{% endif %}">
-                        <span>🌟</span>
-                        <span>All Tasks</span>
-                        <span class="filter-count">{{ total_tasks }}</span>
-                    </a>
+            <button type="submit" class="search-btn">
+                <span>Search</span>
+            </button>
+        </form>
 
-                    {% for category in categories %}
-                    <a href="?category={{ category.id }}"
-                        class="filter-btn {% if selected_category.id == category.id %}active{% endif %}"
-                        style="--filter-color: {{ category.color }};">
-                        <span>●</span>
-                        <span>{{ category.name }}</span>
-                        <span class="filter-count">
-                            {{ category.task_count }}
-                        </span>
-                    </a>
-                    {% endfor %}
-                </div>
-            </div>
+        {% if search_query %}
+        <div class="search-results-info">
+            <p>Found <strong>{{ tasks.count }}</strong> result{{ tasks.count|pluralize }} for "<strong>
+                    {{ search_query }}</strong>"</p>
+        </div>
+        {% endif %}
+    </div>
 
-            <form action="/" method="POST" class="task-form">
-                {% csrf_token %}
-                <div class="form-group">
-                    <div class="input-wrapper">
-                        {{form.title}}
-
-
-                        <!-- 👇 NEW! Description Field -->
-                        <div class="form-group">
-                            <label class="form-label">Description (optional)</label>
-                            {{form.description}}
-                        </div>
-
-
-                        <!-- Replace your old categories block with this -->
-                        <div class="form-group">
-                            <label class="form-label">Categories (optional)</label>
-                            <div class="select-wrapper">
-                                {{ form.categories }}
-                                <span class="select-arrow"></span>
-                            </div>
-                            <div class="selected-categories-preview" id="selected-preview">
-                                <!-- Selected categories will appear here as tags here -->
-                            </div>
-                        </div>
-
-                        <button type="submit" class="submit-btn">
-                            <span>+</span>
-                        </button>
-                    </div>
-                </div>
-            </form>
-
-            <div class="tasks-list">
-                {% for task in tasks %}
-                <div class="task-item {% if task.complete %}completed{% endif %}">
-                    <div class="task-content">
-                        <!-- Task Header (Title + Categories) -->
-                        <div class="task-header" onclick="toggleDescription({{ task.id }})">
-                            <div class="task-title-row">
-                                {% if task.complete %}
-                                
-
-                                <h4 class="task-title">
-                                    {{ task.title }}
-                                    {% if task.description %}
-                                    <span class="has-description-badge" title="Has description">📄</span>
-                                    {% endif %}
-                                </h4>  
-                                
-                                {% else %}
-                                
-                                <h4 class="task-title">
-                                    {{ task.title }}
-                                    {% if task.description %}
-                                    <span class="has-description-badge" title="Has description">📄</span>
-                                    {% endif %}
-                                </h4>
-                                {% endif %}
-
-                                <!-- Expand/Collapse Icon -->
-                                {% if task.description %}
-                                <span class="expand-icon" id="expand-icon-{{ task.id }}">▼</span>
-                                {% endif %}
-                            </div>
-
-                            <!-- Category Tags -->
-                            {% if task.categories.all %}
-                            <div class="task-categories">
-                                {% for category in task.categories.all %}
-                                <span class="category-tag" style="--tag-color: {{ category.color }};">
-                                    {{ category.name }}
-                                </span>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                        </div>
-
-                        <!-- Task Description (Hidden by default) -->
-                        {% if task.description %}
-                        <div class="task-description" id="description-{{ task.id }}" style="display: none;">
-                            <div class="description-content">
-                                {{ task.description|linebreaks }}
-                            </div>
-                        </div>
-                        {% endif %}
-                    </div>
-
-                    <div class="task-actions">
-                        <a href="{% url 'update' task.id %}" class="action-btn update-btn">
-                            <span>✏️</span>
-                        </a>
-                        <a href="{% url 'delete' task.id %}" class="action-btn delete-btn">
-                            <span>🗑️</span>
-                        </a>
-                    </div>
-                </div>
-                {% empty %}
-                <div class="empty-state">
-                    <p>✨ No tasks yet. Create one to get started!</p>
-                </div>
-                {% endfor %}
-            </div>
+    <!-- Stats Container -->
+    <div class="stats-container">
+        <div class="stat-box">
+            <span class="stat-number">{{ totalTasks }}</span>
+            <span class="stat-label">Total Tasks</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-number">{{ pending_count }}</span>
+            <span class="stat-label">Pending</span>
         </div>
     </div>
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const select = document.querySelector('.category-select');
-            const preview = document.getElementById('selected-preview');
+    <!-- Category Filter Buttons -->
+    <div class="filter-section">
+        <h3 class="filter-title">Filter by Category</h3>
+        <div class="filter-buttons">
+            <a href="/" class="filter-btn {% if not selected_category %}active{% endif %}">
+                <span>🌟</span>
+                <span>All Tasks</span>
+                <span class="filter-count">{{ total_tasks }}</span>
+            </a>
 
-            function updatePreview() {
-                preview.innerHTML = '';
-                const selectedOptions = Array.from(select.selectedOptions);
+            {% for category in categories %}
+            <a href="?category={{ category.id }}"
+                class="filter-btn {% if selected_category.id == category.id %}active{% endif %}"
+                style="--filter-color: {{ category.color }};">
+                <span>●</span>
+                <span>{{ category.name }}</span>
+                <span class="filter-count">{{ category.task_count }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
 
-                selectedOptions.forEach(option => {
-                    const tag = document.createElement('div');
-                    tag.className = 'selected-tag';
-                    tag.innerHTML = `
-                ${option.text}
-                <span class="remove-tag" data-value="${option.value}">×</span>
-            `;
-                    preview.appendChild(tag);
-                });
+    <!-- Sort Section -->
+    <div class="sort-section">
+        <h3 class="sort-title">Sort Tasks</h3>
+        <div class="sort-buttons">
+            <a href="?{% if selected_category %}category={{ selected_category.id }}&{% endif %}sort=created&order={% if sort_by == 'created' and order == 'desc' %}asc{% else %}desc{% endif %}"
+                class="sort-btn {% if sort_by == 'created' %}active{% endif %}">
+                <span>🕐</span>
+                <span>Created</span>
+                {% if sort_by == 'created' %}
+                <span class="sort-arrow">{% if order == 'desc' %}▼{% else %}▲{% endif %}</span>
+                {% endif %}
+            </a>
 
-                // Click X to remove
-                document.querySelectorAll('.remove-tag').forEach(btn => {
-                    btn.addEventListener('click', function () {
-                        const value = this.dataset.value;
-                        const option = select.querySelector(`option[value="${value}"]`);
-                        option.selected = false;
-                        updatePreview();
-                    });
-                });
-            }
+            <a href="?{% if selected_category %}category={{ selected_category.id }}&{% endif %}sort=due_date&order={% if sort_by == 'due_date' and order == 'asc' %}desc{% else %}asc{% endif %}"
+                class="sort-btn {% if sort_by == 'due_date' %}active{% endif %}">
+                <span>📅</span>
+                <span>Due Date</span>
+                {% if sort_by == 'due_date' %}
+                <span class="sort-arrow">{% if order == 'asc' %}▲{% else %}▼{% endif %}</span>
+                {% endif %}
+            </a>
 
-            select.addEventListener('change', updatePreview);
-            updatePreview(); // initial load
-        });
+            <a href="?{% if selected_category %}category={{ selected_category.id }}&{% endif %}sort=priority&order=asc"
+                class="sort-btn {% if sort_by == 'priority' %}active{% endif %}">
+                <span>⚡</span>
+                <span>Priority</span>
+                {% if sort_by == 'priority' %}
+                <span class="sort-arrow">▼</span>
+                {% endif %}
+            </a>
 
+            <a href="?{% if selected_category %}category={{ selected_category.id }}&{% endif %}sort=title&order={% if sort_by == 'title' and order == 'asc' %}desc{% else %}asc{% endif %}"
+                class="sort-btn {% if sort_by == 'title' %}active{% endif %}">
+                <span>🔤</span>
+                <span>A-Z</span>
+                {% if sort_by == 'title' %}
+                <span class="sort-arrow">{% if order == 'asc' %}▲{% else %}▼{% endif %}</span>
+                {% endif %}
+            </a>
+        </div>
+    </div>
 
-        function toggleDescription(taskId) {
-            const description = document.getElementById(`description-${taskId}`);
-            const icon = document.getElementById(`expand-icon-${taskId}`);
+    <!-- Tasks List -->
+    <div class="tasks-list">
+        {% for task in tasks %}
+        <div class="task-item {% if task.complete %}completed{% endif %} {% if task.is_overdue %}overdue{% endif %}">
+            <div class="task-content">
+                <div class="task-header" onclick="toggleDescription({{ task.id }})">
+                    <div class="task-title-row">
+                        {% if task.complete %}
+                        <h4 class="task-title completed-title">
+                            {{ task.title }}
+                            {% if task.description %}
+                            <span class="has-description-badge" title="Has description">📄</span>
+                            {% endif %}
+                        </h4>
+                        {% else %}
+                        <h4 class="task-title">
+                            {{ task.title }}
+                            {% if task.description %}
+                            <span class="has-description-badge" title="Has description">📄</span>
+                            {% endif %}
+                        </h4>
+                        {% endif %}
 
-            if (description.style.display === 'none') {
-                // Show description
-                description.style.display = 'block';
-                if (icon) icon.style.transform = 'rotate(180deg)';
-            } else {
-                // Hide description
-                description.style.display = 'none';
-                if (icon) icon.style.transform = 'rotate(0deg)';
-            }
+                        {% if task.description %}
+                        <span class="expand-icon" id="expand-icon-{{ task.id }}">▼</span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Priority & Due Date Info -->
+                    <div class="task-meta">
+                        <span class="priority-badge priority-{{ task.priority }}">
+                            {% if task.priority == 'urgent' %}⚡
+                            {% elif task.priority == 'high' %}🔴
+                            {% elif task.priority == 'medium' %}🟡
+                            {% else %}🟢{% endif %}
+                            {{ task.get_priority_display }}
+                        </span>
+
+                        {% if task.due_date %}
+                        <span class="due-date-badge {% if task.is_overdue %}overdue-badge{% endif %}">
+                            {% if task.is_overdue %}
+                            🚨 Overdue: {{ task.due_date|date:"M d, Y h:i A" }}
+                            {% else %}
+                            📅 Due: {{ task.due_date|date:"M d, Y h:i A" }}
+                            {% endif %}
+                        </span>
+                        {% endif %}
+                    </div>
+
+                    <!-- Category Tags -->
+                    {% if task.categories.all %}
+                    <div class="task-categories">
+                        {% for category in task.categories.all %}
+                        <span class="category-tag" style="--tag-color: {{ category.color }};">
+                            {{ category.name }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Task Description -->
+                {% if task.description %}
+                <div class="task-description" id="description-{{ task.id }}" style="display: none;">
+                    <div class="description-content">
+                        {{ task.description|linebreaks }}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="task-actions">
+                <a href="{% url 'update' task.id %}" class="action-btn update-btn">
+                    <span>✏️</span>
+                </a>
+                <a href="{% url 'delete' task.id %}" class="action-btn delete-btn">
+                    <span>🗑️</span>
+                </a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            {% if search_query %}
+            <div class="no-results">
+                <h3>🔍 No results found</h3>
+                <p>No tasks match "<strong>{{ search_query }}</strong>"</p>
+                <a href="/" class="btn btn-update" style="margin-top: 20px; display: inline-flex;">
+                    <span>Clear Search</span>
+                </a>
+            </div>
+            {% else %}
+            <div class="empty-tasks">
+                <div class="empty-icon">✨</div>
+                <h3>No tasks yet!</h3>
+                <p>Click the <strong>+</strong> button below to create your first task</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+    function toggleDescription(taskId) {
+        const description = document.getElementById(`description-${taskId}`);
+        const icon = document.getElementById(`expand-icon-${taskId}`);
+
+        if (description.style.display === 'none') {
+            description.style.display = 'block';
+            if (icon) icon.style.transform = 'rotate(180deg)';
+        } else {
+            description.style.display = 'none';
+            if (icon) icon.style.transform = 'rotate(0deg)';
         }
-    </script>
-</body>
-
-</html>
+    }
+</script>
+{% endblock %}
