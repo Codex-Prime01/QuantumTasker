@@ -11,6 +11,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('profile/', views.profile, name='profile'),  
     path('settings/', views.settings, name='settings'),  
+    path('create/', views.create_task, name='create')
 
 ]
 
