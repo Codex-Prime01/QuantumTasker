@@ -39,7 +39,11 @@ class TaskForm(forms.ModelForm):
             }),
             'priority' : forms.Select(attrs={
                 'class' : 'form-select'
-            })
+            }),
+            'title': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'e.g., Call dentist, Buy groceries, Finish report...',
+            }),
             
         } 
         

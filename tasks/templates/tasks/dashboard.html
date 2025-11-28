@@ -54,8 +54,8 @@
     {% if overdue_count > 0 %}
     <div class="warning-card overdue">
         <span class="warning-icon">🚨</span>
-        <span class="warning-text">You have <strong>{{ overdue_count }}</strong> overdue task{{
-            overdue_count|pluralize }}</span>
+        <span class="warning-text">You have <strong>{{ overdue_count }}</strong>
+            overdue task{{ overdue_count|pluralize }}</span>
         <a href="/?sort=due_date" class="warning-action">View →</a>
     </div>
     {% endif %}

@@ -1,0 +1,113 @@
+{% extends 'tasks/base.html' %}
+{% load static %}
+
+{% block title %}Create Task - Todo Manager{% endblock %}
+
+{% block content %}
+<div class="create-task-container">
+    <!-- Back Button -->
+    <a href="/" class="back-button">
+        <span>←</span>
+        <span>Back to Tasks</span>
+    </a>
+
+    <!-- Create Task Card -->
+    <div class="create-task-card">
+        <div class="create-header">
+            <div class="create-icon">✨</div>
+            <h1 class="create-title">Create New Task</h1>
+            <p class="create-subtitle">Fill in the details below to create your task</p>
+        </div>
+
+        <form method="POST" class="create-form">
+            {% csrf_token %}
+            
+            <!-- Title Field -->
+            <div class="form-group-create">
+                <label for="id_title" class="form-label-create">
+                    <span class="label-icon">📝</span>
+                    <span class="label-text">Task Title</span>
+                    <span class="label-required">*</span>
+                </label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                    <div class="field-error">
+                        {% for error in form.title.errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Description Field -->
+            <div class="form-group-create">
+                <label for="id_description" class="form-label-create">
+                    <span class="label-icon">📄</span>
+                    <span class="label-text">Description</span>
+                    <span class="label-optional">(optional)</span>
+                </label>
+                {{ form.description }}
+                <p class="field-hint">Add more details about this task</p>
+            </div>
+
+            <!-- Due Date & Priority Row -->
+            <div class="form-row-create">
+                <div class="form-group-create">
+                    <label for="id_due_date" class="form-label-create">
+                        <span class="label-icon">📅</span>
+                        <span class="label-text">Due Date</span>
+                        <span class="label-optional">(optional)</span>
+                    </label>
+                    {{ form.due_date }}
+                    <p class="field-hint">When should this be completed?</p>
+                </div>
+
+                <div class="form-group-create">
+                    <label for="id_priority" class="form-label-create">
+                        <span class="label-icon">⚡</span>
+                        <span class="label-text">Priority</span>
+                    </label>
+                    {{ form.priority }}
+                    <p class="field-hint">How important is this?</p>
+                </div>
+            </div>
+
+            <!-- Categories Field -->
+            <div class="form-group-create">
+                <label class="form-label-create">
+                    <span class="label-icon">🏷️</span>
+                    <span class="label-text">Categories</span>
+                    <span class="label-optional">(optional)</span>
+                </label>
+                <div class="categories-grid">
+                    {{ form.categories }}
+                </div>
+                <p class="field-hint">Select one or more categories</p>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="create-actions">
+                <button type="submit" class="btn-create-submit">
+                    <span class="btn-icon">✓</span>
+                    <span class="btn-text">Create Task</span>
+                </button>
+                <a href="/" class="btn-create-cancel">
+                    <span class="btn-icon">✕</span>
+                    <span class="btn-text">Cancel</span>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Quick Tips -->
+    <div class="quick-tips">
+        <h3 class="tips-title">💡 Quick Tips</h3>
+        <ul class="tips-list">
+            <li>Use clear, actionable titles like "Call dentist" or "Buy groceries"</li>
+            <li>Set realistic due dates to stay on track</li>
+            <li>Higher priority tasks appear first in sorted lists</li>
+            <li>Categories help you organize and filter tasks later</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

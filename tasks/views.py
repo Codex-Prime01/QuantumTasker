@@ -299,3 +299,23 @@ def settings(request):
     """Settings page (placeholder for now)"""
     context = {}
     return render(request, 'tasks/settings.html', context)
+
+@login_required
+def create_task(request):
+    """Dedicated page for creating new tasks"""
+    if request.method == 'POST':
+        form = TaskForm(request.POST)
+        if form.is_valid():
+            task = form.save(commit=False)
+            task.user = request.user
+            task.save()
+            form.save_m2m()
+            messages.success(request, f'✅ Task "{task.title}" created successfully!')
+            return redirect('/')
+        else:
+            messages.error(request, '❌ Failed to create task. Please check the form.')
+    else:
+        form = TaskForm()
+    
+    context = {'form': form}
+    return render(request, 'tasks/create.html', context)
