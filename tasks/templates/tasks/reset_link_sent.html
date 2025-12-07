@@ -1,0 +1,51 @@
+{% extends 'tasks/base.html' %}
+
+{% block title %}Check Your Email - Quantum Manager{% endblock %}
+
+{% block content %}
+<div class="verification-container">
+    <div class="verification-card">
+        <div class="verification-icon">📬</div>
+        <h1 class="verification-title">Check Your Email!</h1>
+        <p class="verification-text">
+            If an account exists with that email, we've sent password reset instructions.
+            The link will expire in <strong>1 hour</strong>.
+        </p>
+
+        <div class="verification-steps">
+            <div class="step">
+                <span class="step-number">1</span>
+                <p>Check your email inbox</p>
+            </div>
+            <div class="step">
+                <span class="step-number">2</span>
+                <p>Find the password reset email</p>
+            </div>
+            <div class="step">
+                <span class="step-number">3</span>
+                <p>Click the "Reset Password" button</p>
+            </div>
+            <div class="step">
+                <span class="step-number">4</span>
+                <p>Set your new password</p>
+            </div>
+        </div>
+
+        <div class="verification-help">
+            <p class="help-title">Didn't receive the email?</p>
+            <ul class="help-list">
+                <li>Check your spam/junk folder</li>
+                <li>Make sure you entered the correct email</li>
+                <li>Wait a few minutes and check again</li>
+                <li>The link expires in 1 hour</li>
+            </ul>
+            <a href="{% url 'forgot_password' %}" class="btn-resend">
+                <span>🔄</span>
+                <span>Try Again</span>
+            </a>
+        </div>
+
+        <a href="{% url 'login' %}" class="back-link">← Back to Login</a>
+    </div>
+</div>
+{% endblock %}

@@ -1,30 +1,94 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ request.user.profile.theme|default:'dark' }}">
+
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Todo Manager{% endblock %}</title>
+    <meta name="description"
+        content="Never forget again! Manage tasks with recurring reminders, templates, and achievements.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Quantum Manager">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{% static 'tasks/manifest.json' %}">
+
+    <!-- App Icons -->
+    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'tasks/icons/icon-192x192.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'tasks/icons/icon-192x192.png' %}">
+
+    <!-- 👇 NEW! Open Graph Meta Tags (Facebook, LinkedIn) -->
+    <meta property="og:title" content="Quantumnager - Never Forget Again">
+    <meta property="og:description"
+        content="A beautiful task manager with recurring tasks, templates, achievements, and voice input. Stay productive and never forget important tasks!">
+    <meta property="og:image" content="{% static 'tasks/icons/icon-512x512.png' %}">
+    <meta property="og:url" content="{{ request.build_absolute_uri }}">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Quantum Manager">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Quantum Manager - Never Forget Again">
+    <meta name="twitter:description" content="Stay productive with recurring tasks, templates, and achievements!">
+    <meta name="twitter:image" content="{% static 'tasks/icons/icon-512x512.png' %}">
+
+    <!-- Additional SEO -->
+    <meta name="keywords"
+        content="quantum, querySelector manager, productivity, recurring tasks, templates, achievements, voice input">
+    <meta name="author" content="Quantum Manager">
+
+    <title>{% block title %}Quantum Manager{% endblock %}</title>
     <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
     {% block extra_css %}{% endblock %}
+
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/static/tasks/sw.js')
+                    .then(registration => {
+                        console.log('✅ Service Worker registered:', registration);
+                    })
+                    .catch(error => {
+                        console.log('❌ Service Worker registration failed:', error);
+                    });
+            });
+        }
+    </script>
 </head>
 
 <body>
+
+    <div id="installPrompt" class="install-prompt" style="display: none;">
+        <div class="install-content">
+            <div class="install-icon">📱</div>
+            <div class="install-text">
+                <h3>Install Quantum Manager</h3>
+                <p>Add to your home screen for quick access!</p>
+            </div>
+            <button id="installBtn" class="btn btn-primary btn-sm">Install</button>
+            <button id="dismissInstall" class="btn btn-secondary btn-sm">Maybe Later</button>
+        </div>
+    </div>
+
+
     <!-- Toast Notifications Container -->
     <div class="toast-container" id="toastContainer">
         {% if messages %}
-            {% for message in messages %}
-            <div class="toast toast-{{ message.tags }} show" role="alert">
-                <div class="toast-content">
-                    <span class="toast-message">{{ message }}</span>
-                    <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
-                </div>
+        {% for message in messages %}
+        <div class="toast toast-{{ message.tags }} show" role="alert">
+            <div class="toast-content">
+                <span class="toast-message">{{ message }}</span>
+                <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
             </div>
-            {% endfor %}
+        </div>
+        {% endfor %}
         {% endif %}
     </div>
 
+    {% csrf_token %}
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
         <div class="loading-spinner">
@@ -44,38 +108,83 @@
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <div class="user-profile">
+                {% if request.user.profile.avatar %}
+                <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
+                    class="profile-avatar has-image">
+                {% else %}
+
                 <div class="user-avatar">
-                    <span>{{ request.user.username|slice:":1"|upper }}</span>
+                    {{ request.user.username|upper|slice:":2"|default:"?" }}
+                </div>
+                {% endif %}
+                <div class="avatar-badge1">
+                    {% if request.user.profile.email_verified %}
+                    <span class="verified-badge" title="Email Verified">✓</span>
+                    {% else %}
+                    <span class="unverified-badge" title="Email Not Verified">!</span>
+                    {% endif %}
                 </div>
                 <div class="user-info">
                     <h3 class="user-name">{{ request.user.username }}</h3>
                     <p class="user-email">{{ request.user.email }}</p>
                 </div>
-            </div> 
+            </div>
+            <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
         </div>
-
+        <!--
+        <div class="menu-theme-switcher">
+            <button class="theme-toggle-btn" onclick="quickToggleTheme()" title="Toggle Theme">
+                <span class="theme-icon-dark">🌙</span>
+                <span class="theme-icon-light">☀️</span>
+            </button>
+        </div>
+    -->
         <nav class="sidebar-nav">
             <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
                 <span class="nav-icon">📝</span>
                 <span class="nav-text">My Tasks</span>
             </a>
+
+            <a href="/templates/" class="nav-item {% if request.path == '/templates/' %}active{% endif %}">
+                <span class="nav-icon">✨</span>
+                <span class="nav-text">Templates</span>
+            </a>
+
             <a href="/dashboard/" class="nav-item {% if request.path == '/dashboard/' %}active{% endif %}">
                 <span class="nav-icon">📊</span>
                 <span class="nav-text">Dashboard</span>
             </a>
+
+
+            <a href="/achievements/" class="nav-item {% if request.path == '/achievements/' %}active{% endif %}">
+                <span class="nav-icon">🏆</span>
+                <span class="nav-text"> Achievements</span>
+            </a>
+
             <a href="/profile/" class="nav-item {% if request.path == '/profile/' %}active{% endif %}">
                 <span class="nav-icon">👤</span>
                 <span class="nav-text">Profile</span>
             </a>
+
             <a href="/settings/" class="nav-item {% if request.path == '/settings/' %}active{% endif %}">
                 <span class="nav-icon">⚙️</span>
                 <span class="nav-text">Settings</span>
             </a>
             <div class="nav-divider"></div>
+
+
             <a href="/logout/" class="nav-item logout">
                 <span class="nav-icon">🚪</span>
                 <span class="nav-text">Logout</span>
             </a>
+            <div class="install-content" id="sidebarInstallSection" style="display: none;">
+                <div class="install-ico">📱</div>
+                <div class="install-tex">
+                    <h3>Install Quantum Manager</h3>
+                    <p>Add to your home screen for quick access!</p>
+                </div>
+                <button id="sidebarInstallBtn" class="btn btn-primary btn-sm">Install</button>
+            </div>
         </nav>
 
         <div class="sidebar-footer">
@@ -108,11 +217,11 @@
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('sidebarOverlay');
             const hamburger = document.getElementById('hamburgerBtn');
-            
+
             sidebar.classList.toggle('active');
             overlay.classList.toggle('active');
             hamburger.classList.toggle('active');
-            
+
             // Prevent body scroll when sidebar is open
             if (sidebar.classList.contains('active')) {
                 document.body.style.overflow = 'hidden';
@@ -122,7 +231,7 @@
         }
 
         // Close sidebar on ESC key
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 const sidebar = document.getElementById('sidebar');
                 if (sidebar.classList.contains('active')) {
@@ -132,7 +241,7 @@
         });
 
         // Auto-hide toasts after 5 seconds
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const toasts = document.querySelectorAll('.toast');
             toasts.forEach(toast => {
                 setTimeout(() => {
@@ -144,13 +253,13 @@
             // Show loading overlay when form is submitted
             const forms = document.querySelectorAll('form');
             const loadingOverlay = document.getElementById('loadingOverlay');
-            
+
             forms.forEach(form => {
-                form.addEventListener('submit', function(e) {
+                form.addEventListener('submit', function (e) {
                     if (loadingOverlay) {
                         loadingOverlay.classList.add('active');
                     }
-                    
+
                     const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
                     if (submitBtn) {
                         submitBtn.classList.add('loading');
@@ -158,6 +267,97 @@
                     }
                 });
             });
+        });
+
+
+        function quickToggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+            // Apply theme immediately
+            html.setAttribute('data-theme', newTheme);
+
+            // Save to server (async)
+            fetch('/api/update-theme/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({ theme: newTheme })
+            });
+        }
+
+        let deferredPrompt;
+        const installPrompt = document.getElementById('installPrompt');
+        const topInstallBtn = document.getElementById('installBtn'); // Popup button
+        const sidebarInstallBtn = document.getElementById('sidebarInstallBtn'); // Sidebar button
+        const sidebarInstallSection = document.getElementById('sidebarInstallSection');
+        const dismissBtn = document.getElementById('dismissInstall');
+
+        // Capture install prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+
+            // Show popup install prompt if not dismissed before
+            if (!localStorage.getItem('installDismissed')) {
+                if (installPrompt) installPrompt.style.display = 'block';
+            }
+
+            // ALWAYS show sidebar install button when app is installable
+            if (sidebarInstallSection) {
+                sidebarInstallSection.style.display = 'block';
+            }
+        });
+
+        // Handle install for BOTH buttons
+        async function handleInstall() {
+            if (!deferredPrompt) {
+                alert('❌ App is already installed or not available for installation.');
+                return;
+            }
+
+            deferredPrompt.prompt();
+            const { outcome } = await deferredPrompt.userChoice;
+
+            console.log(`User choice: ${outcome}`);
+
+            if (outcome === 'accepted') {
+                console.log('✅ User accepted the install prompt');
+                // Hide both install UIs
+                if (installPrompt) installPrompt.style.display = 'none';
+                if (sidebarInstallSection) sidebarInstallSection.style.display = 'none';
+            }
+
+            deferredPrompt = null;
+        }
+
+        // Attach install handler to TOP popup button
+        if (topInstallBtn) {
+            topInstallBtn.addEventListener('click', handleInstall);
+        }
+
+        // Attach install handler to SIDEBAR button
+        if (sidebarInstallBtn) {
+            sidebarInstallBtn.addEventListener('click', handleInstall);
+        }
+
+        // Dismiss popup button (doesn't affect sidebar button)
+        if (dismissBtn) {
+            dismissBtn.addEventListener('click', () => {
+                if (installPrompt) installPrompt.style.display = 'none';
+                localStorage.setItem('installDismissed', 'true');
+                // Sidebar button still available!
+            });
+        }
+
+        // Log when app is installed
+        window.addEventListener('appinstalled', () => {
+            console.log('✅ Quantum Manager installed!');
+            if (installPrompt) installPrompt.style.display = 'none';
+            if (sidebarInstallSection) sidebarInstallSection.style.display = 'none';
         });
     </script>
 

@@ -5,12 +5,48 @@
 
 {% block content %}
 <div class="container">
+    {% csrf_token %}
     <!-- Page Header -->
     <header class="page-header">
         <h1 class="page-title">
             <span class="glow">My</span> Tasks
         </h1>
     </header>
+
+    <!-- Streak Display -->
+    {% if request.user.stats.current_streak > 0 %}
+    <div class="streak-banner">
+        <div class="streak-icon">🔥</div>
+        <div class="streak-info">
+            <div class="streak-value">{{ request.user.stats.current_streak }} Day Streak!</div>
+            <div class="streak-message">
+                {% if request.user.stats.current_streak >= 7 %}
+                You're on fire! Keep going! 🔥
+                {% elif request.user.stats.current_streak >= 3 %}
+                Great momentum! Don't break it! 💪
+                {% else %}
+                Building a habit! Keep it up! ✨
+                {% endif %}
+            </div>
+        </div>
+        <a href="/achievements/" class="streak-link">View Achievements →</a>
+    </div>
+    {% endif %}
+
+    <!-- Email Verification Banner -->
+    {% if not request.user.profile.email_verified %}
+    <div class="verification-banner">
+        <div class="banner-content">
+            <span class="banner-icon">⚠️</span>
+            <span class="banner-text">
+                Please verify your email to unlock all features!
+            </span>
+            <a href="/resend-verification/" class="banner-button">
+                Verify Now
+            </a>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Search Bar -->
     <div class="search-container">
@@ -51,7 +87,7 @@
     <div class="stats-container">
         <div class="stat-box">
             <span class="stat-number">{{ totalTasks }}</span>
-            <span class="stat-label">Total Tasks</span>
+            <span class="stat-label">Total </span>
         </div>
         <div class="stat-box">
             <span class="stat-number">{{ pending_count }}</span>
@@ -130,9 +166,23 @@
             <div class="task-content">
                 <div class="task-header" onclick="toggleDescription({{ task.id }})">
                     <div class="task-title-row">
+                        <!-- Quick Complete Checkbox -->
+                        <label class="task-checkbox-wrapper" onclick="event.stopPropagation();">
+                            <input type="checkbox" class="task-checkbox" {% if task.complete %}checked{% endif %}
+                                onchange="quickToggleComplete({{ task.id }}, this)">
+                            <span class="checkbox-custom"></span>
+                        </label>
+
                         {% if task.complete %}
                         <h4 class="task-title completed-title">
                             {{ task.title }}
+
+                            {% if task.is_recurring and task.recurring_frequency != 'none' %}
+                            <span class="recurring-badge" title="{{ task.get_recurring_info }}">
+                                🔄
+                            </span>
+                            {% endif %}
+
                             {% if task.description %}
                             <span class="has-description-badge" title="Has description">📄</span>
                             {% endif %}
@@ -172,6 +222,12 @@
                         {% endif %}
                     </div>
 
+                    {% if task.is_recurring and task.recurring_frequency != 'none' %}
+                    <div class="task-recurring-info">
+                        <span class="recurring-text">{{ task.get_recurring_info }}</span>
+                    </div>
+                    {% endif %}
+
                     <!-- Category Tags -->
                     {% if task.categories.all %}
                     <div class="task-categories">
@@ -198,6 +254,13 @@
                 <a href="{% url 'update' task.id %}" class="action-btn update-btn">
                     <span>✏️</span>
                 </a>
+
+                <button
+                    onclick="shareTask({{ task.id }}, '{{ task.title|escapejs }}', '{{ task.get_priority_display }}')"
+                    class="action-btn btn-share" title="Share">
+                    <span>🔗</span>
+                </button>
+
                 <a href="{% url 'delete' task.id %}" class="action-btn delete-btn">
                     <span>🗑️</span>
                 </a>
@@ -230,13 +293,262 @@
         const description = document.getElementById(`description-${taskId}`);
         const icon = document.getElementById(`expand-icon-${taskId}`);
 
-        if (description.style.display === 'none') {
-            description.style.display = 'block';
-            if (icon) icon.style.transform = 'rotate(180deg)';
-        } else {
-            description.style.display = 'none';
-            if (icon) icon.style.transform = 'rotate(0deg)';
+        if (description && icon) {
+            if (description.style.display === 'none' || description.style.display === '') {
+                description.style.display = 'block';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                description.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+    }
+
+
+    // Quick toggle complete status
+    function quickToggleComplete(taskId, checkbox) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch(`/quick-toggle/${taskId}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const taskItem = checkbox.closest('.task-item');
+                    const taskTitle = taskItem.querySelector('.task-title');
+
+                    if (data.complete) {
+                        taskItem.classList.add('completed');
+                        taskTitle.classList.add('completed-title');
+                        showToast('✅ Task marked as complete!', 'success');
+                    } else {
+                        taskItem.classList.remove('completed');
+                        taskTitle.classList.remove('completed-title');
+                        showToast('📝 Task marked as incomplete!', 'info');
+                    }
+
+                    // Show achievement popup if unlocked
+                    if (data.new_achievements && data.new_achievements.length > 0) {
+                        showAchievementPopup(data.new_achievements);
+                    }
+
+                    // Show message for recurring tasks
+                    if (data.message) {
+                        showToast(data.message, 'success');
+                        setTimeout(() => window.location.reload(), 2000);
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                checkbox.checked = !checkbox.checked;
+                showToast('❌ Failed to update task', 'error');
+            });
+    }
+
+    // Show toast notification
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type} show`;
+        toast.innerHTML = `
+            <div class="toast-content">
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+            </div>
+        `;
+        container.appendChild(toast);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.5s ease-in forwards';
+            setTimeout(() => toast.remove(), 500);
+        }, 5000);
+    }
+
+
+
+    // Simple toast notification function
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type} show`;
+        toast.innerHTML = `
+        <div class="toast-content">
+            <span class="toast-message">${message}</span>
+            <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+        </div>
+    `;
+        container.appendChild(toast);
+
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.5s ease-in forwards';
+            setTimeout(() => toast.remove(), 500);
+        }, 5000);
+    }
+
+    // Achievement Popup Function
+    function showAchievementPopup(achievements) {
+        achievements.forEach((achievement, index) => {
+            setTimeout(() => {
+                // Create popup element
+                const popup = document.createElement('div');
+                popup.className = 'achievement-popup';
+                popup.innerHTML = `
+                <div class="popup-content">
+                    <div class="popup-icon">${achievement.icon}</div>
+                    <div class="popup-info">
+                        <div class="popup-badge">🏆 Achievement Unlocked!</div>
+                        <div class="popup-name">${achievement.name}</div>
+                        <div class="popup-description">${achievement.description}</div>
+                        <div class="popup-points">+${achievement.points} points</div>
+                    </div>
+                </div>
+            `;
+
+                document.body.appendChild(popup);
+
+                // Animate in
+                setTimeout(() => {
+                    popup.classList.add('show');
+                }, 100);
+
+                // Remove after 5 seconds
+                setTimeout(() => {
+                    popup.classList.remove('show');
+                    setTimeout(() => {
+                        popup.remove();
+                    }, 500);
+                }, 5000);
+            }, index * 500); // Stagger multiple achievements
+        });
+    }
+
+    // Simple toast notification function (keep existing)
+    function showToast(message, type = 'info') {
+        let toast = document.getElementById('toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'toast';
+            document.body.appendChild(toast);
+        }
+
+        toast.textContent = message;
+        toast.className = `toast toast-${type} show`;
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
+
+
+    // Web Share API for tasks
+    async function shareTask(taskId, taskTitle, priority) {
+        const shareData = {
+            title: 'Quantum Manager - My Task',
+            text: `📋 ${taskTitle}\n⚡ Priority: ${priority}\n\nCheck out my task on Quantum manager!`,
+            url: window.location.origin + '/'
+        };
+
+        try {
+            // Check if Web Share API is supported
+            if (navigator.share) {
+                await navigator.share(shareData);
+                showToast('✅ Task shared successfully!', 'success');
+            } else {
+                // Fallback: Copy to clipboard
+                const textToCopy = `${shareData.text}\n\n${shareData.url}`;
+                await navigator.clipboard.writeText(textToCopy);
+                showToast('✅ Task details copied to clipboard!', 'success');
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Share failed:', err);
+                showToast('❌ Failed to share task', 'error');
+            }
+        }
+    }
+
+    // Share achievement
+    async function shareAchievement(achievementName, achievementIcon, points) {
+        const shareData = {
+            title: 'Quantum Manager - Achievement Unlocked! 🏆',
+            text: `${achievementIcon} I just unlocked "${achievementName}"!\n⭐ +${points} points\n\nJoin me on Quantum Manager and track your productivity!`,
+            url: window.location.origin + '/achievements/'
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+                showToast('✅ Achievement shared!', 'success');
+            } else {
+                const textToCopy = `${shareData.text}\n\n${shareData.url}`;
+                await navigator.clipboard.writeText(textToCopy);
+                showToast('✅ Achievement details copied to clipboard!', 'success');
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Share failed:', err);
+            }
+        }
+    }
+
+    // Share streak
+    async function shareStreak(streakDays, longestStreak, totalTasks) {
+        const fireEmojis = '🔥'.repeat(Math.min(streakDays, 10));
+
+        const shareData = {
+            title: 'Quantum Manager - My Productivity Streak! 🔥',
+            text: `${fireEmojis}\n\nI'm on a ${streakDays}-day streak!\n\n📊 Stats:\n✅ ${totalTasks} tasks completed\n🏆 Longest streak: ${longestStreak} days\n\nStay productive with Quantum Manager!`,
+            url: window.location.origin + '/achievements/'
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+                showToast('✅ Streak shared!', 'success');
+            } else {
+                const textToCopy = `${shareData.text}\n\n${shareData.url}`;
+                await navigator.clipboard.writeText(textToCopy);
+                showToast('✅ Streak details copied to clipboard!', 'success');
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Share failed:', err);
+            }
+        }
+    }
+
+    // Share template
+    async function shareTemplate(templateName, templateIcon, itemCount) {
+        const shareData = {
+            title: 'Quantum Manager - Task Template',
+            text: `${templateIcon} Check out my "${templateName}" template!\n📋 ${itemCount} tasks included\n\nGet organized with Quantumanager!`,
+            url: window.location.origin + '/templates/'
+        };
+
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+                showToast('✅ Template shared!', 'success');
+            } else {
+                const textToCopy = `${shareData.text}\n\n${shareData.url}`;
+                await navigator.clipboard.writeText(textToCopy);
+                showToast('✅ Template details copied to clipboard!', 'success');
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Share failed:', err);
+            }
         }
     }
 </script>
+
 {% endblock %}

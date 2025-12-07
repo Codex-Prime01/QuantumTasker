@@ -1,0 +1,101 @@
+{% extends 'tasks/base.html' %}
+
+{% block title %}Offline - Quantum Manager{% endblock %}
+
+{% block content %}
+<div class="offline-container">
+    <div class="offline-card">
+        <div class="offline-icon">📡</div>
+        <h1 class="offline-title">You're Offline</h1>
+        <p class="offline-message">
+            No internet connection detected. Some features may be unavailable.
+        </p>
+        
+        <div class="offline-features">
+            <h3>What you can still do:</h3>
+            <ul>
+                <li>✅ View cached tasks</li>
+                <li>✅ Browse templates</li>
+                <li>✅ View achievements</li>
+                <li>✅ Check your profile</li>
+            </ul>
+            <p class="offline-note">
+                New tasks will sync when you're back online!
+            </p>
+        </div>
+        
+        <button onclick="window.location.reload()" class="btn btn-primary">
+            <span>🔄</span>
+            <span>Try Again</span>
+        </button>
+    </div>
+</div>
+
+<style>
+.offline-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80vh;
+    padding: 20px;
+}
+
+.offline-card {
+    text-align: center;
+    max-width: 500px;
+    padding: 40px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-primary);
+    border-radius: 20px;
+    box-shadow: var(--shadow-lg);
+}
+
+.offline-icon {
+    font-size: 6rem;
+    margin-bottom: 20px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.offline-title {
+    font-size: 2.5rem;
+    color: var(--accent-primary);
+    margin: 0 0 15px 0;
+}
+
+.offline-message {
+    font-size: 1.1rem;
+    color: var(--text-tertiary);
+    margin-bottom: 30px;
+}
+
+.offline-features {
+    text-align: left;
+    padding: 20px;
+    background: var(--bg-secondary);
+    border-radius: 10px;
+    margin-bottom: 25px;
+}
+
+.offline-features h3 {
+    color: var(--accent-primary);
+    margin: 0 0 15px 0;
+}
+
+.offline-features ul {
+    margin: 0 0 15px 0;
+    padding-left: 20px;
+}
+
+.offline-features li {
+    margin: 8px 0;
+    color: var(--text-secondary);
+}
+
+.offline-note {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-style: italic;
+}
+</style>
+{% endblock %}

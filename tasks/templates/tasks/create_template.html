@@ -1,0 +1,110 @@
+{% extends 'tasks/base.html' %}
+
+{% block title %}Create Template - Todo Manager{% endblock %}
+
+{% block content %}
+<div class="create-template-container">
+    
+    <!-- Header -->
+    <div class="page-header">
+        <h1 class="page-title">Create New Template</h1>
+        <p class="page-subtitle">Build a reusable task list</p>
+    </div>
+    
+    <!-- Template Form -->
+    <div class="template-form-card">
+        <form method="POST" class="template-form">
+            {% csrf_token %}
+            
+            <div class="form-group">
+                <label for="name" class="form-label">
+                    <span class="label-icon">📋</span>
+                    <span>Template Name</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="name" 
+                    name="name" 
+                    class="form-input" 
+                    placeholder="e.g., Morning Routine, Weekly Shopping"
+                    required
+                >
+                <p class="form-hint">Give your template a clear, descriptive name</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="description" class="form-label">
+                    <span class="label-icon">📝</span>
+                    <span>Description (Optional)</span>
+                </label>
+                <textarea 
+                    id="description" 
+                    name="description" 
+                    class="form-textarea" 
+                    rows="3"
+                    placeholder="What is this template for?"
+                ></textarea>
+                <p class="form-hint">Briefly describe when to use this template</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="icon" class="form-label">
+                    <span class="label-icon">😀</span>
+                    <span>Icon (Emoji)</span>
+                </label>
+                <input 
+                    type="text" 
+                    id="icon" 
+                    name="icon" 
+                    class="form-input" 
+                    placeholder="📋"
+                    maxlength="10"
+                    value="📋"
+                >
+                <p class="form-hint">Choose an emoji to represent your template</p>
+                
+                <!-- Quick Emoji Picker -->
+                <div class="emoji-picker">
+                    <button type="button" class="emoji-btn" onclick="setIcon('📋')">📋</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('✅')">✅</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🏠')">🏠</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('💼')">💼</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🛒')">🛒</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🧹')">🧹</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('💪')">💪</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('📚')">📚</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🎯')">🎯</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('⚡')">⚡</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🌟')">🌟</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🔥')">🔥</button>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-large">
+                    <span>➕</span>
+                    <span>Create Template</span>
+                </button>
+                <a href="{% url 'templates_list' %}" class="btn btn-secondary">
+                    <span>Cancel</span>
+                </a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Info Box -->
+    <div class="info-box">
+        <div class="info-icon">💡</div>
+        <div class="info-content">
+            <h3>What happens next?</h3>
+            <p>After creating your template, you'll be able to add individual tasks to it. You can then use the template anytime to instantly create all those tasks!</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function setIcon(emoji) {
+    document.getElementById('icon').value = emoji;
+}
+</script>
+{% endblock %}

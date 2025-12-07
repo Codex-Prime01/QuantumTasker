@@ -31,7 +31,7 @@
         <div class="container">
             <header>
                 <h1 class="title">
-                    <span class="glow">Update</span> Task
+                    <span class="glow">Update</span>
                 </h1>
             </header>
 
@@ -72,6 +72,47 @@
                             </div>
                             <div class="selected-categories-preview" id="selected-preview">
                                 <!-- Selected categories will appear here as tags here -->
+                            </div>
+                        </div>
+
+
+                        <div class="form-group full-width recurring-section">
+                            <div class="recurring-header">
+                                <label class="form-label">
+                                    <span class="label-icon">🔄</span>
+                                    <span>Recurring Task</span>
+                                </label>
+                                <label class="toggle-switch">
+                                    {{ form.is_recurring }}
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            <p class="form-hint">{{ form.is_recurring.help_text }}</p>
+
+                            <div class="recurring-options" id="recurringOptions" style="display: none;">
+                                <div class="form-group">
+                                    <label class="form-label" for="{{ form.recurring_frequency.id_for_label }}">
+                                        <span class="label-icon">📅</span>
+                                        <span>{{ form.recurring_frequency.label }}</span>
+                                    </label>
+                                    {{ form.recurring_frequency }}
+                                    <p class="form-hint">{{ form.recurring_frequency.help_text }}</p>
+                                </div>
+
+                                <div class="form-group" id="customIntervalGroup" style="display: none;">
+                                    <label class="form-label" for="{{ form.recurring_interval.id_for_label }}">
+                                        <span class="label-icon">🔢</span>
+                                        <span>{{ form.recurring_interval.label }}</span>
+                                    </label>
+                                    {{ form.recurring_interval }}
+                                    <p class="form-hint">{{ form.recurring_interval.help_text }}</p>
+                                </div>
+
+                                <div class="recurring-preview">
+                                    <p class="preview-text" id="recurringPreview">
+                                        <strong>Preview:</strong> <span id="previewText">Task will repeat daily</span>
+                                    </p>
+                                </div>
                             </div>
                         </div>
 
@@ -128,6 +169,66 @@
                         setTimeout(() => toast.remove(), 500);
                     }, 5000);
                 });
+            });
+
+
+            document.addEventListener('DOMContentLoaded', function () {
+                const isRecurringToggle = document.getElementById('id_is_recurring');
+                const recurringOptions = document.getElementById('recurringOptions');
+                const frequencySelect = document.getElementById('id_recurring_frequency');
+                const customIntervalGroup = document.getElementById('customIntervalGroup');
+                const intervalInput = document.getElementById('id_recurring_interval');
+                const previewText = document.getElementById('previewText');
+
+                // Show/hide recurring options
+                isRecurringToggle.addEventListener('change', function () {
+                    if (this.checked) {
+                        recurringOptions.style.display = 'block';
+                        updatePreview();
+                    } else {
+                        recurringOptions.style.display = 'none';
+                    }
+                });
+
+                // Show/hide custom interval
+                frequencySelect.addEventListener('change', function () {
+                    if (this.value === 'custom') {
+                        customIntervalGroup.style.display = 'block';
+                    } else {
+                        customIntervalGroup.style.display = 'none';
+                    }
+                    updatePreview();
+                });
+
+                // Update preview on interval change
+                intervalInput.addEventListener('input', updatePreview);
+
+                // Update preview text
+                function updatePreview() {
+                    const frequency = frequencySelect.value;
+                    const interval = intervalInput.value || 1;
+
+                    const previewMap = {
+                        'none': 'Task does not repeat',
+                        'daily': 'Task will repeat every day',
+                        'weekly': 'Task will repeat every week',
+                        'biweekly': 'Task will repeat every 2 weeks',
+                        'monthly': 'Task will repeat every month',
+                        'yearly': 'Task will repeat every year',
+                        'custom': `Task will repeat every ${interval} day${interval > 1 ? 's' : ''}`
+                    };
+
+                    previewText.textContent = previewMap[frequency] || 'Select a frequency';
+                }
+
+                // Check if recurring is already enabled (edit mode)
+                if (isRecurringToggle.checked) {
+                    recurringOptions.style.display = 'block';
+                    if (frequencySelect.value === 'custom') {
+                        customIntervalGroup.style.display = 'block';
+                    }
+                    updatePreview();
+                }
             });
         </script>
 

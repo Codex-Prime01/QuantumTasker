@@ -1,0 +1,172 @@
+{% extends 'tasks/base.html' %}
+
+{% block title %}Achievements - Todo Manager{% endblock %}
+
+{% block content %}
+<div class="achievements-container">
+
+    <!-- Header with Stats -->
+    <div class="achievements-header">
+        <div class="header-hero">
+            <div class="hero-icon">🏆</div>
+            <div class="hero-info">
+                <h1 class="hero-title">Achievements</h1>
+                <p class="hero-subtitle">Track your progress and unlock rewards!</p>
+            </div>
+        </div>
+
+        <!-- Overall Stats -->
+        <div class="stats-grid">
+            <div class="stat-box">
+                <div class="stat-icon">🏆</div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ unlocked_count }}/{{ total_achievements }}</div>
+                    <div class="stat-label">Achievements</div>
+                </div>
+                <div class="stat-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill"
+                            style="width: {% widthratio unlocked_count total_achievements 100 %}%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-icon">🔥</div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ stats.current_streak }}</div>
+                    <div class="stat-label">Current Streak</div>
+                </div>
+                <div class="stat-detail">
+                    Longest: {{ stats.longest_streak }} days
+                </div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-icon">✅</div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ stats.total_tasks_completed }}</div>
+                    <div class="stat-label">Tasks Completed</div>
+                </div>
+                <div class="stat-detail">
+                    {{ stats.tasks_completed_today }} today
+                </div>
+            </div>
+
+            <div class="stat-box">
+                <div class="stat-icon">⭐</div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ total_points }}</div>
+                    <div class="stat-label">Total Points</div>
+                </div>
+                <div class="stat-detail">
+                    Keep earning!
+                </div>
+            </div>
+            <!-- 👇 NEW! Share button -->
+            {% if stats.current_streak > 0 %}
+            <button
+                onclick="shareStreak({{ stats.current_streak }}, {{ stats.longest_streak }}, {{ stats.total_tasks_completed }})"
+                class="share-stat-btn">
+                🔗 Share
+            </button>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- Achievements by Category -->
+    {% for achievement_type, achievements in achievements_by_type.items %}
+    <div class="achievements-section">
+        <h2 class="section-title">
+            <span class="section-icon">
+                {% if achievement_type == 'Tasks Completed' %}✅
+                {% elif achievement_type == 'Streak' %}🔥
+                {% elif achievement_type == 'Consistency' %}💪
+                {% else %}⭐{% endif %}
+            </span>
+            <span>{{ achievement_type }}</span>
+            <span class="section-count">
+                {% with unlocked_in_type=achievements|length %}
+                {% with total_in_type=achievements|length %}
+                {{ achievements|length|add:"0" }}
+                {% endwith %}
+                {% endwith %}
+            </span>
+        </h2>
+
+        <div class="achievements-grid">
+            {% for item in achievements %}
+            <div class="achievement-card {% if item.is_unlocked %}unlocked{% else %}locked{% endif %}">
+                <div class="achievement-icon">{{ item.achievement.icon }}</div>
+
+                <div class="achievement-info">
+                    <h3 class="achievement-name">{{ item.achievement.name }}</h3>
+                    <p class="achievement-description">{{ item.achievement.description }}</p>
+
+                    {% if item.is_unlocked %}
+                    <div class="achievement-unlocked-info">
+                        <span class="unlocked-badge">✓ Unlocked</span>
+                        <span class="unlock-date">{{ item.unlocked_at|date:"M d, Y" }}</span>
+                        <button
+                            onclick="shareAchievement('{{ item.achievement.name|escapejs }}', '{{ item.achievement.icon }}', {{ item.achievement.points }})"
+                            class="share-achievement-btn">
+                            🔗 Share
+                        </button>
+                    </div>
+                    {% else %}
+                    <div class="achievement-progress-info">
+                        <div class="progress-bar-small">
+                            <div class="progress-fill-small" style="width: {{ item.progress }}%"></div>
+                        </div>
+                        <span class="progress-text">{{ item.progress }}% complete</span>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="achievement-points">
+                    <span class="points-badge">+{{ item.achievement.points }}</span>
+                </div>
+
+                {% if item.is_unlocked %}
+                <div class="achievement-glow"></div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-achievements">
+        <div class="empty-icon">🏆</div>
+        <h3>No Achievements Yet</h3>
+        <p>Start completing tasks to unlock achievements!</p>
+        <a href="/" class="btn btn-primary">
+            <span>📋</span>
+            <span>Go to Tasks</span>
+        </a>
+    </div>
+    {% endfor %}
+
+    <!-- Motivational Footer -->
+    <div class="achievements-footer">
+        <div class="motivation-box">
+            <div class="motivation-icon">💪</div>
+            <div class="motivation-content">
+                <h3>Keep Going!</h3>
+                <p>
+                    {% if stats.current_streak == 0 %}
+                    Start a streak by completing a task today! 🔥
+                    {% elif stats.current_streak < 7 %} You're on a {{ stats.current_streak }}-day streak! Can you reach
+                        7 days? 🔥 {% elif stats.current_streak < 30 %} Amazing {{ stats.current_streak }}-day streak!
+                        Keep it up! 🔥🔥 {% else %} Incredible {{ stats.current_streak }}-day streak! You're
+                        unstoppable! 🔥🔥🔥 {% endif %} </p>
+            </div>
+        </div>
+
+        <a href="/" class="btn btn-secondary">
+            <span>←</span>
+            <span class="text1">Back to Tasks</span>
+        </a>
+    </div>
+</div>
+{% endblock %}

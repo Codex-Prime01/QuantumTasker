@@ -1,9 +1,13 @@
 # Python junk
+
 *.pyc
 __pycache__/
-*.py[cod]
-*$py.class
-*.so
+db.sqlite3
+media/
+staticfiles/
+.env
+*.log
+.DS_Store
 
 # Virtual environment (very important!)
 env/

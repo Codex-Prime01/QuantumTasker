@@ -1,21 +1,335 @@
 {% extends 'tasks/base.html' %}
 
-{% block title %}Profile - Todo Manager{% endblock %}
+{% block title %}Profile - Quantum Manager{% endblock %}
 
 {% block content %}
-<div class="container">
-    <header class="page-header">
-        <h1 class="page-title">
-            <span class="glow">My</span> Profile
-        </h1>
-    </header>
+<div class="profile-container">
 
-    <div class="centerColumn">
-        <div class="coming-soon">
-            <div class="coming-soon-icon">👤</div>
-            <h2>Profile Page</h2>
-            <p>Coming soon! This will show your profile info, avatar, and statistics.</p>
+    <!-- Profile Header Card -->
+    <div class="profile-header-card">
+        <div class="profile-avatar-section">
+            <div class="avatar-wrapper">
+                {% if request.user.profile.get_avatar_url %}
+                <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
+                    class="profile-avatar has-image">
+                {% else %}
+                <div class="user-avatar">
+                    {{ request.user.username|upper|slice:":2"|default:"?" }}
+                </div>
+                {% endif %}
+                <div class="avatar-badge">
+                    {% if request.user.profile.email_verified %}
+                    <span class="verified-badge" title="Email Verified">✓</span>
+                    {% else %}
+                    <span class="unverified-badge" title="Email Not Verified">!</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="profile-info">
+                <h1 class="profile-username">{{ request.user.username }}</h1>
+                {% if request.user.first_name %}
+                <p class="profile-fullname">{{ request.user.first_name }} {{ request.user.last_name }}</p>
+                {% endif %}
+                <p class="profile-email">
+                    <span class="email-icon">📧</span>
+                    {{ request.user.email }}
+                </p>
+                {% if request.user.profile.bio %}
+                <p class="profile-bio">{{ request.user.profile.bio }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="profile-stats">
+            <div class="stat-card">
+                <div class="stat-icon">📋</div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ total_tasks }}</div>
+                    <div class="stat-label">Total Tasks</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">✅</div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ completed_tasks }}</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">⏳</div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ pending_tasks }}</div>
+                    <div class="stat-label">Pending</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-info">
+                    <div class="stat-value">{{ completion_rate }}%</div>
+                    <div class="stat-label">Completion</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 👇 NEW! Share Your Progress Banner -->
+        <div class="share-banner">
+            <div class="share-banner-content">
+                <div class="share-icon">🎉</div>
+                <div class="share-text">
+                    <h3>Share Your Progress!</h3>
+                    <p>Let your friends know about your productivity journey</p>
+                </div>
+            </div>
+            <div class="share-actions">
+                <button
+                    onclick="shareStreak({{ request.user.stats.current_streak }}, {{ request.user.stats.longest_streak }}, {{ request.user.stats.total_tasks_completed }})"
+                    class="btn btn-primary">
+                    <span>🔥</span>
+                    <span>Share Streak</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Edit Profile Section -->
+    <div>
+
+    </div>
+    <div class="profile-edit-section">
+        <h2 class="section-title">
+            <span class="title-icon">✏️</span>
+            <span>Edit Profile</span>
+        </h2>
+
+        <form method="POST" enctype="multipart/form-data" class="profile-form">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="profile_info">
+
+            <div class="form-grid">
+                <!-- Avatar Upload -->
+                <div class="form-group full-width">
+                    <label class="form-label">
+                        <span class="label-icon">📸</span>
+                        <span>Profile Picture</span>
+                    </label>
+
+                    <div class="avatar-upload-wrapper">
+                        <div class="current-avatar">
+                            {% if request.user.profile.get_avatar_url %}
+                            <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
+                                class="profile-avatar has-image">
+                            {% else %}
+                            <div class="user-avatar">
+                                {{ request.user.username|upper|slice:":2"|default:"?" }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="upload-controls">
+                            {{ profile_form.avatar }}
+                            <label for="id_avatar" class="upload-label">
+                                <span class="upload-icon">📁</span>
+                                <span>Choose Image</span>
+                            </label>
+                            <p class="form-hint">JPG, PNG, or GIF. Max 5MB.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Username -->
+                <div class="form-group">
+                    <label for="{{ user_form.username.id_for_label }}" class="form-label">
+                        <span class="label-icon">👤</span>
+                        <span>Username</span>
+                    </label>
+                    {{ user_form.username }}
+                    {% if user_form.username.errors %}
+                    <div class="form-error">{{ user_form.username.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- Email -->
+                <div class="form-group">
+                    <label for="{{ user_form.email.id_for_label }}" class="form-label">
+                        <span class="label-icon">📧</span>
+                        <span>Email</span>
+                    </label>
+                    {{ user_form.email }}
+                    {% if user_form.email.errors %}
+                    <div class="form-error">{{ user_form.email.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- First Name -->
+                <div class="form-group">
+                    <label for="{{ user_form.first_name.id_for_label }}" class="form-label">
+                        <span class="label-icon">✍️</span>
+                        <span>First Name</span>
+                    </label>
+                    {{ user_form.first_name }}
+                </div>
+
+                <!-- Last Name -->
+                <div class="form-group">
+                    <label for="{{ user_form.last_name.id_for_label }}" class="form-label">
+                        <span class="label-icon">✍️</span>
+                        <span>Last Name</span>
+                    </label>
+                    {{ user_form.last_name }}
+                </div>
+
+                <!-- Bio -->
+                <div class="form-group full-width">
+                    <label for="{{ profile_form.bio.id_for_label }}" class="form-label">
+                        <span class="label-icon">💭</span>
+                        <span>Bio</span>
+                    </label>
+                    {{ profile_form.bio }}
+                    <p class="form-hint char-counter">
+                        <span id="charCount">0</span> / 500 characters
+                    </p>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-save">
+                <span>💾</span>
+                <span>Save Changes</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Change Password Section -->
+    <div class="profile-edit-section">
+        <h2 class="section-title">
+            <span class="title-icon">🔐</span>
+            <span>Change Password</span>
+        </h2>
+
+        <form method="POST" class="profile-form password-form">
+            {% csrf_token %}
+            <input type="hidden" name="form_type" value="password_change">
+
+            <div class="form-grid">
+                <!-- Current Password -->
+                <div class="form-group full-width">
+                    <label for="{{ password_form.current_password.id_for_label }}" class="form-label">
+                        <span class="label-icon">🔒</span>
+                        <span>Current Password</span>
+                    </label>
+                    {{ password_form.current_password }}
+                    {% if password_form.current_password.errors %}
+                    <div class="form-error">{{ password_form.current_password.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <!-- New Password -->
+                <div class="form-group">
+                    <label for="{{ password_form.new_password1.id_for_label }}" class="form-label">
+                        <span class="label-icon">🔑</span>
+                        <span>New Password</span>
+                    </label>
+                    {{ password_form.new_password1 }}
+                    {% if password_form.new_password1.errors %}
+                    <div class="form-error">{{ password_form.new_password1.errors.0 }}</div>
+                    {% endif %}
+                    <p class="form-hint">At least 8 characters</p>
+                </div>
+
+                <!-- Confirm New Password -->
+                <div class="form-group">
+                    <label for="{{ password_form.new_password2.id_for_label }}" class="form-label">
+                        <span class="label-icon">🔑</span>
+                        <span>Confirm New Password</span>
+                    </label>
+                    {{ password_form.new_password2 }}
+                    {% if password_form.new_password2.errors %}
+                    <div class="form-error">{{ password_form.new_password2.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-save">
+                <span>🔐</span>
+                <span>Change Password</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Priority Breakdown -->
+    {% if priority_stats %}
+    <div class="profile-edit-section">
+        <h2 class="section-title">
+            <span class="title-icon">📊</span>
+            <span>Tasks by Priority</span>
+        </h2>
+
+        <div class="priority-breakdown">
+            {% for stat in priority_stats %}
+            <div class="priority-item priority-{{ stat.priority }}">
+                <div class="priority-label">
+                    {% if stat.priority == 'urgent' %}🔴
+                    {% elif stat.priority == 'high' %}🟠
+                    {% elif stat.priority == 'medium' %}🟡
+                    {% else %}🟢{% endif %}
+                    <span>{{ stat.priority|title }}</span>
+                </div>
+                <div class="priority-count">{{ stat.count }}</div>
+            </div>
+            {% endfor %}
         </div>
     </div>
+    {% endif %}
+
+    <!-- Account Actions -->
+    <div class="profile-actions">
+        <a href="/" class="btn btn-secondary">
+            <span>←</span>
+            <span class="text1">Back to Tasks</span>
+        </a>
+        <a href="/dashboard/" class="btn btn-update">
+            <span>📊</span>
+            <span>View Dashboard</span>
+        </a>
+    </div>
 </div>
+
+<script>
+    // Avatar Preview
+    document.getElementById('id_avatar').addEventListener('change', function (e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                document.getElementById('avatarPreview').src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Bio Character Counter
+    const bioField = document.getElementById('id_bio');
+    const charCount = document.getElementById('charCount');
+
+    function updateCharCount() {
+        const count = bioField.value.length;
+        charCount.textContent = count;
+
+        if (count > 450) {
+            charCount.style.color = '#F44336';
+        } else if (count > 400) {
+            charCount.style.color = '#FF9800';
+        } else {
+            charCount.style.color = '#00f5ff';
+        }
+    }
+
+    if (bioField) {
+        updateCharCount();
+        bioField.addEventListener('input', updateCharCount);
+    }
+</script>
 {% endblock %}
