@@ -1,0 +1,115 @@
+{% extends 'tasks/base.html' %}
+
+{% block title %}{{ template.name }} - Todo Manager{% endblock %}
+
+{% block content %}
+<div class="template-detail-container">
+    
+    <!-- Template Header -->
+    <div class="template-detail-header">
+        <div class="template-hero">
+            <div class="template-hero-icon">{{ template.icon }}</div>
+            <div class="template-hero-info">
+                <h1 class="template-hero-title">{{ template.name }}</h1>
+                <p class="template-hero-description">{{ template.description }}</p>
+                <div class="template-hero-meta">
+                    <span class="meta-badge">
+                        {% if template.is_default %}
+                        ⭐ Default Template
+                        {% else %}
+                        👤 Custom Template
+                        {% endif %}
+                    </span>
+                    <span class="meta-badge">📋 {{ items.count }} task{{ items.count|pluralize }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="template-actions-bar">
+            <a href="{% url 'use_template' template.id %}" class="btn btn-primary btn-large">
+                <span>✨</span>
+                <span class="text1">Use This Template</span>
+            </a>
+            {% if not template.is_default %}
+            <a href="{% url 'edit_template' template.id %}" class="btn btn-update">
+                <span>✏️</span>
+                <span>Edit</span>
+            </a>
+            <a href="{% url 'delete_template' template.id %}" class="btn btn-danger">
+                <span>🗑️</span>
+                <span class="text1">Delete</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Template Items List -->
+    <div class="template-items-section">
+        <h2 class="section-title">
+            <span class="section-icon">📝</span>
+            <span>Tasks in This Template</span>
+        </h2>
+        
+        <div class="template-items-list">
+            {% for item in items %}
+            <div class="template-item">
+                <div class="item-order">{{ forloop.counter }}</div>
+                <div class="item-content">
+                    <h3 class="item-title">{{ item.title }}</h3>
+                    {% if item.description %}
+                    <p class="item-description">{{ item.description }}</p>
+                    {% endif %}
+                    <div class="item-meta">
+                        <span class="priority-badge priority-{{ item.priority }}">
+                            {{ item.get_priority_display }}
+                        </span>
+                        {% if item.categories.all %}
+                        {% for category in item.categories.all %}
+                        <span class="category-tag" style="background: {{ category.color }}20; border-color: {{ category.color }};">
+                            {{ category.name }}
+                        </span>
+                        {% endfor %}
+                        {% endif %}
+                        {% if item.is_recurring and item.recurring_frequency != 'none' %}
+                        <span class="recurring-badge-small" title="Recurring task">
+                            🔄 {{ item.get_recurring_frequency_display }}
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-items">
+                <p>This template has no tasks yet.</p>
+                {% if not template.is_default %}
+                <a href="{% url 'edit_template' template.id %}" class="btn btn-primary">
+                    <span>➕</span>
+                    <span>Add Tasks</span>
+                </a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Use Template CTA -->
+    <div class="template-cta">
+        <div class="cta-content">
+            <h3>Ready to get started?</h3>
+            <p>Click below to create all {{ items.count }} tasks from this template instantly!</p>
+        </div>
+        <a href="{% url 'use_template' template.id %}" class="btn btn-primary btn-large">
+            <span>✨</span>
+            <span>Use Template Now</span>
+        </a>
+    </div>
+    
+    <!-- Back Button -->
+    <div class="template-footer">
+        <a href="{% url 'templates_list' %}" class="btn btn-secondary">
+            <span>←</span>
+            <span class="text1">Back to Templates</span>
+        </a>
+    </div>
+</div>
+{% endblock %}

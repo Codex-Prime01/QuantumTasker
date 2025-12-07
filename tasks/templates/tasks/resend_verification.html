@@ -1,0 +1,25 @@
+{% extends 'tasks/base.html' %}
+
+{% block title %}Resend Verification - Quantum Manager{% endblock %}
+
+{% block content %}
+<div class="verification-container">
+    <div class="verification-card">
+        <div class="verification-icon">🔄</div>
+        <h1 class="verification-title">Resend Verification Email</h1>
+        <p class="verification-text">
+            Need a new verification link? No problem! Click the button below to receive a fresh verification email.
+        </p>
+        
+        <form method="POST" class="resend-form">
+            {% csrf_token %}
+            <button type="submit" class="btn-resend-large">
+                <span>📧</span>
+                <span>Send New Verification Email</span>
+            </button>
+        </form>
+        
+        <a href="/" class="back-link">← Back to Home</a>
+    </div>
+</div>
+{% endblock %}

@@ -141,3 +141,23 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
 }
+
+# ========================================
+# EMAIL CONFIGURATION
+# ========================================
+
+# For development - emails print to console
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# Email settings
+DEFAULT_FROM_EMAIL = 'noreply@todomanager.com'
+EMAIL_HOST_USER = 'Todo Manager'
+
+# ========================================
+# MEDIA FILES (User Uploads)
+# ========================================
+
+import os
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

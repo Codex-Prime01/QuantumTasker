@@ -1,0 +1,163 @@
+{% extends 'tasks/base.html' %}
+
+{% block title %}Edit {{ template.name }} - Todo Manager{% endblock %}
+
+{% block content %}
+<div class="edit-template-container">
+
+    <!-- Header -->
+    <div class="page-header">
+        <h1 class="page-title">Edit Template</h1>
+        <p class="page-subtitle">{{ template.icon }} {{ template.name }}</p>
+    </div>
+
+    <!-- Template Info Edit -->
+    <div class="template-form-card">
+        <h2 class="card-title">Template Information</h2>
+        <form method="POST" class="template-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_info">
+
+            <div class="form-group">
+                <label for="name" class="form-label">
+                    <span class="label-icon">📋</span>
+                    <span>Template Name</span>
+                </label>
+                <input type="text" id="name" name="name" class="form-input" value="{{ template.name }}" required>
+            </div>
+
+            <div class="form-group">
+                <label for="description" class="form-label">
+                    <span class="label-icon">📝</span>
+                    <span>Description</span>
+                </label>
+                <textarea id="description" name="description" class="form-textarea"
+                    rows="3">{{ template.description }}</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="icon" class="form-label">
+                    <span class="label-icon">😀</span>
+                    <span>Icon</span>
+                </label>
+                <input type="text" id="icon" name="icon" class="form-input" value="{{ template.icon }}" maxlength="10">
+
+                <!-- Quick Emoji Picker -->
+                <div class="emoji-picker">
+                    <button type="button" class="emoji-btn" onclick="setIcon('📋')">📋</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('✅')">✅</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🏠')">🏠</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('💼')">💼</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🛒')">🛒</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('🧹')">🧹</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('💪')">💪</button>
+                    <button type="button" class="emoji-btn" onclick="setIcon('📚')">📚</button>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-update">
+                <span>💾</span>
+                <span>Update Template Info</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Template Items -->
+    <div class="template-items-card">
+        <h2 class="card-title">Template Tasks ({{ items.count }})</h2>
+
+        <!-- Existing Items -->
+        <div class="items-list">
+            {% for item in items %}
+            <div class="item-row">
+                <div class="item-number">{{ forloop.counter }}</div>
+                <div class="item-info">
+                    <h3 class="item-title">{{ item.title }}</h3>
+                    {% if item.description %}
+                    <p class="item-description">{{ item.description|truncatewords:15 }}</p>
+                    {% endif %}
+                    <div class="item-badges">
+                        <span class="priority-badge priority-{{ item.priority }}">
+                            {{ item.get_priority_display }}
+                        </span>
+                        {% if item.is_recurring %}
+                        <span class="recurring-badge-small">🔄 Recurring</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="item-actions">
+                    <a href="{% url 'delete_template_item' template.id item.id %}" class="btn btn-danger btn-sm"
+                        onclick="return confirm('Remove this task from template?')">
+                        <span>🗑️</span>
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-items">
+                <p>No tasks in this template yet. Add your first task below!</p>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Add New Item Form -->
+        <div class="add-item-form">
+            <h3 class="form-subtitle">Add New Task</h3>
+            <form method="POST" class="item-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_item">
+
+                <div class="form-row">
+                    <div class="form-group flex-1">
+                        <label for="title" class="form-label">Task Title</label>
+                        <input type="text" id="title" name="title" class="form-input"
+                            placeholder="What needs to be done?" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="priority" class="form-label">Priority</label>
+                        <select id="priority" name="priority" class="form-select">
+                            <option value="low">Low</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="description" class="form-label">Description (Optional)</label>
+                    <textarea id="description" name="description" class="form-textarea" rows="2"
+                        placeholder="Add details..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                    <span>➕</span>
+                    <span>Add Task to Template</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="edit-actions">
+        <a href="{% url 'templates_list' %}" class="btn btn-secondary">
+            <span>←</span>
+            <span class="text1">Back to Templates</span>
+        </a>
+        <a href="{% url 'template_detail' template.id %}" class="btn btn-update">
+            <span>👁️</span>
+            <span>Preview Template</span>
+        </a>
+        <a href="{% url 'use_template' template.id %}" class="btn btn-primary">
+            <span>✨</span>
+            <span class="text1">Use This Template</span>
+        </a>
+    </div>
+</div>
+
+<script>
+    function setIcon(emoji) {
+        document.getElementById('icon').value = emoji;
+    }
+</script>
+{% endblock %}

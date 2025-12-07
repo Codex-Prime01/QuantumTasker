@@ -1,0 +1,145 @@
+{% extends 'tasks/base.html' %}
+
+{% block title %}Task Templates - Todo Manager{% endblock %}
+
+{% block content %}
+<div class="templates-container">
+
+    <!-- Header -->
+    <div class="templates-header">
+        <div class="header-content">
+            <div class="header-icon">📋</div>
+            <div class="header-text">
+                <h1 class="templates-title">Task Templates</h1>
+                <p class="templates-subtitle">Quick-start your productivity with pre-made task lists</p>
+            </div>
+        </div>
+
+        <div class="header-actions">
+            <a href="{% url 'create_template' %}" class="btn btn-primary">
+                <span>➕</span>
+                <span class="text1">Create Template</span>
+            </a>
+            <a href="{% url 'create_template_from_tasks' %}" class="btn btn-update">
+                <span>🔄</span>
+                <span class="text1">From Existing Tasks</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Default Templates Section -->
+    <div class="templates-section">
+        <h2 class="section-title">
+            <span class="section-icon">⭐</span>
+            <span>Default Templates</span>
+            <span class="section-count">{{ default_templates.count }}</span>
+        </h2>
+
+        <div class="templates-grid">
+            {% for template in default_templates %}
+            <div class="template-card">
+                <div class="template-icon">{{ template.icon }}</div>
+                <div class="template-info">
+                    <h3 class="template-name">{{ template.name }}</h3>
+                    <p class="template-description">{{ template.description|truncatewords:15 }}</p>
+                    <div class="template-meta">
+                        <span class="template-count">{{ template.items.count }} tasks</span>
+                    </div>
+                </div>
+                <div class="template-actions">
+                    <a href="{% url 'template_detail' template.id %}" class="btn btn-secondary btn-sm">
+                        <span>👁️</span>
+                        <span class="text1">View</span>
+                    </a>
+                    <a href="{% url 'use_template' template.id %}" class="btn btn-primary btn-sm">
+                        <span>✨</span>
+                        <span class="text1">Use Template</span>
+                    </a>
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state">
+                <p>No default templates available.</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- User Templates Section -->
+    {% if user_templates %}
+    <div class="templates-section">
+        <h2 class="section-title">
+            <span class="section-icon">👤</span>
+            <span>My Templates</span>
+            <span class="section-count">{{ user_templates.count }}</span>
+        </h2>
+
+        <div class="templates-grid">
+            {% for template in user_templates %}
+            <div class="template-card template-custom">
+                <div class="template-icon">{{ template.icon }}</div>
+                <div class="template-info">
+                    <h3 class="template-name">{{ template.name }}</h3>
+                    <p class="template-description">{{ template.description|truncatewords:15 }}</p>
+                    <div class="template-meta">
+                        <span class="template-count">{{ template.items.count }} tasks</span>
+                        <span class="template-date">Created {{ template.created|date:"M d, Y" }}</span>
+                    </div>
+                </div>
+                <div class="template-actions">
+                    <a href="{% url 'template_detail' template.id %}" class="btn btn-secondary btn-sm">
+                        <span>👁️</span>
+                        <span class="text1">View</span>
+                    </a>
+
+                    {% if not template.is_default %}
+                    <button
+                        onclick="shareTemplate('{{ template.name|escapejs }}', '{{ template.icon }}', {{ template.items.count }})"
+                        class="btn btn-secondary btn-sm">
+                        <span>🔗</span>
+                        <span>Share</span>
+                    </button>
+                    {% endif %}
+
+                    <a href="{% url 'edit_template' template.id %}" class="btn btn-update btn-sm">
+                        <span>✏️</span>
+                        <span class="text1">Edit</span>
+                    </a>
+                    <a href="{% url 'use_template' template.id %}" class="btn btn-primary btn-sm">
+                        <span>✨</span>
+                        <span class="text1">Use</span>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% else %}
+    <div class="templates-section">
+        <div class="empty-custom-templates">
+            <div class="empty-icon">📝</div>
+            <h3>No Custom Templates Yet</h3>
+            <p>Create your own templates to save time on recurring task lists!</p>
+            <div class="empty-actions">
+                <a href="{% url 'create_template' %}" class="btn btn-primary">
+                    <span>➕</span>
+                    <span class="text1">Create Your First Template</span>
+                </a>
+                <a href="{% url 'create_template_from_tasks' %}" class="btn btn-secondary">
+                    <span>🔄</span>
+                    <span class="text1">Create from Existing Tasks</span>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Back Button -->
+    <div class="templates-footer">
+        <a href="/" class="btn btn-secondary">
+            <span>←</span>
+            <span class="text1">Back to Tasks</span>
+        </a>
+    </div>
+</div>
+{% endblock %}
