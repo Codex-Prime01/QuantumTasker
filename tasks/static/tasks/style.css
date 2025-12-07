@@ -4592,19 +4592,25 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     flex-wrap: wrap;
 }
 
+/* Avatar Wrapper - CRITICAL FOR POSITIONING! */
 .avatar-wrapper {
     position: relative;
+    /* 👈 This makes the badge position relative to avatar */
     flex-shrink: 0;
+    display: inline-block;
+    /* 👈 Important! */
 }
 
+/* Profile Avatar */
 .profile-avatar {
     width: 150px;
     height: 150px;
     border-radius: 50%;
     background: linear-gradient(135deg, #00f5ff, #00a8ff);
+    display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.8rem;
+    font-size: 3rem;
     font-weight: 900;
     color: #0f0c29;
     object-fit: cover;
@@ -4618,10 +4624,14 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     box-shadow: 0 12px 40px rgba(0, 245, 255, 0.6);
 }
 
+/* Verification Badge - FIXED POSITIONING! */
 .avatar-badge {
     position: absolute;
-    bottom: 10px;
-    right: -5px;
+    /* 👈 Absolute to the avatar-wrapper */
+    bottom: 5px;
+    /* 👈 Distance from bottom */
+    right: 5px;
+    /* 👈 Distance from right */
     width: 35px;
     height: 35px;
     border-radius: 50%;
@@ -4630,39 +4640,27 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     justify-content: center;
     font-size: 1.2rem;
     font-weight: bold;
-    border: 3px solid #0f0c29;
-
-    background: #0077ff;
+    border: 3px solid var(--bg-primary);
+    background: linear-gradient(135deg, #1DA1F2, #0d8bd9);
+    /* 👈 Uses theme color */
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
 }
 
-
-.avatar-badge1 {
-    position: absolute;
-    bottom: 30px;
-    right: 227px;
-    width: 35px;
-    height: 35px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.2rem;
-    font-weight: bold;
-    border: 3px solid #0f0c29;
-
-    background: #0077ff;
-}
-
+/* Verified Badge (Blue Checkmark) */
 .verified-badge {
-    background: #0077ff;
+    background: linear-gradient(135deg, #1DA1F2, #0d8bd9);
+    /* Twitter/X blue */
     color: white;
 }
 
+/* Unverified Badge (Red Warning) */
 .unverified-badge {
-    background: linear-gradient(135deg, #F44336, #EF5350);
+    background: linear-gradient(135deg, #F44336, #d32f2f);
     color: white;
 }
 
+/* Profile Info */
 .profile-info {
     flex: 1;
 }
@@ -4690,6 +4688,157 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     margin: 0 0 15px 0;
 }
 
+/* ========================================
+   SIDEBAR AVATAR (base.html)
+======================================== */
+
+.user-profile {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+    /* 👈 Important! */
+}
+
+/* Sidebar Avatar */
+.user-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00f5ff, #00a8ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #0f0c29;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.4);
+    position: relative;
+    /* 👈 For badge positioning */
+}
+
+/* Sidebar Avatar */
+.user-avatar1 {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00f5ff, #00a8ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #0f0c29;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.4);
+    position: relative;
+    /* 👈 For badge positioning */
+}
+
+/* Sidebar Verification Badge */
+.avatar-badge1 {
+    position: absolute;
+    /* 👈 Absolute positioning */
+    bottom: 0px;
+    /* 👈 Stick to bottom */
+    left: 40px;
+    /* 👈 40px from left (60px avatar - 20px overlap) */
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    font-weight: bold;
+    border: 2px solid var(--bg-primary);
+    background: linear-gradient(135deg, #1DA1F2, #0d8bd9);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+}
+
+/* User Info in Sidebar */
+.user-info {
+    flex: 1;
+    min-width: 0;
+    /* Allows text truncation */
+}
+
+.user-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 5px 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-email {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ========================================
+   RESPONSIVE FIXES
+======================================== */
+
+@media (max-width: 768px) {
+    .profile-avatar-section {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+    }
+
+    .avatar-badge {
+        width: 30px;
+        height: 30px;
+        font-size: 1rem;
+    }
+
+    .profile-username {
+        font-size: 2rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-avatar {
+        width: 100px;
+        height: 100px;
+    }
+
+    .avatar-badge {
+        width: 26px;
+        height: 26px;
+        font-size: 0.9rem;
+        bottom: 3px;
+        right: 3px;
+    }
+
+    .user-avatar {
+        width: 50px;
+        height: 50px;
+        font-size: 1.5rem;
+    }
+
+    .avatar-badge1 {
+        width: 20px;
+        height: 20px;
+        font-size: 0.75rem;
+        left: 33px;
+        /* Adjust for smaller avatar */
+    }
+}
+
 .email-icon {
     font-size: 1.2rem;
 }
@@ -4708,7 +4857,8 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 /* Profile Statistics */
 .profile-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    /* 👈 Changed from 150px to 200px */
     gap: 20px;
 }
 
@@ -4716,11 +4866,13 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
     display: flex;
     align-items: center;
     gap: 15px;
-    padding: 20px;
+    padding: 12px;
     background: rgba(0, 245, 255, 0.05);
     border: 2px solid rgba(0, 245, 255, 0.2);
-    border-radius: 15px;
+    border-radius: 10px;
     transition: all 0.3s ease;
+    min-width: 0;
+    /* 👈 Allows text to shrink */
 }
 
 .stat-card:hover {
@@ -4731,27 +4883,134 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 }
 
 .stat-icon {
-    font-size: 2.5rem;
+    font-size: 1.0rem;
+
     filter: drop-shadow(0 0 10px rgba(0, 245, 255, 0.5));
 }
 
 .stat-info {
     flex: 1;
+    min-width: 0;
+    /* 👈 CRITICAL! Allows flex child to shrink below content size */
 }
 
 .stat-value {
-    font-size: 2rem;
-    font-weight: 900;
+    font-size: 1.2rem;
+    font-weight: 400;
     color: #00f5ff;
     line-height: 1;
+    /* 👈 Changed from 1 to 1.2 for better spacing */
     margin-bottom: 5px;
+    overflow: hidden;
+    /* 👈 Prevents overflow */
+    /* 👈 Shows ... if too long */
 }
 
 .stat-label {
-    font-size: 0.9rem;
+    font-size: 0.4rem;
+    /* 👈 Slightlysmaller */
     color: rgba(255, 255, 255, 0.6);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    overflow: hidden;
+    /* 👈 Prevents overflow */
+    /* 👈 Shows ... if too long */
+    /* 👈 Keeps on one line */
+}
+
+/* Responsive: Stack on mobile */
+@media (max-width: 768px) {
+    .profile-stats {
+        grid-template-columns: repeat(2, 1fr);
+        /* 👈 2 columns on tablet */
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-stats {
+        grid-template-columns: 1fr;
+        /* 👈 1 column on mobile */
+    }
+
+    .stat-card {
+        padding: 15px;
+    }
+
+    .stat-icon {
+        font-size: 1.5rem;
+    }
+
+    .stat-value {
+        font-size: 1.2rem;
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+    }
+}
+
+/* Universal Django Form Input Styling */
+input[type="text"],
+input[type="email"],
+input[type="url"],
+input[type="password"],
+input[type="number"],
+input[type="date"],
+input[type="datetime-local"],
+select,
+textarea {
+    width: 100%;
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(0, 245, 255, 0.3);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 1rem;
+    font-family: 'Rajdhani', sans-serif;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="url"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+input[type="date"]:focus,
+input[type="datetime-local"]:focus,
+select:focus,
+textarea:focus {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: #00f5ff;
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+    transform: translateY(-2px);
+}
+
+input::placeholder,
+textarea::placeholder {
+    color: var(--text-disabled);
+}
+
+/* Textarea specific */
+textarea {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.6;
+}
+
+/* Select dropdown */
+select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2300f5ff' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    padding-right: 40px;
+}
+
+/* File input */
+input[type="file"] {
+    padding: 10px;
+    cursor: pointer;
 }
 
 /* Edit Profile Section */
