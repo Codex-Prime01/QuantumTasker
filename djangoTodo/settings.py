@@ -9,7 +9,10 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
-
+import os
+import dj_database_url
+from pathlib import Path
+from decouple import config
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -141,22 +144,25 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 10,
 }
-
 # ========================================
-# EMAIL CONFIGURATION
+# EMAIL CONFIGURATION - REAL GMAIL
 # ========================================
 
-# For development - emails print to console
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+import os
+from pathlib import Path
+
+# For production - real email sending via Gmail
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')  # 👈 From .env
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')  # 👈 From .env
+DEFAULT_FROM_EMAIL = 'Quantum Manager <quantummanagerapp@gmail.com>'  # 👈 CHANGE THIS
+SERVER_EMAIL = 'quantummanagerapp@gmail.com'  # 👈 CHANGE THIS
 
 # Email settings
-DEFAULT_FROM_EMAIL = 'noreply@todomanager.com'
-EMAIL_HOST_USER = 'Todo Manager'
-
-# ========================================
-# MEDIA FILES (User Uploads)
-# ========================================
-
+EMAIL_TIMEOUT = 10  # seconds
 import os
 
 MEDIA_URL = '/media/'
