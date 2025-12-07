@@ -835,7 +835,7 @@ def quick_toggle_complete(request, pk):
                 if new_achievements:
                     achievement_names = ', '.join([a.icon + ' ' + a.name for a in new_achievements])
                     message += f'\n🎉 New Achievement{"s" if len(new_achievements) > 1 else ""}: {achievement_names}!'
-                
+                 
                 return JsonResponse({
                     'success': True,
                     'complete': task.complete,

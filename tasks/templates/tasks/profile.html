@@ -13,7 +13,7 @@
                 <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
                     class="profile-avatar has-image">
                 {% else %}
-                <div class="user-avatar">
+                <div class="user-avatar1">
                     {{ request.user.username|upper|slice:":2"|default:"?" }}
                 </div>
                 {% endif %}
@@ -70,7 +70,7 @@
                 <div class="stat-icon">📊</div>
                 <div class="stat-info">
                     <div class="stat-value">{{ completion_rate }}%</div>
-                    <div class="stat-label">Completion</div>
+                    <div class="stat-label">Completed</div>
                 </div>
             </div>
         </div>
