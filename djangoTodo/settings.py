@@ -35,6 +35,10 @@ ALLOWED_HOSTS = [
     '.up.railway.app',  # Railway custom domains
 ]
 
+# Add Railway domain from environment
+RAILWAY_DOMAIN = config('RAILWAY_DOMAIN', default='')
+if RAILWAY_DOMAIN:
+    ALLOWED_HOSTS.append(RAILWAY_DOMAIN)
 
 # Application definition
 
