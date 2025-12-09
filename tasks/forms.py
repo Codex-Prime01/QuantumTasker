@@ -288,3 +288,33 @@ class PrivacySettingsForm(forms.ModelForm):
             'show_email': 'Make your email visible to other users',
             'allow_shared_lists': 'Enable collaboration features',
         }
+        
+
+class NoteForm(forms.ModelForm):
+    class Meta:
+        model = Note
+        fields = ['title', 'content', 'category', 'color', 'tags', 'is_pinned']
+        widgets = {
+            'title': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Give your note a title...'
+            }),
+            'content': forms.Textarea(attrs={
+                'class': 'form-textarea',
+                'rows': 6,
+                'placeholder': 'Write your thoughts, memories, or ideas here...'
+            }),
+            'category': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'color': forms.Select(attrs={
+                'class': 'form-select'
+            }),
+            'tags': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'birthday, important, inspiration (comma-separated)'
+            }),
+            'is_pinned': forms.CheckboxInput(attrs={
+                'class': 'form-checkbox'
+            })
+        }
