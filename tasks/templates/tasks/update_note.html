@@ -1,0 +1,105 @@
+{% extends 'tasks/base.html' %}
+{% load static %}
+
+{% block title %}Update Note - Quantum Manager{% endblock %}
+
+{% block content %}
+<div class="create-task-container">
+    <!-- Back Button -->
+    <a href="/notes/" class="back-button">
+        <span>←</span>
+        <span>Back to Notes</span>
+    </a>
+
+    <!-- Update Note Card -->
+    <div class="create-task-card">
+        <div class="create-header">
+            <div class="create-icon">✏️</div>
+            <h1 class="create-title">Update Note</h1>
+            <p class="create-subtitle">Edit your note</p>
+        </div>
+
+        <form method="POST" class="create-form">
+            {% csrf_token %}
+
+            <!-- Title -->
+            <div class="form-group-create">
+                <label for="{{ form.title.id_for_label }}" class="form-label-create">
+                    <span class="label-icon">✏️</span>
+                    <span class="label-text">Note Title</span>
+                    <span class="label-required">*</span>
+                </label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                <div class="field-error">{{ form.title.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Content -->
+            <div class="form-group-create">
+                <label for="{{ form.content.id_for_label }}" class="form-label-create">
+                    <span class="label-icon">📄</span>
+                    <span class="label-text">Content</span>
+                    <span class="label-required">*</span>
+                </label>
+                {{ form.content }}
+                {% if form.content.errors %}
+                <div class="field-error">{{ form.content.errors.0 }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Category & Color -->
+            <div class="form-row-create">
+                <div class="form-group-create">
+                    <label for="{{ form.category.id_for_label }}" class="form-label-create">
+                        <span class="label-icon">📂</span>
+                        <span class="label-text">Category</span>
+                    </label>
+                    {{ form.category }}
+                </div>
+
+                <div class="form-group-create">
+                    <label for="{{ form.color.id_for_label }}" class="form-label-create">
+                        <span class="label-icon">🎨</span>
+                        <span class="label-text">Color</span>
+                    </label>
+                    {{ form.color }}
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="form-group-create">
+                <label for="{{ form.tags.id_for_label }}" class="form-label-create">
+                    <span class="label-icon">🏷️</span>
+                    <span class="label-text">Tags</span>
+                    <span class="label-optional">(optional)</span>
+                </label>
+                {{ form.tags }}
+                <p class="field-hint">Separate tags with commas</p>
+            </div>
+
+            <!-- Pin Checkbox -->
+            <div class="form-group-create">
+                <label class="checkbox-label">
+                    {{ form.is_pinned }}
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">📌 Pin this note to the top</span>
+                </label>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="create-actions">
+                <button type="submit" class="btn-create-submit">
+                    <span class="btn-icon">💾</span>
+                    <span class="btn-text">Update Note</span>
+                </button>
+
+                <a href="/notes/" class="btn-create-cancel">
+                    <span class="btn-icon">❌</span>
+                    <span class="btn-text">Cancel</span>
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,128 @@
+{% extends 'tasks/base.html' %}
+{% load static %}
+
+{% block title %}Create Note - Quantum Manager{% endblock %}
+
+{% block content %}
+<div class="create-task-container">
+    <!-- Back Button -->
+    <a href="/notes/" class="back-button">
+        <span>←</span>
+        <span>Back to Notes</span>
+    </a>
+
+    <!-- Create Note Card -->
+    <div class="create-task-card">
+        <div class="create-header">
+            <div class="create-icon">📝</div>
+            <h1 class="create-title">Create New Note</h1>
+            <p class="create-subtitle">Quick notes, memories, and ideas</p>
+        </div>
+
+        <form method="POST" class="create-form">
+            {% csrf_token %}
+
+            <!-- Title -->
+            <div class="form-group-create">
+                <label for="{{ form.title.id_for_label }}" class="form-label-create">
+                    <span class="label-icon">✏️</span>
+                    <span class="label-text">Note Title</span>
+                    <span class="label-required">*</span>
+                </label>
+                {{ form.title }}
+                {% if form.title.errors %}
+                <div class="field-error">{{ form.title.errors.0 }}</div>
+                {% endif %}
+                <p class="field-hint">Give your note a memorable title</p>
+            </div>
+
+            <!-- Content -->
+            <div class="form-group-create">
+                <label for="{{ form.content.id_for_label }}" class="form-label-create">
+                    <span class="label-icon">📄</span>
+                    <span class="label-text">Content</span>
+                    <span class="label-required">*</span>
+                </label>
+                {{ form.content }}
+                {% if form.content.errors %}
+                <div class="field-error">{{ form.content.errors.0 }}</div>
+                {% endif %}
+                <p class="field-hint">Write your thoughts, memories, or ideas here</p>
+            </div>
+
+            <!-- Category & Color -->
+            <div class="form-row-create">
+                <div class="form-group-create">
+                    <label for="{{ form.category.id_for_label }}" class="form-label-create">
+                        <span class="label-icon">📂</span>
+                        <span class="label-text">Category</span>
+                    </label>
+                    {{ form.category }}
+                    {% if form.category.errors %}
+                    <div class="field-error">{{ form.category.errors.0 }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="form-group-create">
+                    <label for="{{ form.color.id_for_label }}" class="form-label-create">
+                        <span class="label-icon">🎨</span>
+                        <span class="label-text">Color</span>
+                    </label>
+                    {{ form.color }}
+                    {% if form.color.errors %}
+                    <div class="field-error">{{ form.color.errors.0 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tags -->
+            <div class="form-group-create">
+                <label for="{{ form.tags.id_for_label }}" class="form-label-create">
+                    <span class="label-icon">🏷️</span>
+                    <span class="label-text">Tags</span>
+                    <span class="label-optional">(optional)</span>
+                </label>
+                {{ form.tags }}
+                {% if form.tags.errors %}
+                <div class="field-error">{{ form.tags.errors.0 }}</div>
+                {% endif %}
+                <p class="field-hint">Separate tags with commas (e.g., birthday, important, inspiration)</p>
+            </div>
+
+            <!-- Pin Checkbox -->
+            <div class="form-group-create">
+                <label class="checkbox-label">
+                    {{ form.is_pinned }}
+                    <span class="checkbox-custom"></span>
+                    <span class="checkbox-text">📌 Pin this note to the top</span>
+                </label>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="create-actions">
+                <button type="submit" class="btn-create-submit">
+                    <span class="btn-icon">💾</span>
+                    <span class="btn-text">Create Note</span>
+                </button>
+
+                <a href="/notes/" class="btn-create-cancel">
+                    <span class="btn-icon">❌</span>
+                    <span class="btn-text">Cancel</span>
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Quick Tips -->
+    <div class="quick-tips">
+        <h3 class="tips-title">💡 Tips for Great Notes</h3>
+        <ul class="tips-list">
+            <li>Use descriptive titles so you can find notes easily later</li>
+            <li>Add tags for better organization and searchability</li>
+            <li>Pin important notes to keep them at the top</li>
+            <li>Use different colors to visually categorize your notes</li>
+            <li>Notes are perfect for things that don't need deadlines or completion tracking</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

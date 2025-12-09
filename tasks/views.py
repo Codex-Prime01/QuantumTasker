@@ -1136,3 +1136,141 @@ def achievements_view(request):
 def offline_page(request):
     """Offline page for PWA"""
     return render(request, 'tasks/offline.html')
+
+@login_required
+def notes_list(request):
+    """View all notes"""
+    notes = Note.objects.filter(user=request.user, is_archived=False)
+    
+    # Filter by category
+    category = request.GET.get('category')
+    if category:
+        notes = notes.filter(category=category)
+    
+    # Search
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        notes = notes.filter(
+            Q(title__icontains=search_query) | 
+            Q(content__icontains=search_query) |
+            Q(tags__icontains=search_query)
+        )
+    
+    # Stats
+    total_notes = Note.objects.filter(user=request.user, is_archived=False).count()
+    pinned_count = notes.filter(is_pinned=True).count()
+    
+    context = {
+        'notes': notes,
+        'total_notes': total_notes,
+        'pinned_count': pinned_count,
+        'search_query': search_query,
+        'selected_category': category,
+    }
+    
+    return render(request, 'tasks/notes_list.html', context)
+
+
+@login_required
+def create_note(request):
+    """Create a new note"""
+    if request.method == 'POST':
+        form = NoteForm(request.POST)
+        if form.is_valid():
+            note = form.save(commit=False)
+            note.user = request.user
+            note.save()
+            messages.success(request, f'✅ Note "{note.title}" created!')
+            return redirect('notes_list')
+        else:
+            messages.error(request, '❌ Failed to create note.')
+    else:
+        form = NoteForm()
+    
+    return render(request, 'tasks/create_note.html', {'form': form})
+
+
+@login_required
+def update_note(request, pk):
+    """Update a note"""
+    note = Note.objects.get(id=pk, user=request.user)
+    
+    if request.method == 'POST':
+        form = NoteForm(request.POST, instance=note)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'✅ Note "{note.title}" updated!')
+            return redirect('notes_list')
+    else:
+        form = NoteForm(instance=note)
+    
+    return render(request, 'tasks/update_note.html', {'form': form, 'note': note})
+
+
+@login_required
+def delete_note(request, pk):
+    """Delete a note"""
+    note = Note.objects.get(id=pk, user=request.user)
+    
+    if request.method == 'POST':
+        note_title = note.title
+        note.delete()
+        messages.success(request, f'🗑️ Note "{note_title}" deleted!')
+        return redirect('notes_list')
+    
+    return render(request, 'tasks/delete_note.html', {'note': note})
+
+
+@login_required
+@require_POST
+def toggle_pin_note(request, pk):
+    """Toggle pin status (AJAX)"""
+    note = Note.objects.get(id=pk, user=request.user)
+    note.is_pinned = not note.is_pinned
+    note.save()
+    
+    return JsonResponse({
+        'success': True,
+        'is_pinned': note.is_pinned
+    })
+    
+@login_required
+def archive_note(request, pk):
+    """Archive a note"""
+    note = Note.objects.get(id=pk, user=request.user)
+    note.is_archived = True
+    note.save()
+    messages.success(request, f'📦 Note "{note.title}" archived!')
+    return redirect('notes_list')
+
+
+@login_required
+def unarchive_note(request, pk):
+    """Unarchive a note"""
+    note = Note.objects.get(id=pk, user=request.user)
+    note.is_archived = False
+    note.save()
+    messages.success(request, f'📂 Note "{note.title}" restored!')
+    return redirect('archived_notes')
+
+
+@login_required
+def archived_notes(request):
+    """View archived notes"""
+    notes = Note.objects.filter(user=request.user, is_archived=True)
+    
+    # Search
+    search_query = request.GET.get('search', '').strip()
+    if search_query:
+        notes = notes.filter(
+            Q(title__icontains=search_query) | 
+            Q(content__icontains=search_query)
+        )
+    
+    context = {
+        'notes': notes,
+        'total_notes': notes.count(),
+        'search_query': search_query,
+    }
+    
+    return render(request, 'tasks/archived_notes.html', context)

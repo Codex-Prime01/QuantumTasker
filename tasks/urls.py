@@ -38,5 +38,16 @@ urlpatterns = [
     path('achievements/', views.achievements_view, name='achievements'),
       
     path('offline/', views.offline_page, name='offline'),
+    # Notes URLs
+path('notes/', views.notes_list, name='notes_list'),
+path('notes/create/', views.create_note, name='create_note'),
+path('notes/<int:pk>/update/', views.update_note, name='update_note'),
+path('notes/<int:pk>/delete/', views.delete_note, name='delete_note'),
+path('notes/<int:pk>/toggle-pin/', views.toggle_pin_note, name='toggle_pin_note'),
+
+    path('notes/<int:pk>/archive/', views.archive_note, name='archive_note'),
+    path('notes/<int:pk>/unarchive/', views.unarchive_note, name='unarchive_note'),
+    path('notes/archived/', views.archived_notes, name='archived_notes'),
+
 
 ]

@@ -145,6 +145,10 @@
                 <span class="nav-text">My Tasks</span>
             </a>
 
+            <a href="/notes/" class="nav-item {% if request.path == '/notes/' %}active{% endif %}">
+                <span class="nav-icon">📝</span>
+                <span class="nav-text">Notes</span>
+            </a>
             <a href="/templates/" class="nav-item {% if request.path == '/templates/' %}active{% endif %}">
                 <span class="nav-icon">✨</span>
                 <span class="nav-text">Templates</span>
@@ -205,6 +209,13 @@
     <!-- Floating Action Button (FAB) -->
     {% if request.path == '/' %}
     <a href="/create/" class="fab" title="Create New Task">
+        <span class="fab-icon">+</span>
+        <span class="fab-pulse"></span>
+    </a>
+
+
+    {% elif '/notes/' in request.path %}
+    <a href="/notes/create/" class="fab" title="Create New Note">
         <span class="fab-icon">+</span>
         <span class="fab-pulse"></span>
     </a>

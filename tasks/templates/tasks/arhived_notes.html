@@ -1,0 +1,92 @@
+{% extends 'tasks/base.html' %}
+{% load static %}
+
+{% block title %}Archived Notes - Quantum Manager{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Back Button -->
+    <a href="/notes/" class="back-button" style="margin-bottom: 20px; display: inline-flex;">
+        <span>←</span>
+        <span>Back to Notes</span>
+    </a>
+
+    <!-- Page Header -->
+    <header class="page-header">
+        <h1 class="page-title">
+            <span class="glow">📦 Archived</span> Notes
+        </h1>
+        <p style="text-align: center; color: rgba(255, 255, 255, 0.7); margin-top: 10px;">
+            Notes you've archived - restore them anytime!
+        </p>
+    </header>
+
+    <!-- Stats -->
+    <div class="stats-container">
+        <div class="stat-box">
+            <span class="stat-number">{{ total_notes }}</span>
+            <span class="stat-label">Archived</span>
+        </div>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="search-container">
+        <form action="/notes/archived/" method="GET" class="search-form">
+            <div class="search-input-wrapper">
+                <span class="search-icon">🔍</span>
+                <input type="text" name="search" class="search-input"
+                    placeholder="Search archived notes..." 
+                    value="{{ search_query }}" autocomplete="off">
+                {% if search_query %}
+                <a href="/notes/archived/" class="clear-search" title="Clear search">✕</a>
+                {% endif %}
+            </div>
+            <button type="submit" class="search-btn">Search</button>
+        </form>
+    </div>
+
+    <!-- Notes Grid -->
+    <div class="notes-grid">
+        {% for note in notes %}
+        <div class="note-card archived-note" style="--note-color: {{ note.color }};">
+            <div class="note-header">
+                <h3 class="note-title">{{ note.title }}</h3>
+                <span class="note-category">{{ note.get_category_display }}</span>
+            </div>
+
+            <div class="note-content">
+                {{ note.content|linebreaks }}
+            </div>
+
+            {% if note.tags %}
+            <div class="note-tags">
+                {% for tag in note.get_tags_list %}
+                <span class="note-tag">{{ tag }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="note-footer">
+                <span class="note-date">🕐 Archived {{ note.updated|timesince }} ago</span>
+                <div class="note-actions">
+                    <a href="/notes/{{ note.id }}/unarchive/" class="note-action-btn" title="Restore">
+                        📂
+                    </a>
+                    <a href="/notes/{{ note.id }}/delete/" class="note-action-btn" title="Delete Permanently">
+                        🗑️
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state">
+            <div class="empty-tasks">
+                <div class="empty-icon">📦</div>
+                <h3>No archived notes</h3>
+                <p>Notes you archive will appear here</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

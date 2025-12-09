@@ -454,3 +454,52 @@ class UserStats(models.Model):
                 unlocked.append(achievement)
         
         return unlocked
+
+
+
+class Note(models.Model):
+    """Quick notes and memories - not full tasks"""
+    
+    CATEGORY_CHOICES = [
+        ('personal', '👤 Personal'),
+        ('ideas', '💡 Ideas'),
+        ('dates', '📅 Important Dates'),
+        ('quotes', '💬 Quotes'),
+        ('reference', '📚 Reference'),
+        ('other', '🔖 Other'),
+    ]
+    
+    COLOR_CHOICES = [
+        ('#FFD700', '🟡 Yellow'),
+        ('#FF69B4', '🔴 Pink'),
+        ('#87CEEB', '🔵 Blue'),
+        ('#98FB98', '🟢 Green'),
+        ('#DDA0DD', '🟣 Purple'),
+        ('#FFB6C1', '🟠 Coral'),
+    ]
+    
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notes')
+    title = models.CharField(max_length=200)
+    content = models.TextField(help_text="Write your note, memory, or idea here")
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='personal')
+    color = models.CharField(max_length=7, choices=COLOR_CHOICES, default='#FFD700')
+    
+    is_pinned = models.BooleanField(default=False, help_text="Pin to top")
+    is_archived = models.BooleanField(default=False)
+    
+    tags = models.CharField(max_length=200, blank=True, help_text="Comma-separated tags")
+    
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-is_pinned', '-created']
+    
+    def __str__(self):
+        return self.title
+    
+    def get_tags_list(self):
+        """Return tags as a list"""
+        if self.tags:
+            return [tag.strip() for tag in self.tags.split(',')]
+        return []
