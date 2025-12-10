@@ -26,6 +26,8 @@ from .forms import (
 )
 
 from .models import TaskTemplate, TemplateItem
+import uuid  # Add this at the top
+from django.utils import timezone  # Add this too
 
 
 # Create your views here.           
@@ -172,35 +174,45 @@ def deleteTask(request, pk):
     context = {'item' : item}
     return render(request, 'tasks/delete.html', context)
 
-# user registration view
+# REPLACE your registerUser view with this:
+
 def registerUser(request):
     if request.method == 'POST':
-        form = CustomUserForm(request.POST) #use our custom user form
+        form = CustomUserForm(request.POST)
         if form.is_valid():
             user = form.save()
             
-             # Get or create profile (should be created by signal, but just in case)
+            # Get or create profile
             from .models import UserProfile
             profile, created = UserProfile.objects.get_or_create(user=user)
             
-            # Send verification email
-            send_verification_email(request, user)
+            # 👇 TRY to send email, but don't crash if it fails!
+            try:
+                send_verification_email(request, user)
+                messages.info(
+                    request, 
+                    f'📧 Welcome {user.username}! Please check your email to verify your account.'
+                )
+            except Exception as e:
+                # Email failed, but that's okay - let them login anyway
+                print(f"Email failed: {str(e)}")  # Log the error
+                messages.warning(
+                    request,
+                    f'✅ Account created! Email verification is temporarily unavailable. You can login now.'
+                )
+                # Mark as verified so they can login
+                profile.email_verified = True
+                profile.save()
             
-            # Show message and redirect to verification page
-            messages.info(
-                request, 
-                f'📧 Welcome {user.username}! Please check your email to verify your account.'
-            )
-            return redirect('verification_sent')
+            return redirect('login')  # 👈 Changed to go straight to login
            
         else:
             messages.error(request, '❌ Registration failed. Please check the form.')
     else:
-        form = CustomUserForm()#empty form for GET request
-    context = {'form': form} #context to pass to template
+        form = CustomUserForm()
     
-    return render(request, 'tasks/register.html', context) #render the registration template
-
+    context = {'form': form}
+    return render(request, 'tasks/register.html', context)
 
 
 
@@ -448,14 +460,24 @@ def resend_verification(request):
     return render(request, 'tasks/resend_verification.html')
 
 
+# REPLACE your send_verification_email function with this:
 
 def send_verification_email(request, user):
     """Send verification email to user"""
+    from django.conf import settings
+    
     profile = user.profile
     
-    # Build verification URL
-    current_site = get_current_site(request)
-    verification_url = f"http://{current_site.domain}/verify-email/{profile.verification_token}/"
+    # 👇 FIXED: Build proper domain for production
+    if settings.DEBUG:
+        domain = request.get_host()  # localhost:8000
+        protocol = 'http'
+    else:
+        # Production: Use your actual Render URL
+        domain = os.environ.get('RENDER_EXTERNAL_HOSTNAME', request.get_host())
+        protocol = 'https'
+    
+    verification_url = f"{protocol}://{domain}/verify-email/{profile.verification_token}/"
     
     # Email subject
     subject = 'Verify Your Email - Quantum Manager'
@@ -469,15 +491,21 @@ def send_verification_email(request, user):
     # Plain text version
     plain_message = strip_tags(html_message)
     
-    # Send email
-    send_mail(
-        subject,
-        plain_message,
-        'noreply@quantummanager.com',
-        [user.email],
-        html_message=html_message,
-        fail_silently=False,
-    )
+    # Send email with timeout
+    try:
+        send_mail(
+            subject,
+            plain_message,
+            settings.DEFAULT_FROM_EMAIL,  # Use settings instead of hardcoded
+            [user.email],
+            html_message=html_message,
+            fail_silently=False,
+            timeout=10,  # 👈 Add timeout
+        )
+    except Exception as e:
+        # Log the error and re-raise
+        print(f"Failed to send email to {user.email}: {str(e)}")
+        raise  # Re-raise so the calling function can handle it
 
 def forgot_password(request):
     """Request password reset - enter email"""
@@ -517,19 +545,23 @@ def forgot_password(request):
     
     return render(request, 'tasks/forgot_password.html')
 
+# REPLACE your send_password_reset_email function with this:
 
 def send_password_reset_email(request, user):
     """Send password reset email to user"""
-    from django.core.mail import send_mail
-    from django.template.loader import render_to_string
-    from django.utils.html import strip_tags
-    from django.contrib.sites.shortcuts import get_current_site
+    from django.conf import settings
     
     profile = user.profile
     
-    # Build reset URL
-    current_site = get_current_site(request)
-    reset_url = f"http://{current_site.domain}/reset-password/{profile.reset_token}/"
+    # 👇 FIXED: Build proper domain for production
+    if settings.DEBUG:
+        domain = request.get_host()
+        protocol = 'http'
+    else:
+        domain = os.environ.get('RENDER_EXTERNAL_HOSTNAME', request.get_host())
+        protocol = 'https'
+    
+    reset_url = f"{protocol}://{domain}/reset-password/{profile.reset_token}/"
     
     # Email subject
     subject = 'Reset Your Password - Quantum Manager'
@@ -544,15 +576,19 @@ def send_password_reset_email(request, user):
     plain_message = strip_tags(html_message)
     
     # Send email
-    send_mail(
-        subject,
-        plain_message,
-        'noreply@quantummanager.com',
-        [user.email],
-        html_message=html_message,
-        fail_silently=False,
-    )
-
+    try:
+        send_mail(
+            subject,
+            plain_message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            html_message=html_message,
+            fail_silently=False,
+            timeout=10,
+        )
+    except Exception as e:
+        print(f"Failed to send password reset email to {user.email}: {str(e)}")
+        raise
 
 def reset_link_sent(request):
     """Page shown after requesting password reset"""
