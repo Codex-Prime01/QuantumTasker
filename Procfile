@@ -1,2 +1,1 @@
-release: python manage.py migrate && python manage.py collectstatic --noinput
-web: gunicorn djangoTodo.wsgi:application --log-file -
+web: gunicorn djangoTodo.wsgi:application --bind 0.0.0.0:$PORT
