@@ -398,6 +398,54 @@ def quick_toggle_complete(request, pk):
         }, status=500)
         """
 
+def send_verification_email(request, user):
+    """Send verification email to user"""
+    profile = user.profile
+    
+    # Build proper domain for production
+    if settings.DEBUG:
+        domain = request.get_host()
+        protocol = 'http'
+    else:
+        domain = os.environ.get('RENDER_EXTERNAL_HOSTNAME', request.get_host())
+        protocol = 'https'
+    
+    verification_url = f"{protocol}://{domain}/verify-email/{profile.verification_token}/"
+    
+    subject = 'Verify Your Email - Quantum Manager'
+    
+    # Simple text message instead of HTML template
+    message = f"""
+Hi {user.username}!
+
+Welcome to Quantum Manager! Please verify your email by clicking the link below:
+
+{verification_url}
+
+If you didn't create this account, please ignore this email.
+
+Thanks,
+The Quantum Manager Team
+    """
+    
+    # Send with timeout and error handling
+    try:
+        from django.core.mail import EmailMessage
+        
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
+        )
+        email.send(fail_silently=False, timeout=10)
+        print(f"✅ Verification email sent to {user.email}")
+        
+    except Exception as e:
+        print(f"❌ Email failed: {str(e)}")
+        raise  # Re-raise so calling function can handle it
+
+
 def verification_sent(request):
     """Page shown after registration"""
     return render(request, 'tasks/verification_sent.html')
@@ -492,6 +540,8 @@ def registerUser(request):
     
     context = {'form': form}
     return render(request, 'tasks/register.html', context)
+
+
 def forgot_password(request):
     """Request password reset - enter email"""
     if request.method == 'POST':

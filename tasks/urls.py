@@ -54,6 +54,7 @@ path('notes/<int:pk>/toggle-pin/', views.toggle_pin_note, name='toggle_pin_note'
     
     path('notes/<int:pk>/export/', views.export_note_as_text, name='export_note'),
     path('notes/export-all/', views.export_all_notes, name='export_all_notes'),
+    path('notes/<int:pk>/convert-to-task/', views.convert_note_to_task, name='convert_note_to_task'),
     
     
     

@@ -122,7 +122,8 @@
                         <div class="current-avatar">
                             {% if request.user.profile.get_avatar_url %}
                             <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
-                                class="profile-avatar has-image">
+                                class="profile-avatar has-image"
+                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
                             {% else %}
                             <div class="user-avatar">
                                 {{ request.user.username|upper|slice:":2"|default:"?" }}
