@@ -3230,7 +3230,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 
 @media (max-width: 480px) {
     .sidebar {
-        width: 50%;
+        width: 70%;
         left: -100%;
     }
 
@@ -6334,7 +6334,7 @@ input[type="file"] {
 /* Template Card */
 .template-card {
     background: var(--bg-card);
-    border: 2px solid var(--border-primary);
+    border: 2px solid red;
     border-radius: 15px;
     padding: 25px;
     transition: all 0.3s ease;
@@ -6343,13 +6343,13 @@ input[type="file"] {
 
 .template-card:hover {
     background: var(--bg-card-hover);
-    border-color: var(--border-accent);
+    border-color: white;
     transform: translateY(-5px);
     box-shadow: var(--shadow-lg);
 }
 
 .template-custom {
-    border-left: 4px solid var(--accent-primary);
+    border-left: 4px solid whitesmoke;
 }
 
 .template-icon {
