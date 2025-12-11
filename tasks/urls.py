@@ -1,7 +1,10 @@
 from django.urls import path
 from . import views
 from django.contrib.auth import views as auth_views
-
+from django.contrib import admin
+from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     path('', views.index, name='list'),
@@ -48,6 +51,18 @@ path('notes/<int:pk>/toggle-pin/', views.toggle_pin_note, name='toggle_pin_note'
     path('notes/<int:pk>/archive/', views.archive_note, name='archive_note'),
     path('notes/<int:pk>/unarchive/', views.unarchive_note, name='unarchive_note'),
     path('notes/archived/', views.archived_notes, name='archived_notes'),
-
-
+    
+    path('notes/<int:pk>/export/', views.export_note_as_text, name='export_note'),
+    path('notes/export-all/', views.export_all_notes, name='export_all_notes'),
+    
+    
+    
 ]
+
+if settings.DEBUG:
+    # Development: Django serves media files
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+else:
+    # Production: Still need to serve media files
+    # WhiteNoise handles static files, but NOT media files
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

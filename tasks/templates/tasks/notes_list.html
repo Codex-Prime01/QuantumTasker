@@ -6,7 +6,7 @@
 {% block content %}
 <div class="container">
     {% csrf_token %}
-    
+
     <!-- Page Header -->
     <header class="page-header">
         <h1 class="page-title">
@@ -39,8 +39,8 @@
             <div class="search-input-wrapper">
                 <span class="search-icon">🔍</span>
                 <input type="text" name="search" class="search-input"
-                    placeholder="Search notes by title, content, or tags..." 
-                    value="{{ search_query }}" autocomplete="off">
+                    placeholder="Search notes by title, content, or tags..." value="{{ search_query }}"
+                    autocomplete="off">
                 {% if search_query %}
                 <a href="/notes/" class="clear-search" title="Clear search">✕</a>
                 {% endif %}
@@ -53,7 +53,8 @@
 
         {% if search_query %}
         <div class="search-results-info">
-            <p>Found <strong>{{ notes.count }}</strong> result{{ notes.count|pluralize }} for "<strong>{{ search_query }}</strong>"</p>
+            <p>Found <strong>{{ notes.count }}</strong> result{{ notes.count|pluralize }} for "<strong>{{ search_query
+                    }}</strong>"</p>
         </div>
         {% endif %}
     </div>
@@ -99,14 +100,21 @@
         </div>
     </div>
 
+    <!-- Export Button -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        <a href="/notes/export-all/" class="btn btn-update" style="display: inline-flex;">
+            <span>📤</span>
+            <span>Export All Notes</span>
+        </a>
+    </div>
+
     <!-- Notes Grid (Masonry Layout) -->
     <div class="notes-grid">
         {% for note in notes %}
         <div class="note-card" style="--note-color: {{ note.color }};" data-note-id="{{ note.id }}">
             <!-- Pin Button -->
-            <button class="pin-btn {% if note.is_pinned %}pinned{% endif %}" 
-                    onclick="togglePin({{ note.id }})" 
-                    title="{% if note.is_pinned %}Unpin{% else %}Pin to top{% endif %}">
+            <button class="pin-btn {% if note.is_pinned %}pinned{% endif %}" onclick="togglePin({{ note.id }})"
+                title="{% if note.is_pinned %}Unpin{% else %}Pin to top{% endif %}">
                 📌
             </button>
 
@@ -139,16 +147,24 @@
                     <a href="/notes/{{ note.id }}/update/" class="note-action-btn" title="Edit">
                         ✏️
                     </a>
-                <div class="note-actions">
+
+                    <a href="/notes/{{ note.id }}/convert-to-task/" class="note-action-btn" title="Convert to Task">
+                        ✅
+                    </a>
+
                     <a href="/notes/{{ note.id }}/archive/" class="note-action-btn" title="Edit">
                         📦
                     </a>
-                    <button onclick="shareNote('{{ note.title|escapejs }}', '{{ note.get_category_display }}')" 
-                            class="note-action-btn" title="Share">
+                    <button onclick="shareNote('{{ note.title|escapejs }}', '{{ note.get_category_display }}')"
+                        class="note-action-btn" title="Share">
                         🔗
                     </button>
                     <a href="/notes/{{ note.id }}/delete/" class="note-action-btn" title="Delete">
                         🗑️
+                    </a>
+
+                    <a href="/notes/{{ note.id }}/export/" class="note-action-btn" title="Export as Text">
+                        📥
                     </a>
                 </div>
             </div>
@@ -176,83 +192,83 @@
 </div>
 
 <script>
-// Toggle pin status
-function togglePin(noteId) {
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    // Toggle pin status
+    function togglePin(noteId) {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    fetch(`/notes/${noteId}/toggle-pin/`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken,
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            const pinBtn = document.querySelector(`[data-note-id="${noteId}"] .pin-btn`);
-            if (data.is_pinned) {
-                pinBtn.classList.add('pinned');
-                pinBtn.title = 'Unpin';
-                showToast('📌 Note pinned to top!', 'success');
-            } else {
-                pinBtn.classList.remove('pinned');
-                pinBtn.title = 'Pin to top';
-                showToast('📌 Note unpinned!', 'info');
+        fetch(`/notes/${noteId}/toggle-pin/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
             }
-            // Reload after 1 second to reorder
-            setTimeout(() => location.reload(), 1000);
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        showToast('❌ Failed to pin note', 'error');
-    });
-}
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const pinBtn = document.querySelector(`[data-note-id="${noteId}"] .pin-btn`);
+                    if (data.is_pinned) {
+                        pinBtn.classList.add('pinned');
+                        pinBtn.title = 'Unpin';
+                        showToast('📌 Note pinned to top!', 'success');
+                    } else {
+                        pinBtn.classList.remove('pinned');
+                        pinBtn.title = 'Pin to top';
+                        showToast('📌 Note unpinned!', 'info');
+                    }
+                    // Reload after 1 second to reorder
+                    setTimeout(() => location.reload(), 1000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('❌ Failed to pin note', 'error');
+            });
+    }
 
-// Share note
-async function shareNote(title, category) {
-    const shareData = {
-        title: 'Quantum Manager - My Note',
-        text: `📝 ${title}\n📂 Category: ${category}\n\nCheck out my note on Quantum Manager!`,
-        url: window.location.origin + '/notes/'
-    };
+    // Share note
+    async function shareNote(title, category) {
+        const shareData = {
+            title: 'Quantum Manager - My Note',
+            text: `📝 ${title}\n📂 Category: ${category}\n\nCheck out my note on Quantum Manager!`,
+            url: window.location.origin + '/notes/'
+        };
 
-    try {
-        if (navigator.share) {
-            await navigator.share(shareData);
-            showToast('✅ Note shared successfully!', 'success');
-        } else {
-            const textToCopy = `${shareData.text}\n\n${shareData.url}`;
-            await navigator.clipboard.writeText(textToCopy);
-            showToast('✅ Note details copied to clipboard!', 'success');
-        }
-    } catch (err) {
-        if (err.name !== 'AbortError') {
-            console.error('Share failed:', err);
-            showToast('❌ Failed to share note', 'error');
+        try {
+            if (navigator.share) {
+                await navigator.share(shareData);
+                showToast('✅ Note shared successfully!', 'success');
+            } else {
+                const textToCopy = `${shareData.text}\n\n${shareData.url}`;
+                await navigator.clipboard.writeText(textToCopy);
+                showToast('✅ Note details copied to clipboard!', 'success');
+            }
+        } catch (err) {
+            if (err.name !== 'AbortError') {
+                console.error('Share failed:', err);
+                showToast('❌ Failed to share note', 'error');
+            }
         }
     }
-}
 
-// Toast notification
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toastContainer');
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type} show`;
-    toast.innerHTML = `
+    // Toast notification
+    function showToast(message, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type} show`;
+        toast.innerHTML = `
         <div class="toast-content">
             <span class="toast-message">${message}</span>
             <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
         </div>
     `;
-    container.appendChild(toast);
+        container.appendChild(toast);
 
-    setTimeout(() => {
-        toast.style.animation = 'fadeOut 0.5s ease-in forwards';
-        setTimeout(() => toast.remove(), 500);
-    }, 5000);
-}
+        setTimeout(() => {
+            toast.style.animation = 'fadeOut 0.5s ease-in forwards';
+            setTimeout(() => toast.remove(), 500);
+        }, 5000);
+    }
 </script>
 
 {% endblock %}
