@@ -28,6 +28,7 @@ from .forms import (
 from .models import TaskTemplate, TemplateItem
 import uuid  # Add this at the top
 from django.utils import timezone  # Add this too
+from django.conf import settings
 
 
 # Create your views here.           
@@ -175,7 +176,6 @@ def deleteTask(request, pk):
     return render(request, 'tasks/delete.html', context)
 
 # REPLACE your registerUser view with this:
-
 def registerUser(request):
     if request.method == 'POST':
         form = CustomUserForm(request.POST)
@@ -186,35 +186,30 @@ def registerUser(request):
             from .models import UserProfile
             profile, created = UserProfile.objects.get_or_create(user=user)
             
-            # 👇 TRY to send email, but don't crash if it fails!
-            try:
-                send_verification_email(request, user)
-                messages.info(
-                    request, 
-                    f'📧 Welcome {user.username}! Please check your email to verify your account.'
-                )
-            except Exception as e:
-                # Email failed, but that's okay - let them login anyway
-                print(f"Email failed: {str(e)}")  # Log the error
-                messages.warning(
-                    request,
-                    f'✅ Account created! Email verification is temporarily unavailable. You can login now.'
-                )
-                # Mark as verified so they can login
-                profile.email_verified = True
-                profile.save()
+            # 👇 NEW: Auto-verify and login user immediately
+            profile.email_verified = True  # Skip email verification for now
+            profile.save()
             
-            return redirect('login')  # 👈 Changed to go straight to login
+            # Login the user automatically
+            login(request, user)
+            
+            messages.success(
+                request, 
+                f'🎉 Welcome to Quantum Manager, {user.username}! Your account is ready.'
+            )
+            
+            # 👇 Redirect to home page (index) instead of login
+            return redirect('/')
            
         else:
-            messages.error(request, '❌ Registration failed. Please check the form.')
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'❌ {error}')
     else:
         form = CustomUserForm()
     
     context = {'form': form}
     return render(request, 'tasks/register.html', context)
-
-
 
 # user login view
 def loginUser(request):
@@ -407,7 +402,6 @@ def verification_sent(request):
     """Page shown after registration"""
     return render(request, 'tasks/verification_sent.html')
 
-
 def verify_email(request, token):
     """Verify user's email with token"""
     from .models import UserProfile
@@ -415,19 +409,22 @@ def verify_email(request, token):
     try:
         profile = UserProfile.objects.get(verification_token=token)
         
-        # Check if token is expired
-        if not profile.is_verification_token_valid():
-            messages.error(request, '⏰ Verification link expired. Please request a new one.')
-            return redirect('resend_verification')
+        # Check if token is expired (optional)
+        # if not profile.is_verification_token_valid():
+        #     messages.error(request, '⏰ Verification link expired.')
+        #     return redirect('resend_verification')
         
         # Mark as verified
         profile.email_verified = True
         profile.save()
         
-        # Log the user in
+        # Login the user
         login(request, profile.user)
         
-        messages.success(request, f'✅ Email verified! Welcome to Quantum Manager, {profile.user.username}!')
+        messages.success(
+            request, 
+            f'✅ Email verified! Welcome to Quantum Manager, {profile.user.username}!'
+        )
         return redirect('/')
         
     except UserProfile.DoesNotExist:
@@ -461,52 +458,40 @@ def resend_verification(request):
 
 
 # REPLACE your send_verification_email function with this:
-
-def send_verification_email(request, user):
-    """Send verification email to user"""
-    from django.conf import settings
-    
-    profile = user.profile
-    
-    # 👇 FIXED: Build proper domain for production
-    if settings.DEBUG:
-        domain = request.get_host()  # localhost:8000
-        protocol = 'http'
+def registerUser(request):
+    if request.method == 'POST':
+        form = CustomUserForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            
+            # Get or create profile
+            from .models import UserProfile
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            
+            # 👇 NEW: Auto-verify and login user immediately
+            profile.email_verified = True  # Skip email verification for now
+            profile.save()
+            
+            # Login the user automatically
+            login(request, user)
+            
+            messages.success(
+                request, 
+                f'🎉 Welcome to Quantum Manager, {user.username}! Your account is ready.'
+            )
+            
+            # 👇 Redirect to home page (index) instead of login
+            return redirect('/')
+           
+        else:
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'❌ {error}')
     else:
-        # Production: Use your actual Render URL
-        domain = os.environ.get('RENDER_EXTERNAL_HOSTNAME', request.get_host())
-        protocol = 'https'
+        form = CustomUserForm()
     
-    verification_url = f"{protocol}://{domain}/verify-email/{profile.verification_token}/"
-    
-    # Email subject
-    subject = 'Verify Your Email - Quantum Manager'
-    
-    # Email body (HTML)
-    html_message = render_to_string('tasks/emails/verification_email.html', {
-        'user': user,
-        'verification_url': verification_url,
-    })
-    
-    # Plain text version
-    plain_message = strip_tags(html_message)
-    
-    # Send email with timeout
-    try:
-        send_mail(
-            subject,
-            plain_message,
-            settings.DEFAULT_FROM_EMAIL,  # Use settings instead of hardcoded
-            [user.email],
-            html_message=html_message,
-            fail_silently=False,
-            timeout=10,  # 👈 Add timeout
-        )
-    except Exception as e:
-        # Log the error and re-raise
-        print(f"Failed to send email to {user.email}: {str(e)}")
-        raise  # Re-raise so the calling function can handle it
-
+    context = {'form': form}
+    return render(request, 'tasks/register.html', context)
 def forgot_password(request):
     """Request password reset - enter email"""
     if request.method == 'POST':
@@ -547,13 +532,12 @@ def forgot_password(request):
 
 # REPLACE your send_password_reset_email function with this:
 
+
 def send_password_reset_email(request, user):
     """Send password reset email to user"""
-    from django.conf import settings
-    
     profile = user.profile
     
-    # 👇 FIXED: Build proper domain for production
+    # Build proper domain
     if settings.DEBUG:
         domain = request.get_host()
         protocol = 'http'
@@ -563,32 +547,42 @@ def send_password_reset_email(request, user):
     
     reset_url = f"{protocol}://{domain}/reset-password/{profile.reset_token}/"
     
-    # Email subject
     subject = 'Reset Your Password - Quantum Manager'
     
-    # Email body (HTML)
-    html_message = render_to_string('tasks/emails/password_reset_email.html', {
-        'user': user,
-        'reset_url': reset_url,
-    })
+    # Simple text message
+    message = f"""
+Hi {user.username},
+
+You requested to reset your password for Quantum Manager.
+
+Click the link below to reset your password:
+
+{reset_url}
+
+This link will expire in 1 hour.
+
+If you didn't request this, please ignore this email.
+
+Thanks,
+The Quantum Manager Team
+    """
     
-    # Plain text version
-    plain_message = strip_tags(html_message)
-    
-    # Send email
     try:
-        send_mail(
-            subject,
-            plain_message,
-            settings.DEFAULT_FROM_EMAIL,
-            [user.email],
-            html_message=html_message,
-            fail_silently=False,
-            timeout=10,
+        from django.core.mail import EmailMessage
+        
+        email = EmailMessage(
+            subject=subject,
+            body=message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.email],
         )
+        email.send(fail_silently=False, timeout=10)
+        print(f"✅ Password reset email sent to {user.email}")
+        
     except Exception as e:
-        print(f"Failed to send password reset email to {user.email}: {str(e)}")
+        print(f"❌ Email failed: {str(e)}")
         raise
+
 
 def reset_link_sent(request):
     """Page shown after requesting password reset"""
@@ -1310,3 +1304,98 @@ def archived_notes(request):
     }
     
     return render(request, 'tasks/archived_notes.html', context)
+
+@login_required
+def convert_note_to_task(request, pk):
+    """Convert a note into a task"""
+    note = Note.objects.get(id=pk, user=request.user)
+    
+    # Create task from note
+    task = Task.objects.create(
+        user=request.user,
+        title=note.title,
+        description=note.content,
+        priority='medium',  # Default priority
+    )
+    
+    # Optional: Archive the note after converting
+    note.is_archived = True
+    note.save()
+    
+    messages.success(request, f'✅ Note "{note.title}" converted to task!')
+    return redirect('/')
+
+
+from django.http import HttpResponse
+
+@login_required
+def export_note_as_text(request, pk):
+    """Export a note as a text file"""
+    note = Note.objects.get(id=pk, user=request.user)
+    
+    # Create text content
+    content = f"""
+========================================
+{note.title}
+========================================
+
+Category: {note.get_category_display()}
+Created: {note.created.strftime('%B %d, %Y at %I:%M %p')}
+Tags: {note.tags if note.tags else 'None'}
+
+----------------------------------------
+CONTENT:
+----------------------------------------
+
+{note.content}
+
+========================================
+Exported from Quantum Manager
+========================================
+    """
+    
+    # Create HTTP response with text file
+    response = HttpResponse(content, content_type='text/plain')
+    response['Content-Disposition'] = f'attachment; filename="{note.title}.txt"'
+    
+    return response
+
+
+@login_required
+def export_all_notes(request):
+    """Export all notes as one text file"""
+    notes = Note.objects.filter(user=request.user, is_archived=False)
+    
+    content = f"""
+========================================
+MY NOTES - QUANTUM MANAGER
+========================================
+Total Notes: {notes.count()}
+Exported: {timezone.now().strftime('%B %d, %Y at %I:%M %p')}
+========================================
+
+"""
+    
+    for i, note in enumerate(notes, 1):
+        content += f"""
+{'='*40}
+NOTE #{i}: {note.title}
+{'='*40}
+Category: {note.get_category_display()}
+Created: {note.created.strftime('%B %d, %Y')}
+Tags: {note.tags if note.tags else 'None'}
+
+{note.content}
+ 
+"""
+    
+    content += """
+========================================
+END OF EXPORT
+========================================
+"""
+    
+    response = HttpResponse(content, content_type='text/plain')
+    response['Content-Disposition'] = f'attachment; filename="all_notes_{timezone.now().strftime("%Y%m%d")}.txt"'
+    
+    return response

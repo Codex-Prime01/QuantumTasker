@@ -149,6 +149,12 @@
                 <span class="nav-icon">📝</span>
                 <span class="nav-text">Notes</span>
             </a>
+
+            <a href="/notes/archived/" class="nav-item {% if '/notes/archived/' in request.path %}active{% endif %}">
+                <span class="nav-icon">📦</span>
+                <span class="nav-text">Archived Notes</span>
+            </a>
+
             <a href="/templates/" class="nav-item {% if request.path == '/templates/' %}active{% endif %}">
                 <span class="nav-icon">✨</span>
                 <span class="nav-text">Templates</span>

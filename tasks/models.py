@@ -299,11 +299,24 @@ class UserProfile(models.Model):
         expiry_time = self.reset_token_created + timedelta(hours=1)
         return timezone.now() < expiry_time
     
+    # In your UserProfile model (models.py)
+    
+    
+
+
     def get_avatar_url(self):
-        """Return avatar URL or default avatar"""
-        if self.avatar and hasattr(self.avatar, 'url'):
-            return self.avatar.url
-        return None  # Return None to trigger initials in template
+        
+        """Return avatar URL or None if not set"""
+        if self.avatar:
+            # Check if file actually exists
+            try:
+                if self.avatar.storage.exists(self.avatar.name):
+                    return self.avatar.url
+            except Exception as e:
+                print(f"Avatar error for {self.user.username}: {e}")
+                return None
+        return None
+    
     def get_or_create_stats(self):
         """Get or create user stats"""
         stats, created = UserStats.objects.get_or_create(user=self.user)
