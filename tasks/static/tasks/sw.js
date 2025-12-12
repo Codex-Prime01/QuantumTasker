@@ -1,6 +1,7 @@
-const CACHE_NAME = 'quantum-manager-v1';
+const CACHE_NAME = 'quantum-manager-v2';  // 👈 Increment version
 const urlsToCache = [
     '/',
+    '/offline/',  // 👈 Add this to pre-cache
     '/static/tasks/style.css',
     '/static/tasks/manifest.json',
     'https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap'
@@ -13,7 +14,10 @@ self.addEventListener('install', event => {
         caches.open(CACHE_NAME)
             .then(cache => {
                 console.log('Opened cache');
-                return cache.addAll(urlsToCache);
+                // Try to add all, but don't fail if one fails
+                return cache.addAll(urlsToCache).catch(err => {
+                    console.error('Failed to cache some resources:', err);
+                });
             })
     );
     self.skipWaiting();
@@ -44,11 +48,17 @@ self.addEventListener('fetch', event => {
         return;
     }
 
+    // Skip Chrome extension requests
+    if (event.request.url.startsWith('chrome-extension://')) {
+        return;
+    }
+
     event.respondWith(
         caches.match(event.request)
             .then(response => {
                 // Cache hit - return response
                 if (response) {
+                    console.log('Serving from cache:', event.request.url);
                     return response;
                 }
 
@@ -71,9 +81,23 @@ self.addEventListener('fetch', event => {
                         });
 
                     return response;
-                }).catch(() => {
-                    // Network failed, return offline page
-                    return caches.match('/offline/');
+                }).catch(error => {
+                    console.error('Fetch failed, serving offline page:', error);
+
+                    // Network failed, try to return offline page
+                    return caches.match('/offline/').then(offlineResponse => {
+                        if (offlineResponse) {
+                            return offlineResponse;
+                        }
+
+                        // If offline page not cached, return basic HTML
+                        return new Response(
+                            '<h1>Offline</h1><p>You are currently offline. Please check your internet connection.</p>',
+                            {
+                                headers: { 'Content-Type': 'text/html' }
+                            }
+                        );
+                    });
                 });
             })
     );
@@ -87,28 +111,26 @@ self.addEventListener('sync', event => {
 });
 
 async function syncTasks() {
-    // Get pending tasks from IndexedDB
-    // Send to server when online
     console.log('Syncing tasks...');
     // Implementation would go here
 }
 
-// Push notifications (for future email reminders feature)
+// Push notifications
 self.addEventListener('push', event => {
-    const data = event.data.json();
+    const data = event.data ? event.data.json() : {};
 
     const options = {
-        body: data.body,
+        body: data.body || 'New notification',
         icon: '/static/tasks/icons/icon-192x192.png',
-        badge: '/static/tasks/icons/icon-128x123.png',
+        badge: '/static/tasks/icons/icon-128x128.png',
         vibrate: [200, 100, 200],
         data: {
-            url: data.url
+            url: data.url || '/'
         }
     };
 
     event.waitUntil(
-        self.registration.showNotification(data.title, options)
+        self.registration.showNotification(data.title || 'Quantum Manager', options)
     );
 });
 

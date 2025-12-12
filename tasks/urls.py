@@ -16,7 +16,7 @@ urlpatterns = [
     path('logout/', views.logoutUser, name='logout' ),
     path('dashboard/', views.dashboard, name='dashboard'),
     path('profile/', views.profile, name='profile'),  
-    path('settings/', views.settings, name='settings'),  
+    path('settings/', views.userp_settings, name='userp_settings'),  
     path('create/', views.create_task, name='create'),
     # 👇 NEW! Email verification URLs
     path('verification-sent/', views.verification_sent, name='verification_sent'),
