@@ -17,13 +17,14 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.contrib.sites.shortcuts import get_current_site
 from django.contrib.auth.hashers import check_password, make_password
-from .forms import UserUpdateForm, ProfileUpdateForm, PasswordChangeForm
+from .forms import UserUpdateForm, ProfileUpdateForm,PasswordChangeForm
 from .forms import (
     NotificationSettingsForm, 
     AppearanceSettingsForm, 
     TaskDefaultsForm, 
     PrivacySettingsForm
 )
+import os
 
 from .models import TaskTemplate, TemplateItem
 import uuid  # Add this at the top
@@ -175,8 +176,12 @@ def deleteTask(request, pk):
     context = {'item' : item}
     return render(request, 'tasks/delete.html', context)
 
-# REPLACE your registerUser view with this:
+
+# ========================================
+# REGISTRATION - Keep only ONE version
+# ========================================
 def registerUser(request):
+    """User registration - auto-login after signup"""
     if request.method == 'POST':
         form = CustomUserForm(request.POST)
         if form.is_valid():
@@ -186,11 +191,11 @@ def registerUser(request):
             from .models import UserProfile
             profile, created = UserProfile.objects.get_or_create(user=user)
             
-            # 👇 NEW: Auto-verify and login user immediately
-            profile.email_verified = True  # Skip email verification for now
+            # Auto-verify user (skip email verification for now)
+            profile.email_verified = True
             profile.save()
             
-            # Login the user automatically
+            # Login user automatically
             login(request, user)
             
             messages.success(
@@ -198,7 +203,7 @@ def registerUser(request):
                 f'🎉 Welcome to Quantum Manager, {user.username}! Your account is ready.'
             )
             
-            # 👇 Redirect to home page (index) instead of login
+            # Redirect to home page
             return redirect('/')
            
         else:
@@ -211,6 +216,9 @@ def registerUser(request):
     context = {'form': form}
     return render(request, 'tasks/register.html', context)
 
+
+# ========================================
+# EMAIL VERIFICATION FUNCTIONS
 # user login view
 def loginUser(request):
     if request.method == 'POST':
@@ -328,6 +336,7 @@ def dashboard(request):
     }
     
     return render(request, 'tasks/dashboard.html', context)
+
 @login_required
 def profile(request):
     """User profile page (placeholder for now)"""
@@ -337,11 +346,6 @@ def profile(request):
     return render(request, 'tasks/profile.html', context)
 
 
-@login_required
-def settings(request):
-    """Settings page (placeholder for now)"""
-    context = {}
-    return render(request, 'tasks/settings.html', context)
 
 @login_required
 def create_task(request):
@@ -398,11 +402,13 @@ def quick_toggle_complete(request, pk):
         }, status=500)
         """
 
+
+# REPLACE your send_verification_email function with this:
 def send_verification_email(request, user):
-    """Send verification email to user"""
+    """Send verification email to user - FIXED VERSION"""
     profile = user.profile
     
-    # Build proper domain for production
+    # Build proper URL for production/development
     if settings.DEBUG:
         domain = request.get_host()
         protocol = 'http'
@@ -412,38 +418,61 @@ def send_verification_email(request, user):
     
     verification_url = f"{protocol}://{domain}/verify-email/{profile.verification_token}/"
     
+    # Email subject
     subject = 'Verify Your Email - Quantum Manager'
     
-    # Simple text message instead of HTML template
-    message = f"""
+    # Try to load HTML template, fallback to plain text
+    try:
+        html_message = render_to_string('tasks/emails/verification_email.html', {
+            'user': user,
+            'verification_url': verification_url,
+        })
+        plain_message = strip_tags(html_message)
+    except Exception as e:
+        # If template doesn't exist, use plain text
+        print(f"Template error: {e}")
+        plain_message = f"""
 Hi {user.username}!
 
 Welcome to Quantum Manager! Please verify your email by clicking the link below:
 
 {verification_url}
 
+This link will expire in 24 hours.
+
 If you didn't create this account, please ignore this email.
 
 Thanks,
 The Quantum Manager Team
-    """
+        """
+        html_message = None
     
-    # Send with timeout and error handling
+    # Send email - ONLY ONE CALL
     try:
-        from django.core.mail import EmailMessage
-        
-        email = EmailMessage(
-            subject=subject,
-            body=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[user.email],
-        )
-        email.send(fail_silently=False, timeout=10)
+        if html_message:
+            send_mail(
+                subject,
+                plain_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+        else:
+            send_mail(
+                subject,
+                plain_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
         print(f"✅ Verification email sent to {user.email}")
+        return True
         
     except Exception as e:
         print(f"❌ Email failed: {str(e)}")
-        raise  # Re-raise so calling function can handle it
+        raise
+
 
 
 def verification_sent(request):
@@ -491,57 +520,25 @@ def resend_verification(request):
     
     if request.method == 'POST':
         # Generate new token
-        import uuid
         profile.verification_token = uuid.uuid4()
         profile.verification_token_created = timezone.now()
         profile.save()
         
-        # Send new email
-        send_verification_email(request, request.user)
+        # Try to send email
+        try:
+            send_verification_email(request, request.user)
+            messages.success(request, '📧 Verification email sent! Check your inbox.')
+        except Exception as e:
+            messages.error(request, f'❌ Failed to send email: {str(e)}')
         
-        messages.success(request, '📧 Verification email sent! Check your inbox.')
         return redirect('verification_sent')
     
     return render(request, 'tasks/resend_verification.html')
 
 
-# REPLACE your send_verification_email function with this:
-def registerUser(request):
-    if request.method == 'POST':
-        form = CustomUserForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            
-            # Get or create profile
-            from .models import UserProfile
-            profile, created = UserProfile.objects.get_or_create(user=user)
-            
-            # 👇 NEW: Auto-verify and login user immediately
-            profile.email_verified = True  # Skip email verification for now
-            profile.save()
-            
-            # Login the user automatically
-            login(request, user)
-            
-            messages.success(
-                request, 
-                f'🎉 Welcome to Quantum Manager, {user.username}! Your account is ready.'
-            )
-            
-            # 👇 Redirect to home page (index) instead of login
-            return redirect('/')
-           
-        else:
-            for field, errors in form.errors.items():
-                for error in errors:
-                    messages.error(request, f'❌ {error}')
-    else:
-        form = CustomUserForm()
-    
-    context = {'form': form}
-    return render(request, 'tasks/register.html', context)
-
-
+# ========================================
+# PASSWORD RESET FUNCTIONS
+# ========================================
 def forgot_password(request):
     """Request password reset - enter email"""
     if request.method == 'POST':
@@ -561,13 +558,21 @@ def forgot_password(request):
             profile.reset_token_created = timezone.now()
             profile.save()
             
-            # Send reset email
-            send_password_reset_email(request, user)
+            # Try to send email
+            try:
+                send_password_reset_email(request, user)
+                messages.success(
+                    request, 
+                    f'📧 Password reset link sent to {email}! Check your inbox.'
+                )
+            except Exception as e:
+                # Email failed - show error
+                print(f"Email error: {str(e)}")
+                messages.error(
+                    request,
+                    f'⚠️ Email service error. Please try again later or contact support.'
+                )
             
-            messages.success(
-                request, 
-                f'📧 Password reset link sent to {email}! Check your inbox.'
-            )
             return redirect('reset_link_sent')
             
         except User.DoesNotExist:
@@ -582,12 +587,11 @@ def forgot_password(request):
 
 # REPLACE your send_password_reset_email function with this:
 
-
 def send_password_reset_email(request, user):
-    """Send password reset email to user"""
+    """Send password reset email to user - FIXED VERSION"""
     profile = user.profile
     
-    # Build proper domain
+    # Build proper URL
     if settings.DEBUG:
         domain = request.get_host()
         protocol = 'http'
@@ -597,10 +601,19 @@ def send_password_reset_email(request, user):
     
     reset_url = f"{protocol}://{domain}/reset-password/{profile.reset_token}/"
     
+    # Email subject
     subject = 'Reset Your Password - Quantum Manager'
     
-    # Simple text message
-    message = f"""
+    # Try to load HTML template, fallback to plain text
+    try:
+        html_message = render_to_string('tasks/emails/password_reset_email.html', {
+            'user': user,
+            'reset_url': reset_url,
+        })
+        plain_message = strip_tags(html_message)
+    except Exception as e:
+        print(f"Template error: {e}")
+        plain_message = f"""
 Hi {user.username},
 
 You requested to reset your password for Quantum Manager.
@@ -615,19 +628,30 @@ If you didn't request this, please ignore this email.
 
 Thanks,
 The Quantum Manager Team
-    """
+        """
+        html_message = None
     
+    # Send email - ONLY ONE CALL
     try:
-        from django.core.mail import EmailMessage
-        
-        email = EmailMessage(
-            subject=subject,
-            body=message,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[user.email],
-        )
-        email.send(fail_silently=False, timeout=10)
+        if html_message:
+            send_mail(
+                subject,
+                plain_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+        else:
+            send_mail(
+                subject,
+                plain_message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user.email],
+                fail_silently=False,
+            )
         print(f"✅ Password reset email sent to {user.email}")
+        return True
         
     except Exception as e:
         print(f"❌ Email failed: {str(e)}")
@@ -641,16 +665,15 @@ def reset_link_sent(request):
 
 def reset_password(request, token):
     """Reset password with token"""
-    from tasks.models import UserProfile
-    
+    from .models import UserProfile
     
     try:
         profile = UserProfile.objects.get(reset_token=token)
         
-        # Check if token is expired
-        if not profile.is_reset_token_valid():
-            messages.error(request, '⏰ Reset link expired. Please request a new one.')
-            return redirect('forgot_password')
+        # Check if token is expired (optional, if you have this method)
+        # if hasattr(profile, 'is_reset_token_valid') and not profile.is_reset_token_valid():
+        #     messages.error(request, '⏰ Reset link expired. Please request a new one.')
+        #     return redirect('forgot_password')
         
         if request.method == 'POST':
             password1 = request.POST.get('password1')
@@ -688,8 +711,8 @@ def reset_password(request, token):
     except UserProfile.DoesNotExist:
         messages.error(request, '❌ Invalid reset link.')
         return redirect('forgot_password')
-
-
+    
+    
 @login_required
 def profile(request):
     """User profile page with editing capabilities"""
@@ -775,7 +798,7 @@ def profile(request):
 
 # 👇 ADD/UPDATE THIS VIEW
 @login_required
-def settings(request):
+def userp_settings(request):
     """User settings page with tabs"""
     profile_obj = request.user.profile
     
@@ -789,7 +812,7 @@ def settings(request):
             if form.is_valid():
                 form.save()
                 messages.success(request, '✅ Notification settings updated!')
-                return redirect('settings')
+                return redirect('userp_settings')
             else:
                 messages.error(request, '❌ Please correct the errors below.')
         
@@ -799,7 +822,7 @@ def settings(request):
             if form.is_valid():
                 form.save()
                 messages.success(request, '✅ Appearance settings updated!')
-                return redirect('settings')
+                return redirect('userp_settings')
             else:
                 messages.error(request, '❌ Please correct the errors below.')
         
@@ -809,7 +832,7 @@ def settings(request):
             if form.is_valid():
                 form.save()
                 messages.success(request, '✅ Task defaults updated!')
-                return redirect('settings')
+                return redirect('userp_settings')
             else:
                 messages.error(request, '❌ Please correct the errors below.')
         
@@ -819,7 +842,7 @@ def settings(request):
             if form.is_valid():
                 form.save()
                 messages.success(request, '✅ Privacy settings updated!')
-                return redirect('settings')
+                return redirect('userp_settings')
             else:
                 messages.error(request, '❌ Please correct the errors below.')
         
@@ -842,7 +865,7 @@ def settings(request):
     task_defaults_form = TaskDefaultsForm(instance=profile_obj)
     privacy_form = PrivacySettingsForm(instance=profile_obj)
     
-    
+     
     
     # Get active tab from query parameter
     active_tab = request.GET.get('tab', 'notifications')

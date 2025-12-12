@@ -184,3 +184,5 @@ if not DEBUG:
     SECURE_HSTS_SECONDS = 31536000  # 👈 Added
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True  # 👈 Added
     SECURE_HSTS_PRELOAD = True  # 👈 Added
+    
+    

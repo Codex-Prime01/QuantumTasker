@@ -120,15 +120,9 @@
 
                     <div class="avatar-upload-wrapper">
                         <div class="current-avatar">
-                            {% if request.user.profile.get_avatar_url %}
-                            <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
-                                class="profile-avatar has-image"
-                                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                            {% else %}
-                            <div class="user-avatar">
-                                {{ request.user.username|upper|slice:":2"|default:"?" }}
-                            </div>
-                            {% endif %}
+
+                            <img src="{{ request.user.profile.get_avatar_url }}" alt=" nil " class=" profile-avatar has-image">
+
                         </div>
                         <div class="upload-controls">
                             {{ profile_form.avatar }}
