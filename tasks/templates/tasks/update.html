@@ -116,6 +116,154 @@
                             </div>
                         </div>
 
+                        <div class="form-section alarm-section">
+                            <div class="section-header">
+                                <h3 class="section-title">
+                                    <span class="section-icon">⏰</span>
+                                    <span>Alarm & Notifications</span>
+                                </h3>
+                                <p class="section-subtitle">Get notified when this task is due</p>
+                            </div>
+
+                            <!-- Enable Alarm Toggle -->
+                            <div class="form-group toggle-group">
+                                <label class="toggle-label">
+                                    <input type="checkbox" 
+                                        name="alarm_enabled" 
+                                        id="id_alarm_enabled"
+                                        {% if form.alarm_enabled.value %}checked{% endif %}
+                                        class="toggle-input"
+                                        onchange="toggleAlarmSettings()">
+                                    <span class="toggle-slider"></span>
+                                    <span class="toggle-text">Enable Alarm</span>
+                                </label>
+                                <p class="field-help">Get browser notification and sound when due</p>
+                            </div>
+
+                            <!-- Alarm Settings (shown when enabled) -->
+                            <div id="alarm-settings" style="display: none;">
+                                <!-- Alarm Time -->
+                                <div class="form-group">
+                                    <label for="id_alarm_time" class="form-label">
+                                        🕐 Alarm Time
+                                    </label>
+                                    {{ form.alarm_time }}
+                                    <p class="field-help">When should we remind you?</p>
+                                </div>
+
+                                <!-- Alarm Tone Selection -->
+                                <div class="form-group">
+                                    <label class="form-label">🔔 Alarm Sound</label>
+                                    <div class="alarm-tone-grid">
+                                        <div class="tone-option">
+                                            <input type="radio" 
+                                                name="alarm_tone" 
+                                                value="classic" 
+                                                id="tone-classic"
+                                                {% if form.alarm_tone.value == 'classic' or not form.alarm_tone.value %}checked{% endif %}>
+                                            <label for="tone-classic" class="tone-card">
+                                                <div class="tone-icon">⏰</div>
+                                                <div class="tone-name">Classic Alarm</div>
+                                                <div class="tone-desc">Traditional beep beep</div>
+                                                <button type="button" class="tone-preview" onclick="previewTone('classic')">
+                                                    ▶️ Preview
+                                                </button>
+                                            </label>
+                                        </div>
+
+                                        <div class="tone-option">
+                                            <input type="radio" 
+                                                name="alarm_tone" 
+                                                value="chime" 
+                                                id="tone-chime"
+                                                {% if form.alarm_tone.value == 'chime' %}checked{% endif %}>
+                                            <label for="tone-chime" class="tone-card">
+                                                <div class="tone-icon">🎵</div>
+                                                <div class="tone-name">Soft Chime</div>
+                                                <div class="tone-desc">Pleasant melody</div>
+                                                <button type="button" class="tone-preview" onclick="previewTone('chime')">
+                                                    ▶️ Preview
+                                                </button>
+                                            </label>
+                                        </div>
+
+                                        <div class="tone-option">
+                                            <input type="radio" 
+                                                name="alarm_tone" 
+                                                value="urgent" 
+                                                id="tone-urgent"
+                                                {% if form.alarm_tone.value == 'urgent' %}checked{% endif %}>
+                                            <label for="tone-urgent" class="tone-card">
+                                                <div class="tone-icon">🚨</div>
+                                                <div class="tone-name">Urgent Alert</div>
+                                                <div class="tone-desc">Loud & attention-grabbing</div>
+                                                <button type="button" class="tone-preview" onclick="previewTone('urgent')">
+                                                    ▶️ Preview
+                                                </button>
+                                            </label>
+                                        </div>
+
+                                        <div class="tone-option">
+                                            <input type="radio" 
+                                                name="alarm_tone" 
+                                                value="custom" 
+                                                id="tone-custom"
+                                                {% if form.alarm_tone.value == 'custom' %}checked{% endif %}>
+                                            <label for="tone-custom" class="tone-card">
+                                                <div class="tone-icon">📁</div>
+                                                <div class="tone-name">Custom Upload</div>
+                                                <div class="tone-desc">Use your own sound</div>
+                                                <input type="file" 
+                                                    accept="audio/*" 
+                                                    id="custom-tone-upload"
+                                                    style="display: none;"
+                                                    onchange="handleCustomToneUpload(this)">
+                                                <button type="button" class="tone-preview" onclick="document.getElementById('custom-tone-upload').click()">
+                                                    📤 Upload
+                                                </button>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Quick Alarm Presets -->
+                                <div class="form-group">
+                                    <label class="form-label">⚡ Quick Presets</label>
+                                    <div class="alarm-presets">
+                                        <button type="button" class="preset-btn" onclick="setAlarmPreset('due')">
+                                            <span>📅</span>
+                                            <span>At Due Time</span>
+                                        </button>
+                                        <button type="button" class="preset-btn" onclick="setAlarmPreset('15min')">
+                                            <span>⏰</span>
+                                            <span>15 min before</span>
+                                        </button>
+                                        <button type="button" class="preset-btn" onclick="setAlarmPreset('30min')">
+                                            <span>⏰</span>
+                                            <span>30 min before</span>
+                                        </button>
+                                        <button type="button" class="preset-btn" onclick="setAlarmPreset('1hour')">
+                                            <span>⏰</span>
+                                            <span>1 hour before</span>
+                                        </button>
+                                        <button type="button" class="preset-btn" onclick="setAlarmPreset('1day')">
+                                            <span>📆</span>
+                                            <span>1 day before</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Notification Permission Check -->
+                                <div id="notification-permission-warning" class="alert alert-warning" style="display: none;">
+                                    <strong>⚠️ Notification Permission Required</strong>
+                                    <p>Please allow notifications to receive alarms</p>
+                                    <button type="button" class="btn btn-sm" onclick="requestNotificationPermission()">
+                                        Enable Notifications
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="form-group">
                             <label for="id_complete" class="checkbox-label">
                                 {{ form.complete }}
@@ -170,7 +318,7 @@
                     }, 5000);
                 });
             });
-
+ 
 
             document.addEventListener('DOMContentLoaded', function () {
                 const isRecurringToggle = document.getElementById('id_is_recurring');
@@ -181,14 +329,16 @@
                 const previewText = document.getElementById('previewText');
 
                 // Show/hide recurring options
-                isRecurringToggle.addEventListener('change', function () {
-                    if (this.checked) {
-                        recurringOptions.style.display = 'block';
-                        updatePreview();
-                    } else {
-                        recurringOptions.style.display = 'none';
-                    }
-                });
+                if (isRecurringToggle) {
+                    isRecurringToggle.addEventListener('change', function () {
+                        if (this.checked) {
+                            recurringOptions.style.display = 'block';
+                            updatePreview();
+                        } else {
+                            recurringOptions.style.display = 'none';
+                        }
+                    });
+                }
 
                 // Show/hide custom interval
                 frequencySelect.addEventListener('change', function () {
@@ -222,7 +372,7 @@
                 }
 
                 // Check if recurring is already enabled (edit mode)
-                if (isRecurringToggle.checked) {
+                if (isRecurringToggle && isRecurringToggle.checked) {
                     recurringOptions.style.display = 'block';
                     if (frequencySelect.value === 'custom') {
                         customIntervalGroup.style.display = 'block';
@@ -230,6 +380,211 @@
                     updatePreview();
                 }
             });
+
+
+            
+            // Show/hide alarm settings based on toggle
+            function toggleAlarmSettings() {
+                const enabled = document.getElementById('id_alarm_enabled').checked;
+                const settings = document.getElementById('alarm-settings');
+                
+                if (enabled) {
+                    settings.style.display = 'block';
+                    checkNotificationPermission();
+                    
+                    // Set default alarm time if due date exists and alarm time is empty
+                    const dueDateInput = document.getElementById('id_due_date');
+                    const alarmTimeInput = document.getElementById('id_alarm_time');
+                    
+                    if (dueDateInput && dueDateInput.value && !alarmTimeInput.value) {
+                        alarmTimeInput.value = dueDateInput.value;
+                    }
+                } else {
+                    settings.style.display = 'none';
+                }
+            }
+
+            // Check notification permission on page load
+            function checkNotificationPermission() {
+                if ('Notification' in window && Notification.permission !== 'granted') {
+                    document.getElementById('notification-permission-warning').style.display = 'block';
+                }
+            }
+
+            // Request notification permission
+            async function requestNotificationPermission() {
+                if ('Notification' in window) {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        document.getElementById('notification-permission-warning').style.display = 'none';
+                        showToast('✅ Notifications enabled!', 'success');
+                    }
+                }
+            }
+
+            // Preview alarm tone
+            function previewTone(tone) {
+                if (typeof alarmSystem !== 'undefined') {
+                    alarmSystem.playAlarmSound(tone);
+                } else {
+                    // Fallback if alarm system not loaded
+                    const audio = new Audio();
+                    if (tone === 'classic') {
+                        // Play a simple beep using data URL
+                        audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PWqvl8KtfGQs+lutRZhB';
+                        audio.play();
+                    }
+                }
+            }
+
+            // Set alarm preset
+            function setAlarmPreset(preset) {
+                const dueDateInput = document.getElementById('id_due_date');
+                const alarmTimeInput = document.getElementById('id_alarm_time');
+                
+                if (!dueDateInput || !dueDateInput.value) {
+                    showToast('⚠️ Please set a due date first', 'warning');
+                    return;
+                }
+                
+                const dueDate = new Date(dueDateInput.value);
+                let alarmDate = new Date(dueDate);
+                
+                switch(preset) {
+                    case 'due':
+                        // Same as due date
+                        break;
+                    case '15min':
+                        alarmDate.setMinutes(alarmDate.getMinutes() - 15);
+                        break;
+                    case '30min':
+                        alarmDate.setMinutes(alarmDate.getMinutes() - 30);
+                        break;
+                    case '1hour':
+                        alarmDate.setHours(alarmDate.getHours() - 1);
+                        break;
+                    case '1day':
+                        alarmDate.setDate(alarmDate.getDate() - 1);
+                        break;
+                }
+                
+                // Format datetime for input (YYYY-MM-DDTHH:MM)
+                const year = alarmDate.getFullYear();
+                const month = String(alarmDate.getMonth() + 1).padStart(2, '0');
+                const day = String(alarmDate.getDate()).padStart(2, '0');
+                const hours = String(alarmDate.getHours()).padStart(2, '0');
+                const minutes = String(alarmDate.getMinutes()).padStart(2, '0');
+                
+                alarmTimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+                showToast('✅ Alarm time set!', 'success');
+            }
+
+            // Handle custom tone upload
+            function handleCustomToneUpload(input) {
+                if (input.files && input.files[0]) {
+                    const file = input.files[0];
+                    
+                    // Check file type
+                    if (!file.type.startsWith('audio/')) {
+                        showToast('⚠️ Please upload an audio file', 'warning');
+                        return;
+                    }
+                    
+                    // Check file size (max 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        showToast('⚠️ File too large (max 5MB)', 'warning');
+                        return;
+                    }
+                    
+                    // Store in localStorage temporarily
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        localStorage.setItem('customAlarmTone', e.target.result);
+                        localStorage.setItem('customAlarmToneName', file.name);
+                        
+                        document.getElementById('tone-custom').checked = true;
+                        showToast(`✅ Custom tone "${file.name}" loaded!`, 'success');
+                        
+                        // Update the custom tone label
+                        const customLabel = document.querySelector('label[for="tone-custom"] .tone-name');
+                        customLabel.textContent = file.name;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            // Toast notification function
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.textContent = message;
+                toast.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    padding: 15px 25px;
+                    background: ${type === 'success' ? '#2ecc71' : type === 'warning' ? '#f39c12' : '#3498db'};
+                    color: white;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    z-index: 10000;
+                    animation: slideIn 0.3s ease;
+                `;
+                
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+
+            // Initialize on page load
+            document.addEventListener('DOMContentLoaded', function() {
+                // Show alarm settings if already enabled
+                if (document.getElementById('id_alarm_enabled').checked) {
+                    toggleAlarmSettings();
+                }
+                
+                // Load custom tone from localStorage if exists
+                const customTone = localStorage.getItem('customAlarmTone');
+                const customToneName = localStorage.getItem('customAlarmToneName');
+                
+                if (customTone && customToneName) {
+                    const customLabel = document.querySelector('label[for="tone-custom"] .tone-name');
+                    if (customLabel) {
+                        customLabel.textContent = customToneName;
+                    }
+                }
+            });
+
+            // Add CSS animations
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                
+                @keyframes slideOut {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
         </script>
 
     </body>

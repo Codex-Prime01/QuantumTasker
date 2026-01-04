@@ -67,6 +67,12 @@ class Task(models.Model):
     )
     completed_date = models.DateTimeField(null=True, blank=True)
      
+    alarm_enabled = models.BooleanField(default=False)
+    alarm_time = models.DateTimeField(null=True, blank=True, help_text="When to trigger alarm")
+    alarm_tone = models.CharField(max_length=200, default='default', help_text="Alarm sound file")
+    alarm_snoozed_until = models.DateTimeField(null=True, blank=True)
+     
+    
     def __str__(self):
         return self.title
         return self.title
@@ -241,6 +247,10 @@ class UserProfile(models.Model):
     email_daily_summary = models.BooleanField(default=True)
     email_task_reminders = models.BooleanField(default=True)
     browser_notifications = models.BooleanField(default=False)
+    
+    alarm_enabled = models.BooleanField(default=True)
+    default_alarm_tone = models.CharField(max_length=200, default='default')
+    alarm_minutes_before = models.IntegerField(default=0, help_text="Minutes before due date to alarm")
     
     
      # Theme Settings

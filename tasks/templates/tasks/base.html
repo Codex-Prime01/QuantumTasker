@@ -376,7 +376,415 @@
             if (installPrompt) installPrompt.style.display = 'none';
             if (sidebarInstallSection) sidebarInstallSection.style.display = 'none';
         });
+
+
+
+        class AlarmSystem {
+            constructor() {
+                this.checkInterval = null;
+                this.audioContext = null;
+                this.isPlaying = false;
+                this.currentAlarm = null;
+                this.notificationPermission = 'default';
+
+                this.init();
+            }
+
+            async init() {
+                // Request notification permission
+                if ('Notification' in window) {
+                    this.notificationPermission = await Notification.requestPermission();
+                }
+
+                // Initialize audio context on user interaction (required by browsers)
+                document.addEventListener('click', () => {
+                    if (!this.audioContext) {
+                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                }, { once: true });
+
+                // Start checking for due tasks
+                this.startChecking();
+
+                // Listen for visibility change
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) {
+                        this.checkDueTasks();
+                    }
+                });
+            }
+
+            startChecking() {
+                // Check immediately
+                this.checkDueTasks();
+
+                // Then check every 30 seconds
+                this.checkInterval = setInterval(() => {
+                    this.checkDueTasks();
+                }, 30000);
+            }
+
+            stopChecking() {
+                if (this.checkInterval) {
+                    clearInterval(this.checkInterval);
+                }
+            }
+
+            async checkDueTasks() {
+                try {
+                    const response = await fetch('/api/check-due-tasks/', {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.due_tasks && data.due_tasks.length > 0) {
+                        console.log(`Found ${data.due_tasks.length} due tasks`);
+                        data.due_tasks.forEach(task => {
+                            this.triggerAlarm(task);
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error checking due tasks:', error);
+                }
+            }
+
+            triggerAlarm(task) {
+                // Don't trigger if already playing
+                if (this.isPlaying) return;
+
+                // Check if task was already notified recently
+                const notifiedTasks = JSON.parse(localStorage.getItem('notifiedTasks') || '{}');
+                const taskKey = `task_${task.id}_${task.alarm_time}`;
+
+                const now = Date.now();
+                if (notifiedTasks[taskKey] && (now - notifiedTasks[taskKey] < 300000)) {
+                    // Already notified within last 5 minutes
+                    return;
+                }
+
+                // Mark as notified
+                notifiedTasks[taskKey] = now;
+                localStorage.setItem('notifiedTasks', JSON.stringify(notifiedTasks));
+
+                // Clean old notifications
+                this.cleanOldNotifications(notifiedTasks);
+
+                // Show notification
+                this.showNotification(task);
+
+                // Play alarm sound
+                this.playAlarmSound(task.alarm_tone || 'classic');
+
+                // Show in-app alarm modal
+                this.showAlarmModal(task);
+            }
+
+            cleanOldNotifications(notifiedTasks) {
+                const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+                const cleaned = {};
+
+                for (let key in notifiedTasks) {
+                    if (notifiedTasks[key] > oneDayAgo) {
+                        cleaned[key] = notifiedTasks[key];
+                    }
+                }
+
+                localStorage.setItem('notifiedTasks', JSON.stringify(cleaned));
+            }
+
+            showNotification(task) {
+                if (this.notificationPermission !== 'granted') return;
+
+                const priorityEmoji = {
+                    'urgent': '🚨',
+                    'high': '🔴',
+                    'medium': '🟡',
+                    'low': '🟢'
+                };
+
+                const notification = new Notification('⏰ Task Due!', {
+                    body: `${priorityEmoji[task.priority]} ${task.title}`,
+                    icon: '/static/tasks/icons/icon-192x192.png',
+                    badge: '/static/tasks/icons/icon-96x96.png',
+                    tag: `task-${task.id}`,
+                    requireInteraction: true,
+                    vibrate: [200, 100, 200],
+                    data: { taskId: task.id }
+                });
+
+                notification.onclick = () => {
+                    window.focus();
+                    window.location.href = `/update/${task.id}/`;
+                    notification.close();
+                };
+            }
+
+            playAlarmSound(tone = 'classic') {
+                this.isPlaying = true;
+
+                // Check for custom tone in localStorage
+                if (tone === 'custom') {
+                    const customTone = localStorage.getItem('customAlarmTone');
+                    if (customTone) {
+                        this.playCustomSound(customTone);
+                        return;
+                    }
+                }
+
+                // Play default tones using Web Audio API
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+
+                const context = this.audioContext;
+
+                if (tone === 'classic') {
+                    this.playClassicBeep(context);
+                } else if (tone === 'chime') {
+                    this.playSoftChime(context);
+                } else if (tone === 'urgent') {
+                    this.playUrgentAlert(context);
+                }
+            }
+
+            playClassicBeep(context) {
+                const times = [0, 0.3, 0.6, 1.2, 1.5, 1.8];
+
+                times.forEach(time => {
+                    const oscillator = context.createOscillator();
+                    const gainNode = context.createGain();
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(context.destination);
+
+                    oscillator.frequency.value = 800;
+                    oscillator.type = 'square';
+
+                    gainNode.gain.setValueAtTime(0.3, context.currentTime + time);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + time + 0.2);
+
+                    oscillator.start(context.currentTime + time);
+                    oscillator.stop(context.currentTime + time + 0.2);
+                });
+
+                setTimeout(() => {
+                    this.isPlaying = false;
+                }, 2000);
+            }
+
+            playSoftChime(context) {
+                const frequencies = [523.25, 659.25, 783.99];
+
+                frequencies.forEach((freq, index) => {
+                    const oscillator = context.createOscillator();
+                    const gainNode = context.createGain();
+
+                    oscillator.connect(gainNode);
+                    gainNode.connect(context.destination);
+
+                    oscillator.frequency.value = freq;
+                    oscillator.type = 'sine';
+
+                    const startTime = context.currentTime + (index * 0.1);
+
+                    gainNode.gain.setValueAtTime(0.2, startTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 1);
+
+                    oscillator.start(startTime);
+                    oscillator.stop(startTime + 1);
+                });
+
+                setTimeout(() => {
+                    this.isPlaying = false;
+                }, 1500);
+            }
+
+            playUrgentAlert(context) {
+                const duration = 3;
+                const oscillator = context.createOscillator();
+                const gainNode = context.createGain();
+                const lfo = context.createOscillator();
+                const lfoGain = context.createGain();
+
+                lfo.frequency.value = 5;
+                lfoGain.gain.value = 100;
+
+                lfo.connect(lfoGain);
+                lfoGain.connect(oscillator.frequency);
+
+                oscillator.connect(gainNode);
+                gainNode.connect(context.destination);
+
+                oscillator.frequency.value = 800;
+                oscillator.type = 'sawtooth';
+                gainNode.gain.value = 0.4;
+
+                const now = context.currentTime;
+                oscillator.start(now);
+                lfo.start(now);
+
+                oscillator.stop(now + duration);
+                lfo.stop(now + duration);
+
+                setTimeout(() => {
+                    this.isPlaying = false;
+                }, duration * 1000);
+            }
+
+            async playCustomSound(soundUrl) {
+                try {
+                    const audio = new Audio(soundUrl);
+                    audio.volume = 0.7;
+                    await audio.play();
+
+                    audio.onended = () => {
+                        this.isPlaying = false;
+                    };
+                } catch (error) {
+                    console.error('Error playing custom sound:', error);
+                    this.isPlaying = false;
+                    this.playClassicBeep(this.audioContext);
+                }
+            }
+
+            showAlarmModal(task) {
+                const modal = document.createElement('div');
+                modal.className = 'alarm-modal-overlay';
+                modal.innerHTML = `
+            <div class="alarm-modal">
+                <div class="alarm-modal-header">
+                    <div class="alarm-icon">⏰</div>
+                    <h2 class="alarm-title">Task Due!</h2>
+                </div>
+                <div class="alarm-modal-body">
+                    <div class="alarm-task-info">
+                        <h3 class="alarm-task-title">${this.escapeHtml(task.title)}</h3>
+                        ${task.description ? `<p class="alarm-task-desc">${this.escapeHtml(task.description)}</p>` : ''}
+                        <div class="alarm-task-meta">
+                            <span class="priority-badge priority-${task.priority}">
+                                ${task.priority.toUpperCase()}
+                            </span>
+                            <span class="alarm-time">📅 Due: ${new Date(task.due_date).toLocaleString()}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="alarm-modal-actions">
+                    <button onclick="alarmSystem.snoozeAlarm(${task.id}, 10)" class="alarm-btn alarm-btn-snooze">
+                        ⏰ Snooze 10 min
+                    </button>
+                    <button onclick="alarmSystem.viewTask(${task.id})" class="alarm-btn alarm-btn-view">
+                        👁️ View Task
+                    </button>
+                    <button onclick="alarmSystem.dismissAlarm()" class="alarm-btn alarm-btn-dismiss">
+                        ✅ Dismiss
+                    </button>
+                </div>
+            </div>
+        `;
+
+                document.body.appendChild(modal);
+                this.currentAlarm = modal;
+
+                setTimeout(() => modal.classList.add('show'), 10);
+            }
+
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            async snoozeAlarm(taskId, minutes) {
+                try {
+                    const response = await fetch(`/api/snooze-alarm/${taskId}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': this.getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ minutes })
+                    });
+
+                    if (response.ok) {
+                        this.dismissAlarm();
+                        this.showToast(`⏰ Snoozed for ${minutes} minutes`, 'info');
+                    }
+                } catch (error) {
+                    console.error('Error snoozing alarm:', error);
+                }
+            }
+
+            viewTask(taskId) {
+                this.dismissAlarm();
+                window.location.href = `/update/${taskId}/`;
+            }
+
+            dismissAlarm() {
+                if (this.currentAlarm) {
+                    this.currentAlarm.classList.remove('show');
+                    setTimeout(() => {
+                        this.currentAlarm.remove();
+                        this.currentAlarm = null;
+                    }, 300);
+                }
+            }
+
+            showToast(message, type) {
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.textContent = message;
+                toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 15px 25px;
+            background: ${type === 'success' ? '#2ecc71' : type === 'warning' ? '#f39c12' : '#3498db'};
+            color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            z-index: 10000;
+            animation: slideIn 0.3s ease;
+        `;
+
+                document.body.appendChild(toast);
+
+                setTimeout(() => {
+                    toast.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+
+            getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+        }
+
+        // Initialize alarm system
+        let alarmSystem;
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                alarmSystem = new AlarmSystem();
+            });
+        } else {
+            alarmSystem = new AlarmSystem();
+        }
     </script>
+
 
     {% block extra_js %}{% endblock %}
 </body>

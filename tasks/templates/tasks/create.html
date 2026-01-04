@@ -1,390 +1,791 @@
-{% extends 'tasks/base.html' %}
+
 {% load static %}
+<!DOCTYPE html>
+<html lang="en">
 
-{% block title %}Create Task - Todo Manager{% endblock %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Task</title>
+    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
+</head>
 
-{% block content %}
-<div class="create-task-container">
-    <!-- Back Button -->
-    <a href="/" class="back-button">
-        <span>←</span>
-        <span>Back to Tasks</span>
-    </a>
+    <body>
 
-    <!-- Create Task Card -->
-    <div class="create-task-card">
-        <div class="create-header">
-            <div class="create-icon">✨</div>
-            <h1 class="create-title">Create New Task</h1>
-            <p class="create-subtitle">Fill in the details below to create your task</p>
+        <!-- Toast Notifications Container -->
+        <div class="toast-container" id="toastContainer">
+            {% if messages %}
+            {% for message in messages %}
+            <div class="toast toast-{{ message.tags }} show" role="alert">
+                <div class="toast-content">
+                    <span class="toast-message">{{ message }}</span>
+                    <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
         </div>
 
-        <form method="POST" class="create-form">
-            {% csrf_token %}
+        <div class="create-task-container">
+            <!-- Back Button -->
+            <a href="/" class="back-button">
+                <span>←</span>
+                <span>Back to Tasks</span>
+            </a>
 
-
-
-            <div class="voice-input-section">
-                <div class="voice-header">
-                    <h3 class="voice-title">
-                        <span class="voice-icon">🎤</span>
-                        <span>Quick Capture</span>
-                    </h3>
-                    <p class="voice-subtitle">Speak to create a task hands-free!</p>
+            <!-- Create Task Card -->
+            <div class="create-task-card">
+                <div class="create-header">
+                    <div class="create-icon">✨</div>
+                    <h1 class="create-title">Create New Task</h1>
+                    <p class="create-subtitle">Fill in the details below to create your task</p>
                 </div>
 
-                <div class="voice-controls">
-                    <button type="button" id="voiceBtn" class="voice-button">
-                        <span class="mic-icon">🎤</span>
-                        <span class="voice-text">Click to Speak</span>
-                    </button>
+                <form method="POST" class="create-form">
+                    {% csrf_token %}
 
-                    <div class="voice-status" id="voiceStatus">
-                        <span class="status-text">Ready to listen...</span>
+                    <div class="voice-input-section">
+                        <div class="voice-header">
+                            <h3 class="voice-title">
+                                <span class="voice-icon">🎤</span>
+                                <span>Quick Capture</span>
+                            </h3>
+                            <p class="voice-subtitle">Speak to create a task hands-free!</p>
+                        </div>
+
+                        <div class="voice-controls">
+                            <button type="button" id="voiceBtn" class="voice-button">
+                                <span class="mic-icon">🎤</span>
+                                <span class="voice-text">Click to Speak</span>
+                            </button>
+
+                            <div class="voice-status" id="voiceStatus">
+                                <span class="status-text">Ready to listen...</span>
+                            </div>
+                        </div>
+                        
                     </div>
-                </div>
 
-                <div class="voice-tips">
-                    <p class="tips-title">💡 Tips:</p>
-                    <ul class="tips-list">
-                        <li>Speak clearly and naturally</li>
-                        <li>Example: "Buy groceries tomorrow at 5 PM"</li>
-                        <li>Browser will ask for microphone permission</li>
-                    </ul>
-                </div>
-            </div>
+                    <div class="form-divider">
+                        <span>OR</span>
+                    </div>
 
-            <div class="form-divider">
-                <span>OR</span>
-            </div>
-
-
-            <!-- Title Field -->
-            <div class="form-group-create">
-                <label for="id_title" class="form-label-create">
-                    <span class="label-icon">📝</span>
-                    <span class="label-text">Task Title</span>
-                    <span class="label-required">*</span>
-                </label>
-                {{ form.title }}
-                {% if form.title.errors %}
-                <div class="field-error">
-                    {% for error in form.title.errors %}
-                    <p>{{ error }}</p>
-                    {% endfor %}
-                </div>
-                {% endif %}
-            </div>
-
-            <!-- Description Field -->
-            <div class="form-group-create">
-                <label for="id_description" class="form-label-create">
-                    <span class="label-icon">📄</span>
-                    <span class="label-text">Description</span>
-                    <span class="label-optional">(optional)</span>
-                </label>
-                {{ form.description }}
-                <p class="field-hint">Add more details about this task</p>
-            </div>
-
-            <!-- Due Date & Priority Row -->
-            <div class="form-row-create">
-                <div class="form-group-create">
-                    <label for="id_due_date" class="form-label-create">
-                        <span class="label-icon">📅</span>
-                        <span class="label-text">Due Date</span>
-                        <span class="label-optional">(optional)</span>
-                    </label>
-                    {{ form.due_date }}
-                    <p class="field-hint">When should this be completed?</p>
-                </div>
-
-                <div class="form-group-create">
-                    <label for="id_priority" class="form-label-create">
-                        <span class="label-icon">⚡</span>
-                        <span class="label-text">Priority</span>
-                    </label>
-                    {{ form.priority }}
-                    <p class="field-hint">How important is this?</p>
-                </div>
-            </div>
-
-            <!-- Categories Field -->
-            <div class="form-group-create">
-                <label class="form-label-create">
-                    <span class="label-icon">🏷️</span>
-                    <span class="label-text">Categories</span>
-                    <!--<span class="label-optional">(optional)</span>-->
-                </label>
-                <div class="categories-grid">
-                    {{ form.categories }}
-                </div>
-                <p class="field-hint">Select one or more categories</p>
-            </div>
-
-
-            <div class="form-group full-width recurring-section">
-                <div class="recurring-header">
-                    <label class="form-label">
-                        <span class="label-icon">🔄</span>
-                        <span>Recurring Task</span>
-                    </label>
-                    <label class="toggle-switch">
-                        {{ form.is_recurring }}
-                        <span class="toggle-slider"></span>
-                    </label>
-                </div>
-                <p class="form-hint">{{ form.is_recurring.help_text }}</p>
-
-                <div class="recurring-options" id="recurringOptions" style="display: none;">
-                    <div class="form-group">
-                        <label class="form-label" for="{{ form.recurring_frequency.id_for_label }}">
-                            <span class="label-icon">📅</span>
-                            <span>{{ form.recurring_frequency.label }}</span>
+                    <!-- Title Field -->
+                    <div class="form-group-create">
+                        <label for="id_title" class="form-label-create">
+                            <span class="label-icon">📝</span>
+                            <span class="label-text">Task Title</span>
+                            <span class="label-required">*</span>
                         </label>
-                        {{ form.recurring_frequency }}
-                        <p class="form-hint">{{ form.recurring_frequency.help_text }}</p>
+                        {{ form.title }}
+                        
+                        {% if form.title.errors %}
+                        <div class="field-error">
+                            {% for error in form.title.errors %}
+                            <p>{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
 
-                    <div class="form-group" id="customIntervalGroup" style="display: none;">
-                        <label class="form-label" for="{{ form.recurring_interval.id_for_label }}">
-                            <span class="label-icon">🔢</span>
-                            <span>{{ form.recurring_interval.label }}</span>
+                    <!-- Description Field -->
+                    <div class="form-group-create">
+                        <label for="id_description" class="form-label-create">
+                            <span class="label-icon">📄</span>
+                            <span class="label-text">Description</span>
+                            <span class="label-optional">(optional)</span>
                         </label>
-                        {{ form.recurring_interval }}
-                        <p class="form-hint">{{ form.recurring_interval.help_text }}</p>
+                        {{ form.description }}
+                        <p class="field-hint">Add more details about this task</p>
                     </div>
 
-                    <div class="recurring-preview">
-                        <p class="preview-text" id="recurringPreview">
-                            <strong>Preview:</strong> <span id="previewText">Task will repeat daily</span>
-                        </p>
+                    <!-- Due Date & Priority Row -->
+                    <div class="form-row-create">
+                        <div class="form-group-create">
+                            <label for="id_due_date" class="form-label-create">
+                                <span class="label-icon">📅</span>
+                                <span class="label-text">Due Date</span>
+                                <span class="label-optional">(optional)</span>
+                            </label>
+                            {{ form.due_date }}
+                            <p class="field-hint">When should this be completed?</p>
+                        </div>
+
+                        <div class="form-group-create">
+                            <label for="id_priority" class="form-label-create">
+                                <span class="label-icon">⚡</span>
+                                <span class="label-text">Priority</span>
+                            </label>
+                            {{ form.priority }}
+                            <p class="field-hint">How important is this?</p>
+                        </div>
                     </div>
-                </div>
+
+                    <!-- Categories Field -->
+                    <div class="form-group-create">
+                        <label class="form-label-create">
+                            <span class="label-icon">🏷️</span>
+                            <span class="label-text">Categories</span>
+                            <!--<span class="label-optional">(optional)</span>-->
+                        </label>
+                        <div class="categories-grid">
+                            {{ form.categories }}
+                        </div>
+                        <p class="field-hint">Select one or more categories</p>
+                    </div>
+
+
+                    <div class="form-group full-width recurring-section">
+                        <div class="recurring-header">
+                            <label class="form-label">
+                                <span class="label-icon">🔄</span>
+                                <span>Recurring Task</span>
+                            </label>
+                            <label class="toggle-switch">
+                                {{ form.is_recurring }}
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <p class="form-hint">{{ form.is_recurring.help_text }}</p>
+
+                        <div class="recurring-options" id="recurringOptions" style="display: none;">
+                            <div class="form-group">
+                                <label class="form-label" for="{{ form.recurring_frequency.id_for_label }}">
+                                    <span class="label-icon">📅</span>
+                                    <span>{{ form.recurring_frequency.label }}</span>
+                                </label>
+                                {{ form.recurring_frequency }}
+                                <p class="form-hint">{{ form.recurring_frequency.help_text }}</p>
+                            </div>
+
+                            <div class="form-group" id="customIntervalGroup" style="display: none;">
+                                <label class="form-label" for="{{ form.recurring_interval.id_for_label }}">
+                                    <span class="label-icon">🔢</span>
+                                    <span>{{ form.recurring_interval.label }}</span>
+                                </label>
+                                {{ form.recurring_interval }}
+                                <p class="form-hint">{{ form.recurring_interval.help_text }}</p>
+                            </div>
+
+                            <div class="recurring-preview">
+                                <p class="preview-text" id="recurringPreview">
+                                    <strong>Preview:</strong> <span id="previewText">Task will repeat daily</span>
+                                </p>
+                            </div>
+                        </div>
+                    </div> 
+
+                    <div class="form-section alarm-section">
+                        <div class="section-header">
+                            <h3 class="section-title">
+                                <span class="section-icon">⏰</span>
+                                <span>Alarm & Notifications</span>
+                            </h3>
+                            <p class="section-subtitle">Get notified when this task is due</p>
+                        </div>
+
+                        <!-- Enable Alarm Toggle -->
+                        <div class="form-group toggle-group">
+                            <label class="toggle-label">
+                                <input type="checkbox" 
+                                    name="alarm_enabled" 
+                                    id="id_alarm_enabled"
+                                    {% if form.alarm_enabled.value %}checked{% endif %}
+                                    class="toggle-input"
+                                    onchange="toggleAlarmSettings()">
+                                <span class="toggle-slider"></span>
+                                <span class="toggle-text">Enable Alarm</span>
+                            </label>
+                            <p class="field-help">Get browser notification and sound when due</p>
+                        </div>
+
+                        <!-- Alarm Settings (shown when enabled) -->
+                        <div id="alarm-settings" style="display: none;">
+                            <!-- Alarm Time -->
+                            <div class="form-group">
+                                <label for="id_alarm_time" class="form-label">
+                                    🕐 Alarm Time
+                                </label>
+                                {{ form.alarm_time }}
+                                <p class="field-help">When should we remind you?</p>
+                            </div>
+
+                            <!-- Alarm Tone Selection -->
+                            <div class="form-group">
+                                <label class="form-label">🔔 Alarm Sound</label>
+                                <div class="alarm-tone-grid">
+                                    <div class="tone-option">
+                                        <input type="radio" 
+                                            name="alarm_tone" 
+                                            value="classic" 
+                                            id="tone-classic"
+                                            {% if form.alarm_tone.value == 'classic' or not form.alarm_tone.value %}checked{% endif %}>
+                                        <label for="tone-classic" class="tone-card">
+                                            <div class="tone-icon">⏰</div>
+                                            <div class="tone-name">Classic Alarm</div>
+                                            <div class="tone-desc">Traditional beep beep</div>
+                                            <button type="button" class="tone-preview" onclick="previewTone('classic')">
+                                                ▶️ Preview
+                                            </button>
+                                        </label>
+                                    </div>
+
+                                    <div class="tone-option">
+                                        <input type="radio" 
+                                            name="alarm_tone" 
+                                            value="chime" 
+                                            id="tone-chime"
+                                            {% if form.alarm_tone.value == 'chime' %}checked{% endif %}>
+                                        <label for="tone-chime" class="tone-card">
+                                            <div class="tone-icon">🎵</div>
+                                            <div class="tone-name">Soft Chime</div>
+                                            <div class="tone-desc">Pleasant melody</div>
+                                            <button type="button" class="tone-preview" onclick="previewTone('chime')">
+                                                ▶️ Preview
+                                            </button>
+                                        </label>
+                                    </div>
+
+                                    <div class="tone-option">
+                                        <input type="radio" 
+                                            name="alarm_tone" 
+                                            value="urgent" 
+                                            id="tone-urgent"
+                                            {% if form.alarm_tone.value == 'urgent' %}checked{% endif %}>
+                                        <label for="tone-urgent" class="tone-card">
+                                            <div class="tone-icon">🚨</div>
+                                            <div class="tone-name">Urgent Alert</div>
+                                            <div class="tone-desc">Loud & attention-grabbing</div>
+                                            <button type="button" class="tone-preview" onclick="previewTone('urgent')">
+                                                ▶️ Preview
+                                            </button>
+                                        </label>
+                                    </div>
+
+                                    <div class="tone-option">
+                                        <input type="radio" 
+                                            name="alarm_tone" 
+                                            value="custom" 
+                                            id="tone-custom"
+                                            {% if form.alarm_tone.value == 'custom' %}checked{% endif %}>
+                                        <label for="tone-custom" class="tone-card">
+                                            <div class="tone-icon">📁</div>
+                                            <div class="tone-name">Custom Upload</div>
+                                            <div class="tone-desc">Use your own sound</div>
+                                            <input type="file" 
+                                                accept="audio/*" 
+                                                id="custom-tone-upload"
+                                                style="display: none;"
+                                                onchange="handleCustomToneUpload(this)">
+                                            <button type="button" class="tone-preview" onclick="document.getElementById('custom-tone-upload').click()">
+                                                📤 Upload
+                                            </button>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Quick Alarm Presets -->
+                            <div class="form-group">
+                                <label class="form-label">⚡ Quick Presets</label>
+                                <div class="alarm-presets">
+                                    <button type="button" class="preset-btn" onclick="setAlarmPreset('due')">
+                                        <span>📅</span>
+                                        <span>At Due Time</span>
+                                    </button>
+                                    <button type="button" class="preset-btn" onclick="setAlarmPreset('15min')">
+                                        <span>⏰</span>
+                                        <span>15 min before</span>
+                                    </button>
+                                    <button type="button" class="preset-btn" onclick="setAlarmPreset('30min')">
+                                        <span>⏰</span>
+                                        <span>30 min before</span>
+                                    </button>
+                                    <button type="button" class="preset-btn" onclick="setAlarmPreset('1hour')">
+                                        <span>⏰</span>
+                                        <span>1 hour before</span>
+                                    </button>
+                                    <button type="button" class="preset-btn" onclick="setAlarmPreset('1day')">
+                                        <span>📆</span>
+                                        <span>1 day before</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Notification Permission Check -->
+                            <div id="notification-permission-warning" class="alert alert-warning" style="display: none;">
+                                <strong>⚠️ Notification Permission Required</strong>
+                                <p>Please allow notifications to receive alarms</p>
+                                <button type="button" class="btn btn-sm" onclick="requestNotificationPermission()">
+                                    Enable Notifications
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+
+                    <!-- Action Buttons -->
+                    <div class="create-actions">
+                        <button type="submit" class="btn-create-submit">
+                            <span class="btn-icon">✓</span>
+                            <span class="btn-text">Create Task</span>
+                        </button>
+                        <a href="/" class="btn-create-cancel">
+                            <span class="btn-icon">✕</span>
+                            <span class="btn-text">Cancel</span>
+                        </a>
+                    </div>
+                </form>
             </div>
 
-
-            <!-- Action Buttons -->
-            <div class="create-actions">
-                <button type="submit" class="btn-create-submit">
-                    <span class="btn-icon">✓</span>
-                    <span class="btn-text">Create Task</span>
-                </button>
-                <a href="/" class="btn-create-cancel">
-                    <span class="btn-icon">✕</span>
-                    <span class="btn-text">Cancel</span>
-                </a>
+            <!-- Quick Tips -->
+            <div class="quick-tips">
+                <h3 class="tips-title">💡 Quick Tips</h3>
+                <ul class="tips-list">
+                    <li>Use clear, actionable titles like "Call dentist" or "Buy groceries"</li>
+                    <li>Set realistic due dates to stay on track</li>
+                    <li>Higher priority tasks appear first in sorted lists</li>
+                    <li>Categories help you organize and filter tasks later</li>
+                </ul>
             </div>
-        </form>
-    </div>
-
-    <!-- Quick Tips -->
-    <div class="quick-tips">x
-        <h3 class="tips-title">💡 Quick Tips</h3>
-        <ul class="tips-list">
-            <li>Use clear, actionable titles like "Call dentist" or "Buy groceries"</li>
-            <li>Set realistic due dates to stay on track</li>
-            <li>Higher priority tasks appear first in sorted lists</li>
-            <li>Categories help you organize and filter tasks later</li>
-        </ul>
-    </div>
-</div>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        const isRecurringToggle = document.getElementById('id_is_recurring');
-        const recurringOptions = document.getElementById('recurringOptions');
-        const frequencySelect = document.getElementById('id_recurring_frequency');
-        const customIntervalGroup = document.getElementById('customIntervalGroup');
-        const intervalInput = document.getElementById('id_recurring_interval');
-        const previewText = document.getElementById('previewText');
-
-        // Show/hide recurring options
-        isRecurringToggle.addEventListener('change', function () {
-            if (this.checked) {
-                recurringOptions.style.display = 'block';
-                updatePreview();
-            } else {
-                recurringOptions.style.display = 'none';
-            }
-        });
-
-        // Show/hide custom interval
-        frequencySelect.addEventListener('change', function () {
-            if (this.value === 'custom') {
-                customIntervalGroup.style.display = 'block';
-            } else {
-                customIntervalGroup.style.display = 'none';
-            }
-            updatePreview();
-        });
-
-        // Update preview on interval change
-        intervalInput.addEventListener('input', updatePreview);
-
-        // Update preview text
-        function updatePreview() {
-            const frequency = frequencySelect.value;
-            const interval = intervalInput.value || 1;
-
-            const previewMap = {
-                'none': 'Task does not repeat',
-                'daily': 'Task will repeat every day',
-                'weekly': 'Task will repeat every week',
-                'biweekly': 'Task will repeat every 2 weeks',
-                'monthly': 'Task will repeat every month',
-                'yearly': 'Task will repeat every year',
-                'custom': `Task will repeat every ${interval} day${interval > 1 ? 's' : ''}`
-            };
-
-            previewText.textContent = previewMap[frequency] || 'Select a frequency';
-        }
-
-        // Check if recurring is already enabled (edit mode)
-        if (isRecurringToggle.checked) {
-            recurringOptions.style.display = 'block';
-            if (frequencySelect.value === 'custom') {
-                customIntervalGroup.style.display = 'block';
-            }
-            updatePreview();
-        }
-    });
-
-
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        const voiceBtn = document.getElementById('voiceBtn');
-        const voiceStatus = document.getElementById('voiceStatus');
-        const titleInput = document.getElementById('id_title');
-
-        // Configure recognition
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
-
-        let isListening = false;
-
-        // Voice button click
-        voiceBtn.addEventListener('click', function () {
-            if (isListening) {
-                recognition.stop();
-            } else {
-                recognition.start();
-            }
-        });
-
-        // Recognition started
-        recognition.onstart = function () {
-            isListening = true;
-            voiceBtn.classList.add('listening');
-            voiceStatus.innerHTML = '<span class="status-text listening">🎙️ Listening... Speak now!</span>';
-        };
-
-        // Recognition ended
-        recognition.onend = function () {
-            isListening = false;
-            voiceBtn.classList.remove('listening');
-            voiceStatus.innerHTML = '<span class="status-text">Ready to listen...</span>';
-        };
-
-        // Recognition result
-        recognition.onresult = function (event) {
-            const transcript = event.results[0][0].transcript;
-            console.log('Heard:', transcript);
-
-            // Fill in the title field
-            titleInput.value = transcript;
-
-            // Try to parse natural language for due dates
-            parseNaturalLanguage(transcript);
-
-            // Show success
-            voiceStatus.innerHTML = '<span class="status-text success">✅ Got it: "' + transcript + '"</span>';
-
-            // Reset after 3 seconds
-            setTimeout(() => {
-                voiceStatus.innerHTML = '<span class="status-text">Ready to listen...</span>';
-            }, 3000);
-        };
-
-        // Recognition error
-        recognition.onerror = function (event) {
-            console.error('Speech recognition error:', event.error);
-
-            let errorMessage = 'Error occurred. Please try again.';
-
-            if (event.error === 'no-speech') {
-                errorMessage = '❌ No speech detected. Try again!';
-            } else if (event.error === 'not-allowed') {
-                errorMessage = '❌ Microphone access denied. Check browser permissions.';
-            } else if (event.error === 'network') {
-                errorMessage = '❌ Network error. Check your connection.';
-            }
-
-            voiceStatus.innerHTML = '<span class="status-text error">' + errorMessage + '</span>';
-
-            setTimeout(() => {
-                voiceStatus.innerHTML = '<span class="status-text">Ready to listen...</span>';
-            }, 4000);
-        };
-
-        // Parse natural language for dates and priority
-        function parseNaturalLanguage(text) {
-            const lowerText = text.toLowerCase();
-
-            // Check for priority keywords
-            if (lowerText.includes('urgent') || lowerText.includes('asap') || lowerText.includes('emergency')) {
-                document.getElementById('id_priority').value = 'urgent';
-            } else if (lowerText.includes('important') || lowerText.includes('high priority')) {
-                document.getElementById('id_priority').value = 'high';
-            } else if (lowerText.includes('low priority') || lowerText.includes('whenever')) {
-                document.getElementById('id_priority').value = 'low';
-            }
-
-            // Check for time-based keywords (basic parsing)
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            tomorrow.setHours(9, 0, 0, 0); // Default to 9 AM
-
-            const nextWeek = new Date();
-            nextWeek.setDate(nextWeek.getDate() + 7);
-            nextWeek.setHours(9, 0, 0, 0);
-
-            if (lowerText.includes('tomorrow')) {
-                setDateTimeInput(tomorrow);
-            } else if (lowerText.includes('next week')) {
-                setDateTimeInput(nextWeek);
-            } else if (lowerText.includes('today')) {
-                const today = new Date();
-                today.setHours(17, 0, 0, 0); // Default to 5 PM today
-                setDateTimeInput(today);
-            }
-        }
-
-        // Helper to set datetime input
-        function setDateTimeInput(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-
-            const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
-            document.getElementById('id_due_date').value = dateTimeString;
-        }
-
-    } else {
-        // Browser doesn't support speech recognition
-        const voiceSection = document.querySelector('.voice-input-section');
-        voiceSection.innerHTML = `
-        <div class="voice-not-supported">
-            <p>🎤 Voice input is not supported in this browser.</p>
-            <p>Try Chrome, Edge, or Safari for voice input!</p>
         </div>
-    `;
-    }
 
-</script>
-{% endblock %}
+
+
+
+        <script>
+            // Show loading overlay when form is submitted
+            document.addEventListener('DOMContentLoaded', function () {
+                const forms = document.querySelectorAll('form');
+                const loadingOverlay = document.getElementById('loadingOverlay');
+
+                forms.forEach(form => {
+                    form.addEventListener('submit', function (e) {
+                        // Show loading overlay
+                        if (loadingOverlay) {
+                            loadingOverlay.classList.add('active');
+                        }
+
+                        // Add loading class to submit button
+                        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
+                        if (submitBtn) {
+                            submitBtn.classList.add('loading');
+                            submitBtn.disabled = true;
+                        }
+                    });
+                });
+
+                // Auto-hide toasts after 5 seconds
+                const toasts = document.querySelectorAll('.toast');
+                toasts.forEach(toast => {
+                    setTimeout(() => {
+                        toast.style.animation = 'fadeOut 0.5s ease-in forwards';
+                        setTimeout(() => toast.remove(), 500);
+                    }, 5000);
+                });
+            });
+
+
+            document.addEventListener('DOMContentLoaded', function () {
+                const isRecurringToggle = document.getElementById('id_is_recurring');
+                const recurringOptions = document.getElementById('recurringOptions');
+                const frequencySelect = document.getElementById('id_recurring_frequency');
+                const customIntervalGroup = document.getElementById('customIntervalGroup');
+                const intervalInput = document.getElementById('id_recurring_interval');
+                const previewText = document.getElementById('previewText');
+
+                // Show/hide recurring options
+                if (isRecurringToggle) {
+                    isRecurringToggle.addEventListener('change', function () {
+                        if (this.checked) {
+                            recurringOptions.style.display = 'block';
+                            updatePreview();
+                        } else {
+                            recurringOptions.style.display = 'none';
+                        }
+                    });
+                }
+
+                // Show/hide custom interval
+                frequencySelect.addEventListener('change', function () {
+                    if (this.value === 'custom') {
+                        customIntervalGroup.style.display = 'block';
+                    } else {
+                        customIntervalGroup.style.display = 'none';
+                    }
+                    updatePreview();
+                });
+
+                // Update preview on interval change
+                intervalInput.addEventListener('input', updatePreview);
+
+                // Update preview text
+                function updatePreview() {
+                    const frequency = frequencySelect.value;
+                    const interval = intervalInput.value || 1;
+
+                    const previewMap = {
+                        'none': 'Task does not repeat',
+                        'daily': 'Task will repeat every day',
+                        'weekly': 'Task will repeat every week',
+                        'biweekly': 'Task will repeat every 2 weeks',
+                        'monthly': 'Task will repeat every month',
+                        'yearly': 'Task will repeat every year',
+                        'custom': `Task will repeat every ${interval} day${interval > 1 ? 's' : ''}`
+                    };
+
+                    previewText.textContent = previewMap[frequency] || 'Select a frequency';
+                }
+
+                // Check if recurring is already enabled (edit mode)
+                if (isRecurringToggle && isRecurringToggle.checked) {
+                    recurringOptions.style.display = 'block';
+                    if (frequencySelect.value === 'custom') {
+                        customIntervalGroup.style.display = 'block';
+                    }
+                    updatePreview();
+                }
+            });
+
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (SpeechRecognition) {
+                const recognition = new SpeechRecognition();
+                const voiceBtn = document.getElementById('voiceBtn');
+                const voiceStatus = document.getElementById('voiceStatus');
+                const titleInput = document.getElementById('id_title');
+
+                // Configure recognition
+                recognition.continuous = false;
+                recognition.interimResults = false;
+                recognition.lang = 'en-US';
+
+                let isListening = false;
+
+                // Voice button click
+                voiceBtn.addEventListener('click', function () {
+                    if (isListening) {
+                        recognition.stop();
+                    } else {
+                        recognition.start();
+                    }
+                });
+
+                // Recognition started
+                recognition.onstart = function () {
+                    isListening = true;
+                    voiceBtn.classList.add('listening');
+                    voiceStatus.innerHTML = '<span class="status-text listening">🎙️ Listening... Speak now!</span>';
+                };
+
+                // Recognition ended
+                recognition.onend = function () {
+                    isListening = false;
+                    voiceBtn.classList.remove('listening');
+                    voiceStatus.innerHTML = '<span class="status-text">Ready to listen...</span>';
+                };
+
+                // Recognition result
+                recognition.onresult = function (event) {
+                    const transcript = event.results[0][0].transcript;
+                    console.log('Heard:', transcript);
+
+                    // Fill in the title field
+                    titleInput.value = transcript;
+
+                    // Try to parse natural language for due dates
+                    parseNaturalLanguage(transcript);
+
+                    // Show success
+                    voiceStatus.innerHTML = '<span class="status-text success">✅ Got it: "' + transcript + '"</span>';
+
+                    // Reset after 3 seconds
+                    setTimeout(() => {
+                        voiceStatus.innerHTML = '<span class="status-text">Ready to listen...</span>';
+                    }, 3000);
+                };
+
+                // Recognition error
+                recognition.onerror = function (event) {
+                    console.error('Speech recognition error:', event.error);
+
+                    let errorMessage = 'Error occurred. Please try again.';
+
+                    if (event.error === 'no-speech') {
+                        errorMessage = '❌ No speech detected. Try again!';
+                    } else if (event.error === 'not-allowed') {
+                        errorMessage = '❌ Microphone access denied. Check browser permissions.';
+                    } else if (event.error === 'network') {
+                        errorMessage = '❌ Network error. Check your connection.';
+                    }
+
+                    voiceStatus.innerHTML = '<span class="status-text error">' + errorMessage + '</span>';
+
+                    setTimeout(() => {
+                        voiceStatus.innerHTML = '<span class="status-text">Ready to listen...</span>';
+                    }, 4000);
+                };
+
+                // Parse natural language for dates and priority
+                function parseNaturalLanguage(text) {
+                    const lowerText = text.toLowerCase();
+
+                    // Check for priority keywords
+                    if (lowerText.includes('urgent') || lowerText.includes('asap') || lowerText.includes('emergency')) {
+                        document.getElementById('id_priority').value = 'urgent';
+                    } else if (lowerText.includes('important') || lowerText.includes('high priority')) {
+                        document.getElementById('id_priority').value = 'high';
+                    } else if (lowerText.includes('low priority') || lowerText.includes('whenever')) {
+                        document.getElementById('id_priority').value = 'low';
+                    }
+
+                    // Check for time-based keywords (basic parsing)
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    tomorrow.setHours(9, 0, 0, 0); // Default to 9 AM
+
+                    const nextWeek = new Date();
+                    nextWeek.setDate(nextWeek.getDate() + 7);
+                    nextWeek.setHours(9, 0, 0, 0);
+
+                    if (lowerText.includes('tomorrow')) {
+                        setDateTimeInput(tomorrow);
+                    } else if (lowerText.includes('next week')) {
+                        setDateTimeInput(nextWeek);
+                    } else if (lowerText.includes('today')) {
+                        const today = new Date();
+                        today.setHours(17, 0, 0, 0); // Default to 5 PM today
+                        setDateTimeInput(today);
+                    }
+                }
+
+                // Helper to set datetime input
+                function setDateTimeInput(date) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+                    const dateTimeString = `${year}-${month}-${day}T${hours}:${minutes}`;
+                    document.getElementById('id_due_date').value = dateTimeString;
+                }
+
+            } else {
+                // Browser doesn't support speech recognition
+                const voiceSection = document.querySelector('.voice-input-section');
+                voiceSection.innerHTML = `
+                <div class="voice-not-supported">
+                    <p>🎤 Voice input is not supported in this browser.</p>
+                    <p>Try Chrome, Edge, or Safari for voice input!</p>
+                </div>
+            `;
+            }
+
+
+            // Show/hide alarm settings based on toggle
+            function toggleAlarmSettings() {
+                const enabled = document.getElementById('id_alarm_enabled').checked;
+                const settings = document.getElementById('alarm-settings');
+                
+                if (enabled) {
+                    settings.style.display = 'block';
+                    checkNotificationPermission();
+                    
+                    // Set default alarm time if due date exists and alarm time is empty
+                    const dueDateInput = document.getElementById('id_due_date');
+                    const alarmTimeInput = document.getElementById('id_alarm_time');
+                    
+                    if (dueDateInput && dueDateInput.value && !alarmTimeInput.value) {
+                        alarmTimeInput.value = dueDateInput.value;
+                    }
+                } else {
+                    settings.style.display = 'none';
+                }
+            }
+
+            // Check notification permission on page load
+            function checkNotificationPermission() {
+                if ('Notification' in window && Notification.permission !== 'granted') {
+                    document.getElementById('notification-permission-warning').style.display = 'block';
+                }
+            }
+
+            // Request notification permission
+            async function requestNotificationPermission() {
+                if ('Notification' in window) {
+                    const permission = await Notification.requestPermission();
+                    if (permission === 'granted') {
+                        document.getElementById('notification-permission-warning').style.display = 'none';
+                        showToast('✅ Notifications enabled!', 'success');
+                    }
+                }
+            }
+
+            // Preview alarm tone
+            function previewTone(tone) {
+                if (typeof alarmSystem !== 'undefined') {
+                    alarmSystem.playAlarmSound(tone);
+                } else {
+                    // Fallback if alarm system not loaded
+                    const audio = new Audio();
+                    if (tone === 'classic') {
+                        // Play a simple beep using data URL
+                        audio.src = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZSA0PWqvl8KtfGQs+lutRZhB';
+                        audio.play();
+                    }
+                }
+            }
+
+            // Set alarm preset
+            function setAlarmPreset(preset) {
+                const dueDateInput = document.getElementById('id_due_date');
+                const alarmTimeInput = document.getElementById('id_alarm_time');
+                
+                if (!dueDateInput || !dueDateInput.value) {
+                    showToast('⚠️ Please set a due date first', 'warning');
+                    return;
+                }
+                
+                const dueDate = new Date(dueDateInput.value);
+                let alarmDate = new Date(dueDate);
+                
+                switch(preset) {
+                    case 'due':
+                        // Same as due date
+                        break;
+                    case '15min':
+                        alarmDate.setMinutes(alarmDate.getMinutes() - 15);
+                        break;
+                    case '30min':
+                        alarmDate.setMinutes(alarmDate.getMinutes() - 30);
+                        break;
+                    case '1hour':
+                        alarmDate.setHours(alarmDate.getHours() - 1);
+                        break;
+                    case '1day':
+                        alarmDate.setDate(alarmDate.getDate() - 1);
+                        break;
+                }
+                
+                // Format datetime for input (YYYY-MM-DDTHH:MM)
+                const year = alarmDate.getFullYear();
+                const month = String(alarmDate.getMonth() + 1).padStart(2, '0');
+                const day = String(alarmDate.getDate()).padStart(2, '0');
+                const hours = String(alarmDate.getHours()).padStart(2, '0');
+                const minutes = String(alarmDate.getMinutes()).padStart(2, '0');
+                
+                alarmTimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+                showToast('✅ Alarm time set!', 'success');
+            }
+
+            // Handle custom tone upload
+            function handleCustomToneUpload(input) {
+                if (input.files && input.files[0]) {
+                    const file = input.files[0];
+                    
+                    // Check file type
+                    if (!file.type.startsWith('audio/')) {
+                        showToast('⚠️ Please upload an audio file', 'warning');
+                        return;
+                    }
+                    
+                    // Check file size (max 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        showToast('⚠️ File too large (max 5MB)', 'warning');
+                        return;
+                    }
+                    
+                    // Store in localStorage temporarily
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        localStorage.setItem('customAlarmTone', e.target.result);
+                        localStorage.setItem('customAlarmToneName', file.name);
+                        
+                        document.getElementById('tone-custom').checked = true;
+                        showToast(`✅ Custom tone "${file.name}" loaded!`, 'success');
+                        
+                        // Update the custom tone label
+                        const customLabel = document.querySelector('label[for="tone-custom"] .tone-name');
+                        customLabel.textContent = file.name;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+
+            // Toast notification function
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.textContent = message;
+                toast.style.cssText = `
+                    position: fixed;
+                    bottom: 20px;
+                    right: 20px;
+                    padding: 15px 25px;
+                    background: ${type === 'success' ? '#2ecc71' : type === 'warning' ? '#f39c12' : '#3498db'};
+                    color: white;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    z-index: 10000;
+                    animation: slideIn 0.3s ease;
+                `;
+                
+                document.body.appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.style.animation = 'slideOut 0.3s ease';
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+
+            // Initialize on page load
+            document.addEventListener('DOMContentLoaded', function() {
+                // Show alarm settings if already enabled
+                if (document.getElementById('id_alarm_enabled').checked) {
+                    toggleAlarmSettings();
+                }
+                
+                // Load custom tone from localStorage if exists
+                const customTone = localStorage.getItem('customAlarmTone');
+                const customToneName = localStorage.getItem('customAlarmToneName');
+                
+                if (customTone && customToneName) {
+                    const customLabel = document.querySelector('label[for="tone-custom"] .tone-name');
+                    if (customLabel) {
+                        customLabel.textContent = customToneName;
+                    }
+                }
+            });
+
+            // Add CSS animations
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes slideIn {
+                    from {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                
+                @keyframes slideOut {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(400px);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
+        </script>
+    </body>
+</html>

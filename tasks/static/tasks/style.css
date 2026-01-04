@@ -3347,7 +3347,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator {
 ======================================== */
 
 .create-task-container {
-    max-width: 800px;
+    max-width: 1000px;
     margin: 0 auto;
     padding: 20px;
 }
@@ -8328,3 +8328,639 @@ input[type="file"] {
         opacity: 1;
         filter: grayscale(0%);
     }
+
+}
+
+
+.alarm-section {
+    background: rgba(255, 107, 107, 0.05);
+    border: 2px solid rgba(255, 107, 107, 0.2);
+    border-radius: 15px;
+    padding: 25px;
+    margin: 25px 0;
+}
+
+.section-header {
+    margin-bottom: 25px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin: 0 0 5px 0;
+}
+
+.section-icon {
+    font-size: 2rem;
+}
+
+.section-subtitle {
+    color: var(--text-tertiary);
+    margin: 5px 0 0 0;
+    font-size: 0.95rem;
+}
+
+/* Toggle Switch */
+.toggle-group {
+    margin-bottom: 20px;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-input {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 60px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 30px;
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: #fff;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.3s ease;
+}
+
+.toggle-input:checked+.toggle-slider {
+    background: linear-gradient(135deg, #00f5ff, #00a8ff);
+    border-color: #00f5ff;
+}
+
+.toggle-input:checked+.toggle-slider::before {
+    transform: translateX(30px);
+}
+
+.toggle-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Alarm Tone Grid */
+.alarm-tone-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.tone-option input[type="radio"] {
+    display: none;
+}
+
+.tone-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-primary);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.tone-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 245, 255, 0.2);
+    border-color: var(--accent-primary);
+}
+
+.tone-option input:checked+.tone-card {
+    background: linear-gradient(135deg, rgba(0, 245, 255, 0.1), rgba(0, 168, 255, 0.1));
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+}
+
+.tone-icon {
+    font-size: 2.5rem;
+    margin-bottom: 5px;
+}
+
+.tone-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.tone-desc {
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+}
+
+.tone-preview {
+    padding: 8px 15px;
+    background: rgba(0, 245, 255, 0.1);
+    border: 1px solid var(--accent-primary);
+    border-radius: 8px;
+    color: var(--accent-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tone-preview:hover {
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+    transform: scale(1.05);
+}
+
+/* Alarm Presets */
+.alarm-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.preset-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-primary);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.preset-btn:hover {
+    background: rgba(0, 245, 255, 0.1);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 245, 255, 0.2);
+}
+
+.preset-btn span:first-child {
+    font-size: 1.2rem;
+}
+
+/* Alert Box */
+.alert {
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 15px;
+}
+
+.alert-warning {
+    background: rgba(255, 193, 7, 0.1);
+    border: 2px solid rgba(255, 193, 7, 0.3);
+    color: #ffc107;
+}
+
+.alert strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.alert p {
+    margin: 5px 0;
+}
+
+.alert button {
+    margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+    .alarm-tone-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .alarm-presets {
+        flex-direction: column;
+    }
+
+    .preset-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* ========================================
+   ALARM SYSTEM STYLES
+   ======================================== */
+
+/* Alarm Section in Form */
+.alarm-section {
+    background: rgba(255, 107, 107, 0.05);
+    border: 2px solid rgba(255, 107, 107, 0.2);
+    border-radius: 15px;
+    padding: 25px;
+    margin: 25px 0;
+}
+
+.section-header {
+    margin-bottom: 25px;
+}
+
+.section-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+    margin: 0 0 5px 0;
+}
+
+
+.section-icon {
+    font-size: 2rem;
+}
+
+.section-subtitle {
+    color: var(--text-tertiary);
+    margin: 5px 0 0 0;
+    font-size: 0.95rem;
+}
+
+/* Toggle Switch */
+.toggle-group {
+    margin-bottom: 20px;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-input {
+    display: none;
+}
+
+.toggle-slider {
+    position: relative;
+    width: 60px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 30px;
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.toggle-slider::before {
+    content: '';
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: #fff;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.3s ease;
+}
+
+.toggle-input:checked+.toggle-slider {
+    background: linear-gradient(135deg, #00f5ff, #00a8ff);
+    border-color: #00f5ff;
+}
+
+.toggle-input:checked+.toggle-slider::before {
+    transform: translateX(30px);
+}
+
+.toggle-text {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Alarm Tone Grid */
+.alarm-tone-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.tone-option input[type="radio"] {
+    display: none;
+}
+
+.tone-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-primary);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+
+.tone-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 245, 255, 0.2);
+    border-color: var(--accent-primary);
+}
+
+.tone-option input:checked+.tone-card {
+    background: linear-gradient(135deg, rgba(0, 245, 255, 0.1), rgba(0, 168, 255, 0.1));
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+}
+
+.tone-icon {
+    font-size: 2.5rem;
+    margin-bottom: 5px;
+}
+
+.tone-name {
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.tone-desc {
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    margin-bottom: 10px;
+}
+
+.tone-preview {
+    padding: 8px 15px;
+    background: rgba(0, 245, 255, 0.1);
+    border: 1px solid var(--accent-primary);
+    border-radius: 8px;
+    color: var(--accent-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.tone-preview:hover {
+    background: var(--accent-primary);
+    color: var(--bg-primary);
+    transform: scale(1.05);
+}
+
+/* Alarm Presets */
+.alarm-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.preset-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    background: var(--bg-card);
+    border: 2px solid var(--border-primary);
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.preset-btn:hover {
+    background: rgba(0, 245, 255, 0.1);
+    border-color: var(--accent-primary);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 245, 255, 0.2);
+}
+
+.preset-btn span:first-child {
+    font-size: 1.2rem;
+}
+
+/* Alert Box */
+.alert {
+    padding: 15px;
+    border-radius: 10px;
+    margin-top: 15px;
+}
+
+.alert-warning {
+    background: rgba(255, 193, 7, 0.1);
+    border: 2px solid rgba(255, 193, 7, 0.3);
+    color: #ffc107;
+}
+
+.alert strong {
+    display: block;
+    margin-bottom: 5px;
+}
+
+.alert p {
+    margin: 5px 0;
+}
+
+.alert button {
+    margin-top: 10px;
+}
+
+/* Alarm Modal Overlay */
+.alarm-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.alarm-modal-overlay.show {
+    opacity: 1;
+}
+
+.alarm-modal {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 3px solid #ff6b6b;
+    border-radius: 20px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(255, 107, 107, 0.5);
+    animation: alarmPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes alarmPulse {
+
+    0%,
+    100% {
+        box-shadow: 0 20px 60px rgba(255, 107, 107, 0.5);
+    }
+
+    50% {
+        box-shadow: 0 20px 80px rgba(255, 107, 107, 0.8);
+    }
+}
+
+.alarm-modal-header {
+    text-align: center;
+    padding: 30px 20px 20px;
+    border-bottom: 2px solid rgba(255, 107, 107, 0.3);
+}
+
+.alarm-icon {
+    font-size: 5rem;
+    animation: alarmShake 0.5s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px rgba(255, 107, 107, 0.8));
+}
+
+@keyframes alarmShake {
+
+    0%,
+    100% {
+        transform: rotate(-10deg);
+    }
+
+    50% {
+        transform: rotate(10deg);
+    }
+}
+
+.alarm-title {
+    font-size: 2rem;
+    color: #ff6b6b;
+    margin: 15px 0 0 0;
+    font-weight: 900;
+    text-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+}
+
+.alarm-modal-body {
+    padding: 30px;
+}
+
+.alarm-task-title {
+    font-size: 1.5rem;
+    color: #fff;
+    margin: 0 0 15px 0;
+    font-weight: 700;
+}
+
+.alarm-task-desc {
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0 0 20px 0;
+    line-height: 1.6;
+}
+
+.alarm-task-meta {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+.alarm-time {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.95rem;
+}
+
+.alarm-modal-actions {
+    display: flex;
+    gap: 10px;
+    padding: 20px 30px 30px;
+    flex-wrap: wrap;
+}
+
+.alarm-btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 15px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.alarm-btn-snooze {
+    background: linear-gradient(135deg, #f39c12, #e67e22);
+    color: #fff;
+}
+
+.alarm-btn-snooze:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.5);
+}
+
+.alarm-btn-view {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: #fff;
+}
+
+.alarm-btn-view:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(52, 152, 219, 0.5);
+}
+
+.alarm-btn-dismiss {
+    background: linear-gradient(135deg, #2ecc71, #27ae60);
+    color: #fff;
+}
+
+.alarm-btn-dismiss:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(46, 204, 113, 0.5);
+}
+
+@media (max-width: 768px) {
+    .alarm-tone-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .alarm-presets {
+        flex-direction: column;
+    }
+
+    .preset-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .alarm-modal-actions {
+        flex-direction: column;
+    }
+
+    .alarm-btn {
+        width: 100%;
+    }
+}

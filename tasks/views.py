@@ -10,7 +10,7 @@ from .forms import CustomUserForm
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_http_methods
 import json
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
@@ -25,11 +25,14 @@ from .forms import (
     PrivacySettingsForm
 )
 import os
-
 from .models import TaskTemplate, TemplateItem
 import uuid  # Add this at the top
 from django.utils import timezone  # Add this too
 from django.conf import settings
+from django.core.files.base import ContentFile
+import base64
+
+
 
 
 # Create your views here.           
@@ -355,6 +358,44 @@ def create_task(request):
         if form.is_valid():
             task = form.save(commit=False)
             task.user = request.user
+            
+             # Handle custom ringtone upload
+            custom_tone_data = request.POST.get('custom_tone_data')
+            if custom_tone_data:
+                try:
+                    tone_info = json.loads(custom_tone_data)
+                    
+                    # Extract base64 data
+                    data_url = tone_info['data']
+                    format, datastr = data_url.split(';base64,')
+                    
+                    # Create filename
+                    ext = tone_info['name'].split('.')[-1]
+                    filename = f"custom_tone_{request.user.id}_{task.id}.{ext}"
+                    
+                    # Save file
+                    file_data = ContentFile(base64.b64decode(datastr), name=filename)
+                    
+                    # Create media directory if it doesn't exist
+                    upload_path = os.path.join(settings.MEDIA_ROOT, 'alarm_tones', str(request.user.id))
+                    os.makedirs(upload_path, exist_ok=True)
+                    
+                    # Save file path
+                    file_path = os.path.join('alarm_tones', str(request.user.id), filename)
+                    full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+                    
+                    with open(full_path, 'wb') as f:
+                        f.write(file_data.read())
+                    
+                    # Store relative URL in task
+                    task.alarm_tone = f'/media/{file_path}'
+                    
+                except Exception as e:
+                    print(f"Error saving custom tone: {e}")
+                    # Fall back to classic tone
+                    task.alarm_tone = 'classic'
+            
+            
             task.save()
             form.save_m2m()
             messages.success(request, f'✅ Task "{task.title}" created successfully!')
@@ -1236,6 +1277,9 @@ def achievements_view(request):
     
     return render(request, 'tasks/achievements.html', context)
 
+def trial(request):
+    return render(request=request, template_name='tasks/trial.html')
+    
 def offline_page(request):
     """Offline page for PWA"""
     return render(request, 'tasks/offline.html')
@@ -1472,3 +1516,74 @@ END OF EXPORT
     response['Content-Disposition'] = f'attachment; filename="all_notes_{timezone.now().strftime("%Y%m%d")}.txt"'
     
     return response
+
+
+
+@login_required
+@require_http_methods(["GET"])
+def check_due_tasks(request):
+    """API endpoint to check for due tasks with alarms"""
+    from django.utils import timezone
+    
+    now = timezone.now()
+    
+    # Get tasks that are due and have alarms enabled
+    # Check tasks whose alarm time is within the last 5 minutes
+    due_tasks = Task.objects.filter(
+        user=request.user,
+        complete=False,
+        alarm_enabled=True,
+        alarm_time__lte=now,
+        alarm_time__gte=now - timedelta(minutes=5)
+    ).exclude(
+        alarm_snoozed_until__gt=now  # Not snoozed
+    )
+    
+    tasks_data = []
+    for task in due_tasks:
+        tasks_data.append({
+            'id': task.id,
+            'title': task.title,
+            'description': task.description or '',
+            'priority': task.priority,
+            'due_date': task.due_date.isoformat() if task.due_date else None,
+            'alarm_time': task.alarm_time.isoformat() if task.alarm_time else None,
+            'alarm_tone': task.alarm_tone or 'classic',
+        })
+    
+    return JsonResponse({
+        'success': True,
+        'due_tasks': tasks_data,
+        'count': len(tasks_data)
+    })
+
+
+@login_required
+@require_http_methods(["POST"])
+def snooze_alarm(request, pk):
+    """Snooze an alarm for X minutes"""
+    from django.utils import timezone
+    
+    try:
+        data = json.loads(request.body)
+        minutes = int(data.get('minutes', 10))
+        
+        task = Task.objects.get(id=pk, user=request.user)
+        task.alarm_snoozed_until = timezone.now() + timedelta(minutes=minutes)
+        task.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Alarm snoozed for {minutes} minutes',
+            'snoozed_until': task.alarm_snoozed_until.isoformat()
+        })
+    except Task.DoesNotExist:
+        return JsonResponse({
+            'success': False, 
+            'error': 'Task not found'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'success': False, 
+            'error': str(e)
+        }, status=500)

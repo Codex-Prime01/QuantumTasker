@@ -41,12 +41,13 @@ urlpatterns = [
     path('achievements/', views.achievements_view, name='achievements'),
       
     path('offline/', views.offline_page, name='offline'),
+    path('trial/', views.trial, name='trial'),
     # Notes URLs
-path('notes/', views.notes_list, name='notes_list'),
-path('notes/create/', views.create_note, name='create_note'),
-path('notes/<int:pk>/update/', views.update_note, name='update_note'),
-path('notes/<int:pk>/delete/', views.delete_note, name='delete_note'),
-path('notes/<int:pk>/toggle-pin/', views.toggle_pin_note, name='toggle_pin_note'),
+    path('notes/', views.notes_list, name='notes_list'),
+    path('notes/create/', views.create_note, name='create_note'),
+    path('notes/<int:pk>/update/', views.update_note, name='update_note'),
+    path('notes/<int:pk>/delete/', views.delete_note, name='delete_note'),
+    path('notes/<int:pk>/toggle-pin/', views.toggle_pin_note, name='toggle_pin_note'),
 
     path('notes/<int:pk>/archive/', views.archive_note, name='archive_note'),
     path('notes/<int:pk>/unarchive/', views.unarchive_note, name='unarchive_note'),
@@ -58,6 +59,10 @@ path('notes/<int:pk>/toggle-pin/', views.toggle_pin_note, name='toggle_pin_note'
     
     
     
+    path('api/check-due-tasks/', views.check_due_tasks, name='check_due_tasks'),
+    path('api/snooze-alarm/<int:pk>/', views.snooze_alarm, name='snooze_alarm'),
+    
+    
 ]
 
 if settings.DEBUG:
@@ -67,3 +72,6 @@ else:
     # Production: Still need to serve media files
     # WhiteNoise handles static files, but NOT media files
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    
+    
+    

@@ -26,7 +26,10 @@ class CustomUserForm(UserCreationForm):
 class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
-        fields = ['title', 'description','due_date','priority','complete', 'categories',  'is_recurring', 'recurring_frequency', 'recurring_interval']
+        fields = ['title', 'description','due_date','priority','complete', 'categories',  'is_recurring', 'recurring_frequency', 'recurring_interval',
+        'alarm_enabled',    
+        'alarm_time',   
+        'alarm_tone']
         widgets = {
             'categories': forms.SelectMultiple(attrs={'class': 'category-select', 'multiple': True, 'size': 1}),
             'description' : forms.Textarea(attrs={
@@ -58,6 +61,19 @@ class TaskForm(forms.ModelForm):
                 'placeholder': 'Number of days',
                 'id': 'id_recurring_interval'
             }),
+            'alarm_enabled': forms.CheckboxInput(attrs={
+                'class': 'toggle-checkbox',
+                'id': 'id_alarm_enabled'
+            }),
+            'alarm_time': forms.DateTimeInput(attrs={
+                'class': 'form-input',
+                'type': 'datetime-local',
+                'id': 'id_alarm_time'
+            }),
+            'alarm_tone': forms.Select(attrs={
+                'class': 'form-select',
+                'id': 'id_alarm_tone'
+            }),
 
             
         }
@@ -65,11 +81,19 @@ class TaskForm(forms.ModelForm):
             'is_recurring': 'Make this a recurring task',
             'recurring_frequency': 'Repeat',
             'recurring_interval': 'Every (days)',
+            
+            'alarm_enabled': 'Enable Alarm',
+            'alarm_time': 'Alarm Time',
+            'alarm_tone': 'Alarm Sound',
         }
         help_texts = {
             'is_recurring': 'Task will automatically recreate when completed',
             'recurring_frequency': 'How often should this task repeat?',
             'recurring_interval': 'For custom frequency only',
+            
+            'alarm_enabled': 'Get notified when this task is due',
+            'alarm_time': 'When should the alarm ring?',
+            'alarm_tone': 'Choose your alarm sound',
         }
         
         
@@ -103,6 +127,15 @@ class TaskForm(forms.ModelForm):
         #labels
         self.fields['due_date'].label = 'Due Date'
         self.fields['priority'].label = 'Priority'
+
+
+        self.fields['alarm_tone'].choices = [
+            ('classic', '⏰ Classic Alarm'),
+            ('chime', '🎵 Soft Chime'),
+            ('urgent', '🚨 Urgent Alert'),
+            ('custom', '📁 Upload Custom (coming soon)'),
+        ]
+
 
 
 
