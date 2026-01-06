@@ -488,25 +488,29 @@ The Quantum Manager Team
         """
         html_message = None
     
-    # Send email - ONLY ONE CALL
+    # Send email with proper headers
+    from django.core.mail import EmailMultiAlternatives
+    
     try:
+        msg = EmailMultiAlternatives(
+            subject,
+            plain_message,
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+        )
+        
         if html_message:
-            send_mail(
-                subject,
-                plain_message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
-        else:
-            send_mail(
-                subject,
-                plain_message,
-                settings.DEFAULT_FROM_EMAIL,
-                [user.email],
-                fail_silently=False,
-            )
+            msg.attach_alternative(html_message, "text/html")
+        
+        # 👇 ADD THESE HEADERS TO AVOID SPAM
+        msg.extra_headers = {
+            'X-PM-Message-Stream': 'outbound',
+            'X-Priority': '1',
+            'Importance': 'high',
+            'List-Unsubscribe': f'<mailto:unsubscribe@quantummanager.com>',
+        }
+        
+        msg.send(fail_silently=False)
         print(f"✅ Verification email sent to {user.email}")
         return True
         
