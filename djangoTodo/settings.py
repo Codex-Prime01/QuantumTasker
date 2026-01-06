@@ -156,7 +156,7 @@ REST_FRAMEWORK = {
 }
 # Email Configuration
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_TIMEOUT = 10
+EMAIL_TIMEOUT = 70
 
 if DEBUG:
     # Local development - Test with Brevo
