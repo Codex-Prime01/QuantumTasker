@@ -41,7 +41,7 @@
                     <p class="create-subtitle">Fill in the details below to create your task</p>
                 </div>
 
-                <form method="POST" class="create-form">
+                <form method="POST" class="create-form" enctype="multipart/form-data">
                     {% csrf_token %}
 
                     <div class="voice-input-section">
@@ -275,6 +275,7 @@
                                             <input type="file" 
                                                 accept="audio/*" 
                                                 id="custom-tone-upload"
+                                                name="custom_tone_file"
                                                 style="display: none;"
                                                 onchange="handleCustomToneUpload(this)">
                                             <button type="button" class="tone-preview" onclick="document.getElementById('custom-tone-upload').click()">
@@ -692,26 +693,16 @@
                         return;
                     }
                     
-                    // Check file size (max 5MB)
-                    if (file.size > 5 * 1024 * 1024) {
-                        showToast('⚠️ File too large (max 5MB)', 'warning');
+                    // Check file size (max 2MB)
+                    if (file.size > 2 * 1024 * 1024) {
+                        showToast('⚠️ File too large (max 2MB)', 'warning');
                         return;
                     }
                     
-                    // Store in localStorage temporarily
-                    const reader = new FileReader();
-                    reader.onload = function(e) {
-                        localStorage.setItem('customAlarmTone', e.target.result);
-                        localStorage.setItem('customAlarmToneName', file.name);
-                        
-                        document.getElementById('tone-custom').checked = true;
-                        showToast(`✅ Custom tone "${file.name}" loaded!`, 'success');
-                        
-                        // Update the custom tone label
-                        const customLabel = document.querySelector('label[for="tone-custom"] .tone-name');
-                        customLabel.textContent = file.name;
-                    };
-                    reader.readAsDataURL(file);
+                    document.getElementById('tone-custom').checked = true;
+                    const customLabel = document.querySelector('label[for="tone-custom"] .tone-name');
+                    if (customLabel) customLabel.textContent = file.name;
+                    showToast(`✅ "${file.name}" will be saved with this task`, 'success');
                 }
             }
 
@@ -747,17 +738,6 @@
                 if (document.getElementById('id_alarm_enabled').checked) {
                     toggleAlarmSettings();
                 }
-                
-                // Load custom tone from localStorage if exists
-                const customTone = localStorage.getItem('customAlarmTone');
-                const customToneName = localStorage.getItem('customAlarmToneName');
-                
-                if (customTone && customToneName) {
-                    const customLabel = document.querySelector('label[for="tone-custom"] .tone-name');
-                    if (customLabel) {
-                        customLabel.textContent = customToneName;
-                    }
-                }
             });
 
             // Add CSS animations
@@ -789,4 +769,4 @@
 
         </script>
     </body>
-</html>
+</html>

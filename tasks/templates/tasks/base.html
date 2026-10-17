@@ -45,9 +45,15 @@
 
 
     <script>
+        // Tell the server the user's timezone so times show and save correctly
+        try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            if (tz) document.cookie = `tz=${encodeURIComponent(tz)}; path=/; max-age=31536000; SameSite=Lax`;
+        } catch (e) { /* old browser, server falls back to its default */ }
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/static/tasks/sw.js')
+                navigator.serviceWorker.register('/sw.js', { scope: '/' })
                     .then(registration => {
                         console.log('✅ Service Worker registered:', registration);
                     })
@@ -391,17 +397,27 @@
             }
 
             async init() {
-                // Request notification permission
                 if ('Notification' in window) {
-                    this.notificationPermission = await Notification.requestPermission();
+                    this.notificationPermission = Notification.permission;
                 }
 
-                // Initialize audio context on user interaction (required by browsers)
-                document.addEventListener('click', () => {
-                    if (!this.audioContext) {
-                        this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                // Browsers only allow sound and the permission popup after the
+                // user taps something, so unlock both on the first tap.
+                const unlock = async () => {
+                    try {
+                        if (!this.audioContext) {
+                            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                        }
+                        if (this.audioContext.state === 'suspended') await this.audioContext.resume();
+                    } catch (e) { console.warn('Audio unavailable', e); }
+                    if ('Notification' in window && Notification.permission === 'default') {
+                        try {
+                            this.notificationPermission = await Notification.requestPermission();
+                        } catch (e) { /* ignore */ }
                     }
-                }, { once: true });
+                };
+                document.addEventListener('pointerdown', unlock, { once: true });
+                document.addEventListener('keydown', unlock, { once: true });
 
                 // Start checking for due tasks
                 this.startChecking();
@@ -434,10 +450,12 @@
                 try {
                     const response = await fetch('/api/check-due-tasks/', {
                         method: 'GET',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        }
+                        cache: 'no-store',
+                        credentials: 'same-origin',
+                        headers: { 'Accept': 'application/json' }
                     });
+                    const type = response.headers.get('content-type') || '';
+                    if (!response.ok || !type.includes('application/json')) return;
 
                     const data = await response.json();
 
@@ -453,16 +471,17 @@
             }
 
             triggerAlarm(task) {
-                // Don't trigger if already playing
-                if (this.isPlaying) return;
+                // Already showing this task's alarm on screen
+                if (document.querySelector(`.alarm-modal-overlay[data-task-id="${task.id}"]`)) return;
 
-                // Check if task was already notified recently
-                const notifiedTasks = JSON.parse(localStorage.getItem('notifiedTasks') || '{}');
-                const taskKey = `task_${task.id}_${task.alarm_time}`;
+                let notifiedTasks = {};
+                try { notifiedTasks = JSON.parse(localStorage.getItem('notifiedTasks') || '{}'); } catch (e) {}
+                // ring_at changes after a snooze, so a snoozed alarm counts as a new ring
+                const taskKey = `task_${task.id}_${task.ring_at || task.alarm_time}`;
 
                 const now = Date.now();
                 if (notifiedTasks[taskKey] && (now - notifiedTasks[taskKey] < 300000)) {
-                    // Already notified within last 5 minutes
+                    // Rang within the last 5 minutes; re-ring after that until dismissed
                     return;
                 }
 
@@ -473,13 +492,9 @@
                 // Clean old notifications
                 this.cleanOldNotifications(notifiedTasks);
 
-                // Show notification
-                this.showNotification(task);
-
-                // Play alarm sound
-                this.playAlarmSound(task.alarm_tone || 'classic');
-
-                // Show in-app alarm modal
+                // Each step is separate so one failing can't silence the others
+                try { this.showNotification(task); } catch (e) { console.warn('Notification failed', e); }
+                try { if (!this.isPlaying) this.playAlarmSound(task.alarm_tone || 'classic'); } catch (e) { console.warn('Sound failed', e); }
                 this.showAlarmModal(task);
             }
 
@@ -497,47 +512,52 @@
             }
 
             showNotification(task) {
-                if (this.notificationPermission !== 'granted') return;
+                if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
-                const priorityEmoji = {
-                    'urgent': '🚨',
-                    'high': '🔴',
-                    'medium': '🟡',
-                    'low': '🟢'
-                };
-
-                const notification = new Notification('⏰ Task Due!', {
-                    body: `${priorityEmoji[task.priority]} ${task.title}`,
+                const priorityEmoji = { urgent: '🚨', high: '🔴', medium: '🟡', low: '🟢' };
+                const title = '⏰ Task Due!';
+                const options = {
+                    body: `${priorityEmoji[task.priority] || ''} ${task.title}`.trim(),
                     icon: '/static/tasks/icons/icon-192x192.png',
                     badge: '/static/tasks/icons/icon-96x96.png',
                     tag: `task-${task.id}`,
+                    renotify: true,
                     requireInteraction: true,
-                    vibrate: [200, 100, 200],
-                    data: { taskId: task.id }
-                });
-
-                notification.onclick = () => {
-                    window.focus();
-                    window.location.href = `/update/${task.id}/`;
-                    notification.close();
+                    vibrate: [200, 100, 200, 100, 400],
+                    data: { url: `/update/${task.id}/` }
                 };
+
+                // Android Chrome only allows notifications through the service worker
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready
+                        .then((reg) => reg.showNotification(title, options))
+                        .catch(() => this.pageNotification(title, options));
+                } else {
+                    this.pageNotification(title, options);
+                }
+            }
+
+            pageNotification(title, options) {
+                try {
+                    const n = new Notification(title, options);
+                    n.onclick = () => { window.focus(); window.location.href = options.data.url; n.close(); };
+                } catch (e) { console.warn('Page notification not allowed here', e); }
             }
 
             playAlarmSound(tone = 'classic') {
                 this.isPlaying = true;
 
-                // Check for custom tone in localStorage
-                if (tone === 'custom') {
-                    const customTone = localStorage.getItem('customAlarmTone');
-                    if (customTone) {
-                        this.playCustomSound(customTone);
-                        return;
-                    }
+                // Uploaded tones are stored as a URL
+                if (tone && (tone.startsWith('/') || tone.startsWith('http'))) {
+                    this.playCustomSound(tone);
+                    return;
                 }
 
-                // Play default tones using Web Audio API
                 if (!this.audioContext) {
                     this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume().catch(() => {});
                 }
 
                 const context = this.audioContext;
@@ -548,6 +568,8 @@
                     this.playSoftChime(context);
                 } else if (tone === 'urgent') {
                     this.playUrgentAlert(context);
+                } else {
+                    this.playClassicBeep(context);
                 }
             }
 
@@ -647,13 +669,15 @@
                 } catch (error) {
                     console.error('Error playing custom sound:', error);
                     this.isPlaying = false;
-                    this.playClassicBeep(this.audioContext);
+                    this.playAlarmSound('classic');
                 }
             }
 
             showAlarmModal(task) {
                 const modal = document.createElement('div');
                 modal.className = 'alarm-modal-overlay';
+                modal.dataset.taskId = task.id;
+                const dueText = task.due_date ? `📅 Due: ${new Date(task.due_date).toLocaleString()}` : '⏰ Reminder';
                 modal.innerHTML = `
             <div class="alarm-modal">
                 <div class="alarm-modal-header">
@@ -668,7 +692,7 @@
                             <span class="priority-badge priority-${task.priority}">
                                 ${task.priority.toUpperCase()}
                             </span>
-                            <span class="alarm-time">📅 Due: ${new Date(task.due_date).toLocaleString()}</span>
+                            <span class="alarm-time">${dueText}</span>
                         </div>
                     </div>
                 </div>
@@ -679,7 +703,7 @@
                     <button onclick="alarmSystem.viewTask(${task.id})" class="alarm-btn alarm-btn-view">
                         👁️ View Task
                     </button>
-                    <button onclick="alarmSystem.dismissAlarm()" class="alarm-btn alarm-btn-dismiss">
+                    <button onclick="alarmSystem.dismissAlarm(${task.id})" class="alarm-btn alarm-btn-dismiss">
                         ✅ Dismiss
                     </button>
                 </div>
@@ -687,7 +711,6 @@
         `;
 
                 document.body.appendChild(modal);
-                this.currentAlarm = modal;
 
                 setTimeout(() => modal.classList.add('show'), 10);
             }
@@ -710,7 +733,7 @@
                     });
 
                     if (response.ok) {
-                        this.dismissAlarm();
+                        this.closeModal(taskId);
                         this.showToast(`⏰ Snoozed for ${minutes} minutes`, 'info');
                     }
                 } catch (error) {
@@ -718,19 +741,33 @@
                 }
             }
 
-            viewTask(taskId) {
-                this.dismissAlarm();
+            async viewTask(taskId) {
+                await this.dismissAlarm(taskId);
                 window.location.href = `/update/${taskId}/`;
             }
 
-            dismissAlarm() {
-                if (this.currentAlarm) {
-                    this.currentAlarm.classList.remove('show');
-                    setTimeout(() => {
-                        this.currentAlarm.remove();
-                        this.currentAlarm = null;
-                    }, 300);
+            async dismissAlarm(taskId) {
+                this.closeModal(taskId);
+                if (!taskId) return;
+                try {
+                    await fetch(`/api/dismiss-alarm/${taskId}/`, {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
+                    });
+                } catch (error) {
+                    console.error('Error dismissing alarm:', error);
                 }
+            }
+
+            closeModal(taskId) {
+                const selector = taskId
+                    ? `.alarm-modal-overlay[data-task-id="${taskId}"]`
+                    : '.alarm-modal-overlay';
+                document.querySelectorAll(selector).forEach((modal) => {
+                    modal.classList.remove('show');
+                    setTimeout(() => modal.remove(), 300);
+                });
             }
 
             showToast(message, type) {
@@ -774,8 +811,9 @@
             }
         }
 
-        // Initialize alarm system
+        // Alarms only make sense for logged-in users
         let alarmSystem;
+        {% if user.is_authenticated %}
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', () => {
                 alarmSystem = new AlarmSystem();
@@ -783,10 +821,11 @@
         } else {
             alarmSystem = new AlarmSystem();
         }
+        {% endif %}
     </script>
 
 
     {% block extra_js %}{% endblock %}
 </body>
 
-</html>
+</html>

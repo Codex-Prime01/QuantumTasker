@@ -22,7 +22,27 @@ class CustomUserForm(UserCreationForm):
                 'class': 'form-input',
                 'placeholder': self.fields[fieldName].label
             })
-        
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exists():
+            raise forms.ValidationError('An account with this email already exists.')
+        return email
+
+
+# datetime-local inputs need "YYYY-MM-DDTHH:MM", not Django's default format.
+# Without this the edit page shows blank dates and saving wipes them.
+DATETIME_LOCAL_FORMAT = '%Y-%m-%dT%H:%M'
+DATETIME_LOCAL_INPUTS = ['%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d %H:%M:%S']
+
+ALARM_TONE_CHOICES = [
+    ('classic', '⏰ Classic Alarm'),
+    ('chime', '🎵 Soft Chime'),
+    ('urgent', '🚨 Urgent Alert'),
+    ('custom', '📁 Upload Custom'),
+]
+
+
 class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
@@ -36,7 +56,7 @@ class TaskForm(forms.ModelForm):
                 'rows': 3,
                 'placeholder' : 'Add details about this task (optional)...'
             }),
-            'due_date' : forms.DateTimeInput(attrs= {
+            'due_date' : forms.DateTimeInput(format=DATETIME_LOCAL_FORMAT, attrs= {
                 'type' : 'datetime-local',
                 'class' : 'form-input',
             }),
@@ -65,7 +85,7 @@ class TaskForm(forms.ModelForm):
                 'class': 'toggle-checkbox',
                 'id': 'id_alarm_enabled'
             }),
-            'alarm_time': forms.DateTimeInput(attrs={
+            'alarm_time': forms.DateTimeInput(format=DATETIME_LOCAL_FORMAT, attrs={
                 'class': 'form-input',
                 'type': 'datetime-local',
                 'id': 'id_alarm_time'
@@ -129,12 +149,33 @@ class TaskForm(forms.ModelForm):
         self.fields['priority'].label = 'Priority'
 
 
-        self.fields['alarm_tone'].choices = [
-            ('classic', '⏰ Classic Alarm'),
-            ('chime', '🎵 Soft Chime'),
-            ('urgent', '🚨 Urgent Alert'),
-            ('custom', '📁 Upload Custom (coming soon)'),
-        ]
+        self.fields['due_date'].input_formats = DATETIME_LOCAL_INPUTS
+        self.fields['alarm_time'].input_formats = DATETIME_LOCAL_INPUTS
+        self.fields['alarm_time'].required = False
+
+        # Keep a previously uploaded custom tone selectable when editing
+        tone_choices = list(ALARM_TONE_CHOICES)
+        current_tone = getattr(self.instance, 'alarm_tone', '') or ''
+        if current_tone and current_tone not in dict(tone_choices) and current_tone != 'default':
+            tone_choices.insert(0, (current_tone, '📁 My uploaded tone'))
+        self.fields['alarm_tone'].widget.choices = tone_choices
+        self.fields['alarm_tone'].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get('alarm_enabled') and not cleaned.get('alarm_time'):
+            # Default the alarm to the due date if only a due date was set
+            if cleaned.get('due_date'):
+                cleaned['alarm_time'] = cleaned['due_date']
+            else:
+                self.add_error('alarm_time', 'Pick a time for the alarm (or set a due date).')
+        if not cleaned.get('alarm_tone') or cleaned.get('alarm_tone') == 'default':
+            cleaned['alarm_tone'] = 'classic'
+        if cleaned.get('recurring_frequency') and cleaned['recurring_frequency'] != 'none':
+            cleaned['is_recurring'] = True
+        if cleaned.get('is_recurring') and not cleaned.get('due_date'):
+            self.add_error('due_date', 'Repeating tasks need a due date to repeat from.')
+        return cleaned
 
 
 
@@ -164,6 +205,12 @@ class UserUpdateForm(forms.ModelForm):
                 'placeholder': 'Last name (optional)'
             }),
         }
+
+    def clean_email(self):
+        email = self.cleaned_data['email'].strip().lower()
+        if User.objects.filter(email__iexact=email).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError('Another account already uses this email.')
+        return email
 
 
 class ProfileUpdateForm(forms.ModelForm):
