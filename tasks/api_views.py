@@ -50,18 +50,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         """Automatically assign the logged-in user when creating a task"""
         serializer.save(user=self.request.user)
     
-    def perform_update(self, serializer):
-        """Ensure user can only update their own tasks"""
-        if serializer.instance.user != self.request.user:
-            raise PermissionError("You can only update your own tasks!")
-        serializer.save()
-    
-    def perform_destroy(self, instance):
-        """Ensure user can only delete their own tasks"""
-        if instance.user != self.request.user:
-            raise PermissionError("You can only delete your own tasks!")
-        instance.delete()
-    
     @action(detail=False, methods=['get'])
     def overdue(self, request):
         """Custom endpoint: GET /api/tasks/overdue/"""
@@ -91,17 +79,13 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class CategoryViewSet(viewsets.ModelViewSet):
+class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     """
-    API endpoint for categories.
-    
-    Provides:
-    - GET /api/categories/ - List all categories
-    - POST /api/categories/ - Create a category
-    - GET /api/categories/{id}/ - Get specific category
-    - PUT /api/categories/{id}/ - Update category
-    - DELETE /api/categories/{id}/ - Delete category
+    Read-only list of categories.
+
+    Categories are shared by every user, so only admins can change them
+    (through /admin). Before, any logged-in user could delete them for everyone.
     """
-    queryset = Category.objects.all()
+    queryset = Category.objects.order_by('name')
     serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]

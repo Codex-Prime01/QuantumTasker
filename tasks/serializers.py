@@ -14,7 +14,8 @@ class TaskSerializer(serializers.ModelSerializer):
         many=True,
         write_only=True,
         queryset=Category.objects.all(),
-        source='categories'
+        source='categories',
+        required=False,
     )
     priority_display = serializers.CharField(source='get_priority_display', read_only=True)
     is_overdue = serializers.BooleanField(read_only=True)
@@ -37,17 +38,10 @@ class TaskSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created', 'is_overdue']
     
     def create(self, validated_data):
-        # Extract categories from validated data
+        # The view passes user=... through serializer.save(), so it is
+        # already inside validated_data. (Passing it twice used to crash.)
         categories = validated_data.pop('categories', [])
-        
-        # Create task with user from context
-        task = Task.objects.create(
-            user=self.context['request'].user,
-            **validated_data
-        )
-        
-        # Add categories
+        task = Task.objects.create(**validated_data)
         if categories:
             task.categories.set(categories)
-        
         return task
