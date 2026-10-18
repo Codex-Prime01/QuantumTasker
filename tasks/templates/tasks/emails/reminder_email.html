@@ -1,0 +1,11 @@
+{% extends 'tasks/emails/_base.html' %}
+{% load tz %}
+{% block subject %}Reminder: {{ task.title }}{% endblock %}
+{% block body %}
+<p style="margin:0 0 6px; font-size:12px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:#2F54EB;">Reminder</p>
+<h1 style="margin:0 0 10px; font-size:22px; color:#18181B; letter-spacing:-0.3px;">{{ task.title }}</h1>
+{% if task.due_date %}{% timezone tz %}<p style="margin:0 0 8px;">Due <strong style="color:#18181B;">{{ task.due_date|date:"l j M, g:i A" }}</strong> · {{ task.get_priority_display }} priority</p>{% endtimezone %}{% endif %}
+{% if task.description %}<p style="margin:0 0 8px; padding:12px 14px; background:#F6F6F5; border-radius:10px; white-space:pre-line;">{{ task.description }}</p>{% endif %}
+{% include 'tasks/emails/_button.html' with url=task_url label='Open the task' %}
+{% endblock %}
+{% block footer %}You get these because "Email me when an alarm rings" is on. <a href="{{ settings_url }}" style="color:#8A8A90;">Change email settings</a>.{% endblock %}

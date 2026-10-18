@@ -1,0 +1,7 @@
+<label class="setting" for="{{ field.id_for_label }}">
+  <span class="text">
+    <span class="setting-title">{{ field.label }}{% if soon %} <span class="pill">Coming soon</span>{% endif %}</span>
+    {% if field.help_text %}<span class="setting-sub" style="display:block">{{ field.help_text }}</span>{% endif %}
+  </span>
+  <span class="switch">{{ field }}<span class="track"></span></span>
+</label>

@@ -1,51 +1,14 @@
-{% extends 'tasks/base.html' %}
-
-{% block title %}Check Your Email - Quantum Manager{% endblock %}
-
+{% extends 'tasks/auth_base.html' %}
+{% block title %}Check your email · Quantum Manager{% endblock %}
 {% block content %}
-<div class="verification-container">
-    <div class="verification-card">
-        <div class="verification-icon">📬</div>
-        <h1 class="verification-title">Check Your Email!</h1>
-        <p class="verification-text">
-            If an account exists with that email, we've sent password reset instructions.
-            The link will expire in <strong>1 hour</strong>.
-        </p>
-
-        <div class="verification-steps">
-            <div class="step">
-                <span class="step-number">1</span>
-                <p>Check your email inbox</p>
-            </div>
-            <div class="step">
-                <span class="step-number">2</span>
-                <p>Find the password reset email</p>
-            </div>
-            <div class="step">
-                <span class="step-number">3</span>
-                <p>Click the "Reset Password" button</p>
-            </div>
-            <div class="step">
-                <span class="step-number">4</span>
-                <p>Set your new password</p>
-            </div>
-        </div>
-
-        <div class="verification-help">
-            <p class="help-title">Didn't receive the email?</p>
-            <ul class="help-list">
-                <li>Check your spam/junk folder</li>
-                <li>Make sure you entered the correct email</li>
-                <li>Wait a few minutes and check again</li>
-                <li>The link expires in 1 hour</li>
-            </ul>
-            <a href="{% url 'forgot_password' %}" class="btn-resend">
-                <span>🔄</span>
-                <span>Try Again</span>
-            </a>
-        </div>
-
-        <a href="{% url 'login' %}" class="back-link">← Back to Login</a>
-    </div>
-</div>
+<div class="empty-art" style="margin:0 0 18px"><svg class="icon"><use href="#i-mail"/></svg></div>
+<h1 class="auth-title">Check your email</h1>
+<p class="auth-sub">If an account uses that address, a reset link is on its way. It works for 1 hour.</p>
+<ol class="steps-plain">
+  <li>Open the email from Quantum Manager</li>
+  <li>Tap "Reset password"</li>
+  <li>Choose a new password</li>
+</ol>
+<div class="banner" style="margin-top:22px"><svg class="icon"><use href="#i-info"/></svg><div class="banner-body"><div class="banner-text">Nothing after a few minutes? Check spam or promotions, or <a href="{% url 'forgot_password' %}">try again</a>.</div></div></div>
+<p class="auth-foot"><a href="{% url 'login' %}">Back to log in</a></p>
 {% endblock %}

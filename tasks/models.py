@@ -72,6 +72,8 @@ class Task(models.Model):
     alarm_tone = models.CharField(max_length=500, default='classic', help_text="Built-in tone name or URL of an uploaded sound")
     alarm_snoozed_until = models.DateTimeField(null=True, blank=True)
     alarm_dismissed = models.BooleanField(default=False)
+    # The ring time we last sent a push/email for, so each ring is sent once
+    last_reminded_ring = models.DateTimeField(null=True, blank=True)
 
     # Guards so ticking a task on/off can't farm points or spawn duplicate repeats
     points_awarded = models.BooleanField(default=False)
@@ -268,21 +270,26 @@ class UserProfile(models.Model):
     
     
     email_notifications = models.BooleanField(default=True)
-    email_daily_summary = models.BooleanField(default=True)
-    email_task_reminders = models.BooleanField(default=True)
+    email_daily_summary = models.BooleanField(default=False)
+    email_task_reminders = models.BooleanField(default=False)
     browser_notifications = models.BooleanField(default=False)
-    
+
+    # Reminder defaults: new tasks with a due date get an alarm automatically
     alarm_enabled = models.BooleanField(default=True)
-    default_alarm_tone = models.CharField(max_length=200, default='default')
+    default_alarm_tone = models.CharField(max_length=200, default='classic')
     alarm_minutes_before = models.IntegerField(default=0, help_text="Minutes before due date to alarm")
-    
-    
-     # Theme Settings
-    theme = models.CharField(
-        max_length=10,
-        choices=[('light', 'Light'), ('dark', 'Dark'), ('auto', 'Auto')],
-        default='dark'
-    )
+
+    # The user's timezone (from their browser), used for daily summary emails
+    timezone = models.CharField(max_length=64, blank=True, default='')
+    last_summary_date = models.DateField(null=True, blank=True)
+
+    THEME_CHOICES = [
+        ('blue', 'Blue'),
+        ('light', 'White'),
+        ('dark', 'Dark'),
+        ('auto', 'Match my device'),
+    ]
+    theme = models.CharField(max_length=10, choices=THEME_CHOICES, default='blue')
     
     # Default Task Settings
     default_priority = models.CharField(
@@ -311,7 +318,7 @@ class UserProfile(models.Model):
             ('DD/MM/YYYY', 'DD/MM/YYYY (EU)'),
             ('YYYY-MM-DD', 'YYYY-MM-DD (ISO)'),
         ],
-        default='MM/DD/YYYY'
+        default='DD/MM/YYYY'
     )
     
     
@@ -542,4 +549,21 @@ class Note(models.Model):
         """Return tags as a list"""
         if self.tags:
             return [tag.strip() for tag in self.tags.split(',')]
-        return []
+        return []
+
+
+class PushSubscription(models.Model):
+    """A browser/device that agreed to receive push alarms."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='push_subscriptions')
+    endpoint = models.URLField(max_length=1000, unique=True)
+    p256dh = models.CharField(max_length=200)
+    auth = models.CharField(max_length=100)
+    user_agent = models.CharField(max_length=300, blank=True)
+    created = models.DateTimeField(auto_now_add=True)
+    last_used = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.user_agent[:40] or 'device'}"
+
+    def as_webpush_info(self):
+        return {'endpoint': self.endpoint, 'keys': {'p256dh': self.p256dh, 'auth': self.auth}}

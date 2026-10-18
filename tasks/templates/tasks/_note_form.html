@@ -1,0 +1,47 @@
+<form method="post" class="form" novalidate>
+  {% csrf_token %}
+  <section class="form-section">
+    <div class="field {% if form.title.errors %}has-error{% endif %}">
+      <label class="label" for="{{ form.title.id_for_label }}">Title</label>
+      <input type="text" name="title" id="{{ form.title.id_for_label }}" class="input title-input" maxlength="200" required
+        value="{{ form.title.value|default:'' }}" placeholder="e.g. Wi-Fi password, Ada's birthday" autocomplete="off" {% if not note %}autofocus{% endif %}>
+      {% for e in form.title.errors %}<p class="error">{{ e }}</p>{% endfor %}
+    </div>
+    <div class="field {% if form.content.errors %}has-error{% endif %}" style="margin-top:16px">
+      <label class="label" for="{{ form.content.id_for_label }}">Note</label>
+      <textarea name="content" id="{{ form.content.id_for_label }}" class="input" rows="8" required placeholder="Anything you want to keep: details, ideas, dates, quotes">{{ form.content.value|default:'' }}</textarea>
+      {% for e in form.content.errors %}<p class="error">{{ e }}</p>{% endfor %}
+    </div>
+  </section>
+
+  <section class="form-section">
+    <div class="form-section-body" style="margin-top:0">
+      <div class="field">
+        <span class="label" id="noteCat">Category</span>
+        <div class="choice-chips" role="radiogroup" aria-labelledby="noteCat">
+          {% for r in form.category %}<label for="{{ r.id_for_label }}">{{ r.tag }}{{ r.choice_label }}</label>{% endfor %}
+        </div>
+      </div>
+      <div class="field">
+        <span class="label" id="noteColor">Colour</span>
+        <div class="swatches" role="radiogroup" aria-labelledby="noteColor">
+          {% for r in form.color %}<label for="{{ r.id_for_label }}" style="--sw: {{ r.data.value }}" title="{{ r.choice_label }}">{{ r.tag }}<span>{{ r.choice_label }}</span></label>{% endfor %}
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="{{ form.tags.id_for_label }}">Tags <span class="opt">(optional, comma separated)</span></label>
+        <input type="text" name="tags" id="{{ form.tags.id_for_label }}" class="input" maxlength="200" value="{{ form.tags.value|default:'' }}" placeholder="birthday, hostel, ideas">
+      </div>
+      <label class="switch-row" for="{{ form.is_pinned.id_for_label }}">
+        <span class="text"><span class="title">Pin to the top</span><span class="sub" style="display:block">Pinned notes always show first.</span></span>
+        <span class="switch">{{ form.is_pinned }}<span class="track"></span></span>
+      </label>
+    </div>
+  </section>
+
+  <div class="form-actions sticky">
+    {% if note %}<a class="btn btn-danger-ghost" href="{% url 'delete_note' note.id %}" style="margin-right:auto" aria-label="Delete note"><svg class="icon icon-sm"><use href="#i-trash"/></svg><span class="del-text">Delete</span></a>{% endif %}
+    <a class="btn" href="{% url 'notes_list' %}">Cancel</a>
+    <button class="btn btn-primary" type="submit"><svg class="icon icon-sm"><use href="#i-check"/></svg>{% if note %}Save note{% else %}Save note{% endif %}</button>
+  </div>
+</form>

@@ -19,11 +19,23 @@ class UserTimezoneMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        tz_name = request.COOKIES.get(TZ_COOKIE) or settings.DEFAULT_USER_TIMEZONE
+        cookie_tz = request.COOKIES.get(TZ_COOKIE, '')
+        tz_name = cookie_tz or settings.DEFAULT_USER_TIMEZONE
         try:
             timezone.activate(zoneinfo.ZoneInfo(tz_name))
+            valid = bool(cookie_tz)
         except (zoneinfo.ZoneInfoNotFoundError, ValueError):
             timezone.activate(zoneinfo.ZoneInfo(settings.DEFAULT_USER_TIMEZONE))
+            valid = False
+
+        # Remember the timezone on the profile so emails sent in the
+        # background (daily summary) go out at the user's morning
+        user = getattr(request, 'user', None)
+        if valid and user is not None and user.is_authenticated:
+            profile = getattr(user, 'profile', None)
+            if profile is not None and profile.timezone != cookie_tz:
+                type(profile).objects.filter(pk=profile.pk).update(timezone=cookie_tz[:64])
+                profile.timezone = cookie_tz[:64]
         try:
             return self.get_response(request)
         finally:

@@ -1,3 +1,4 @@
+import hmac
 import json
 import logging
 import re
@@ -22,6 +23,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import strip_tags
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
 from .forms import (
@@ -36,10 +38,12 @@ from .forms import (
     TaskForm,
     UserUpdateForm,
 )
+from . import nlp, notify
 from .models import (
     Achievement,
     Category,
     Note,
+    PushSubscription,
     Task,
     TaskTemplate,
     TemplateItem,
@@ -47,6 +51,7 @@ from .models import (
     UserProfile,
     UserStats,
 )
+from .templatetags.qm_tags import friendly_when
 
 logger = logging.getLogger(__name__)
 
@@ -138,14 +143,78 @@ def _new_verification_token(profile):
 # ===========================================================================
 # Tasks
 # ===========================================================================
+SORT_OPTIONS = [
+    ('smart', 'What\'s next'),
+    ('due_date', 'Due date'),
+    ('priority', 'Priority'),
+    ('created', 'Newest first'),
+    ('title', 'A to Z'),
+]
+BUCKET_NAMES = {0: 'Overdue', 1: 'Today', 2: 'Coming up', 3: 'Anytime', 4: 'Done'}
+
+
+def _today_bounds():
+    """Start of today and start of tomorrow, in the user's timezone."""
+    now = timezone.localtime()
+    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    return start, start + timedelta(days=1)
+
+
+def _quick_add(request):
+    """
+    The one-line "Add a task" box on the home screen. Understands phrases like
+    "Call mum tomorrow 7pm", "Pay rent every month !!" (see nlp.py).
+    """
+    raw = request.POST.get('title', '').strip()
+    if not raw:
+        messages.error(request, 'Type something to add first.')
+        return
+    profile = request.user.profile
+    parsed = nlp.parse(raw[:300], timezone.localtime())
+
+    task = Task(
+        user=request.user,
+        title=parsed.title[:200],
+        priority=parsed.priority or profile.default_priority or 'medium',
+        due_date=parsed.due,
+        alarm_tone=profile.default_alarm_tone if profile.default_alarm_tone not in ('', 'default') else 'classic',
+    )
+    if parsed.repeat:
+        task.is_recurring = True
+        task.recurring_frequency = parsed.repeat
+    if task.due_date and profile.alarm_enabled:
+        task.alarm_enabled = True
+        task.alarm_time = task.due_date - timedelta(minutes=profile.alarm_minutes_before or 0)
+    task.save()
+    if profile.default_category_id:
+        task.categories.add(profile.default_category_id)
+
+    bits = [f'Added "{task.title}"']
+    if task.due_date:
+        bits.append(friendly_when(task.due_date))
+    if task.is_recurring:
+        bits.append(task.get_recurring_frequency_display().lower())
+    message = ' · '.join(bits)
+    if task.alarm_enabled:
+        message += '. I\'ll remind you.'
+    messages.success(request, message)
+
+
 @login_required
 def index(request):
+    if request.method == 'POST':
+        _quick_add(request)
+        return redirect(request.get_full_path())
+
     all_tasks = Task.objects.filter(user=request.user)
     tasks = all_tasks
+    profile = request.user.profile
+    start_today, start_tomorrow = _today_bounds()
+    now = timezone.now()
 
     categories = Category.objects.annotate(
         task_count=Count('task', filter=Q(task__user=request.user))
-    )
+    ).order_by('name')
 
     search_query = request.GET.get('search', '').strip()
     if search_query:
@@ -158,7 +227,9 @@ def index(request):
         if selected_category:
             tasks = tasks.filter(categories=selected_category)
 
-    sort_by = request.GET.get('sort', 'created')
+    sort_by = request.GET.get('sort', 'smart')
+    if sort_by not in dict(SORT_OPTIONS):
+        sort_by = 'smart'
     order = request.GET.get('order', 'desc')
     priority_order = Case(
         When(priority='urgent', then=1),
@@ -167,7 +238,18 @@ def index(request):
         When(priority='low', then=4),
         output_field=IntegerField(),
     )
-    if sort_by == 'due_date':
+    # Which group a task belongs in on the "What's next" view
+    tasks = tasks.annotate(bucket=Case(
+        When(complete=True, then=4),
+        When(due_date__lt=now, then=0),
+        When(due_date__lt=start_tomorrow, then=1),
+        When(due_date__isnull=False, then=2),
+        default=3,
+        output_field=IntegerField(),
+    ))
+    if sort_by == 'smart':
+        tasks = tasks.order_by('bucket', 'due_date', priority_order, '-completed_date', '-created')
+    elif sort_by == 'due_date':
         tasks = tasks.order_by('due_date', 'created') if order == 'asc' else tasks.order_by('-due_date', '-created')
     elif sort_by == 'priority':
         tasks = tasks.order_by(priority_order, 'created')
@@ -176,29 +258,45 @@ def index(request):
     else:
         tasks = tasks.order_by('created') if order == 'asc' else tasks.order_by('-created')
 
-    if request.method == 'POST':
-        form = TaskForm(request.POST)
-        if form.is_valid():
-            task = form.save(commit=False)
-            task.user = request.user
-            task.save()
-            form.save_m2m()
-            messages.success(request, f'✅ Task "{task.title}" created successfully!')
-            return redirect('list')
-        _form_errors_to_messages(request, form)
-    else:
-        form = TaskForm()
+    from django.core.paginator import Paginator
+    paginator = Paginator(tasks.prefetch_related('categories'), max(5, profile.tasks_per_page or 20))
+    page = paginator.get_page(request.GET.get('page'))
+
+    # Today's numbers for the header
+    due_today = all_tasks.filter(due_date__gte=start_today, due_date__lt=start_tomorrow)
+    done_today_ids = set(all_tasks.filter(
+        complete=True, completed_date__gte=start_today
+    ).values_list('id', flat=True))
+    today_ids = set(due_today.values_list('id', flat=True)) | done_today_ids
+    today_done = all_tasks.filter(id__in=today_ids, complete=True).count()
+    stats = getattr(request.user, 'stats', None)
+
+    # Keep filters when moving between pages / sorts
+    keep = request.GET.copy()
+    keep.pop('page', None)
 
     context = {
-        'tasks': tasks.prefetch_related('categories'),
-        'form': form,
+        'page': page,
+        'tasks': page.object_list,
+        'grouped': sort_by == 'smart',
+        'bucket_names': BUCKET_NAMES,
         'categories': categories,
         'selected_category': selected_category,
         'totalTasks': all_tasks.count(),
         'pending_count': all_tasks.filter(complete=False).count(),
+        'due_today_count': due_today.filter(complete=False).count(),
+        'overdue_count': all_tasks.filter(complete=False, due_date__lt=now).count(),
+        'today_total': len(today_ids),
+        'today_done': today_done,
+        'streak': stats.current_streak if stats else 0,
         'sort_by': sort_by,
+        'sort_options': SORT_OPTIONS,
         'order': order,
         'search_query': search_query,
+        'querystring': keep.urlencode(),
+        'is_new_user': not all_tasks.exists(),
+        'today_ids': today_ids,
+        'filtered': bool(search_query or selected_category),
     }
     return render(request, 'tasks/index.html', context)
 
@@ -211,6 +309,10 @@ def create_task(request):
             with transaction.atomic():
                 task = form.save(commit=False)
                 task.user = request.user
+                profile = request.user.profile
+                # Alarm on but no time picked: use the user's "remind me X before" default
+                if task.alarm_enabled and task.due_date and not request.POST.get('alarm_time'):
+                    task.alarm_time = task.due_date - timedelta(minutes=profile.alarm_minutes_before or 0)
                 task.save()  # need an id before naming the ringtone file
                 form.save_m2m()
 
@@ -231,6 +333,8 @@ def create_task(request):
             'priority': profile.default_priority,
             'categories': [profile.default_category] if profile.default_category else [],
             'alarm_tone': profile.default_alarm_tone if profile.default_alarm_tone != 'default' else 'classic',
+            'alarm_enabled': profile.alarm_enabled,
+            'title': request.GET.get('title', '')[:200],
         })
 
     return render(request, 'tasks/create.html', {'form': form})
@@ -359,8 +463,6 @@ def registerUser(request):
                 )
             request.session['pending_verification_email'] = user.email
             return redirect('verification_sent')
-
-        _form_errors_to_messages(request, form)
     else:
         form = CustomUserForm()
 
@@ -386,7 +488,6 @@ def loginUser(request):
             if next_url.startswith('/') and not next_url.startswith('//'):
                 return redirect(next_url)
             return redirect('list')
-        messages.error(request, '❌ Invalid username or password.')
     else:
         form = AuthenticationForm()
 
@@ -529,10 +630,46 @@ def dashboard(request):
         {'name': c.name, 'count': c.task_count, 'color': c.color}
         for c in Category.objects.annotate(
             task_count=Count('task', filter=Q(task__user=request.user))
-        ).filter(task_count__gt=0)
+        ).filter(task_count__gt=0).order_by('-task_count')
     ]
+    top_category = max([c['count'] for c in category_stats], default=0)
+    for c in category_stats:
+        c['pct'] = round(c['count'] / top_category * 100) if top_category else 0
+
+    # Tasks finished on each of the last 7 days (in the user's timezone)
+    today = timezone.localdate()
+    days = [today - timedelta(days=i) for i in range(6, -1, -1)]
+    done_dates = user_tasks.filter(
+        completed_date__gte=now - timedelta(days=8)
+    ).values_list('completed_date', flat=True)
+    per_day = {d: 0 for d in days}
+    for dt in done_dates:
+        local_day = timezone.localtime(dt).date()
+        if local_day in per_day:
+            per_day[local_day] += 1
+    peak = max(per_day.values()) or 1
+    week = [
+        {
+            'label': 'Today' if d == today else d.strftime('%a'),
+            'count': per_day[d],
+            'height': max(3, round(per_day[d] / peak * 100)) if per_day[d] else 3,
+            'is_today': d == today,
+        }
+        for d in days
+    ]
+    priority_total = sum(priority_stats.values())
+    priority_rows = [
+        {'key': key, 'label': label, 'count': priority_stats[key],
+         'pct': round(priority_stats[key] / priority_total * 100) if priority_total else 0}
+        for key, label in (('urgent', 'Urgent'), ('high', 'High'), ('medium', 'Medium'), ('low', 'Low'))
+    ]
+    stats, _ = UserStats.objects.get_or_create(user=request.user)
 
     context = {
+        'week': week,
+        'week_total': sum(per_day.values()),
+        'priority_rows': priority_rows,
+        'stats': stats,
         'total_tasks': total_tasks,
         'completed_tasks': completed_tasks,
         'pending_tasks': total_tasks - completed_tasks,
@@ -662,7 +799,7 @@ def update_theme(request):
         theme = json.loads(request.body).get('theme')
     except (ValueError, AttributeError):
         return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
-    if theme not in ('light', 'dark', 'auto'):
+    if theme not in dict(UserProfile.THEME_CHOICES):
         return JsonResponse({'success': False, 'error': 'Invalid theme'}, status=400)
     UserProfile.objects.filter(user=request.user).update(theme=theme)
     return JsonResponse({'success': True, 'theme': theme})
@@ -697,6 +834,7 @@ def template_detail(request, pk):
 
 
 @login_required
+@require_POST
 def use_template(request, pk):
     template = _visible_template(request, pk)
     created_tasks = template.instantiate(request.user)
@@ -757,6 +895,7 @@ def edit_template(request, pk):
 
 
 @login_required
+@require_POST
 def delete_template_item(request, template_id, item_id):
     template = get_object_or_404(TaskTemplate, id=template_id, user=request.user)
     item = get_object_or_404(TemplateItem, id=item_id, template=template)
@@ -937,6 +1076,7 @@ def toggle_pin_note(request, pk):
 
 
 @login_required
+@require_POST
 def archive_note(request, pk):
     note = get_object_or_404(Note, id=pk, user=request.user)
     note.is_archived = True
@@ -946,6 +1086,7 @@ def archive_note(request, pk):
 
 
 @login_required
+@require_POST
 def unarchive_note(request, pk):
     note = get_object_or_404(Note, id=pk, user=request.user)
     note.is_archived = False
@@ -968,6 +1109,7 @@ def archived_notes(request):
 
 
 @login_required
+@require_POST
 def convert_note_to_task(request, pk):
     note = get_object_or_404(Note, id=pk, user=request.user)
     Task.objects.create(user=request.user, title=note.title, description=note.content, priority='medium')
@@ -1087,3 +1229,104 @@ def dismiss_alarm(request, pk):
     task.alarm_snoozed_until = None
     task.save(update_fields=['alarm_dismissed', 'alarm_snoozed_until'])
     return JsonResponse({'success': True})
+
+
+# ===========================================================================
+# Push alarms: ring even when the app is closed
+# ===========================================================================
+def _json_body(request):
+    try:
+        data = json.loads(request.body or '{}')
+        return data if isinstance(data, dict) else {}
+    except ValueError:
+        return {}
+
+
+@login_required
+@require_POST
+def push_subscribe(request):
+    """Save this browser's push address so alarms can reach it later."""
+    data = _json_body(request)
+    endpoint = str(data.get('endpoint', ''))[:1000]
+    keys = data.get('keys') or {}
+    p256dh, auth = str(keys.get('p256dh', ''))[:200], str(keys.get('auth', ''))[:100]
+    if not endpoint.startswith('https://') or not p256dh or not auth:
+        return JsonResponse({'success': False, 'error': 'Invalid subscription'}, status=400)
+    PushSubscription.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={
+            'user': request.user,
+            'p256dh': p256dh,
+            'auth': auth,
+            'user_agent': request.META.get('HTTP_USER_AGENT', '')[:300],
+        },
+    )
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def push_unsubscribe(request):
+    endpoint = str(_json_body(request).get('endpoint', ''))
+    PushSubscription.objects.filter(user=request.user, endpoint=endpoint).delete()
+    return JsonResponse({'success': True})
+
+
+@login_required
+@require_POST
+def push_test(request):
+    """Send a test alarm to every device this user turned alarms on for."""
+    if not notify.push_enabled():
+        return JsonResponse({'success': False, 'error': 'Push is not set up on the server yet'}, status=503)
+    payload = {
+        'title': 'Test alarm',
+        'body': 'Alarms reach this device, even with the app closed.',
+        'url': reverse('list'),
+        'tag': 'qm-test',
+    }
+    sent = sum(1 for sub in PushSubscription.objects.filter(user=request.user) if notify.send_push(sub, payload))
+    return JsonResponse({'success': sent > 0, 'sent': sent})
+
+
+@csrf_exempt
+@require_POST
+def alarm_action(request):
+    """
+    Snooze / dismiss buttons on a push notification. The service worker
+    can't send a CSRF token, so the request carries a signed, expiring
+    token that names the task and its owner instead.
+    """
+    data = _json_body(request)
+    try:
+        info = notify.read_action_token(str(data.get('token', '')))
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'Invalid or expired'}, status=403)
+    task = Task.objects.filter(pk=info.get('t'), user_id=info.get('u')).first()
+    if not task:
+        return JsonResponse({'success': False}, status=404)
+    action = data.get('action')
+    if action == 'snooze':
+        task.alarm_snoozed_until = timezone.now() + timedelta(minutes=10)
+        task.save(update_fields=['alarm_snoozed_until'])
+    elif action == 'dismiss':
+        task.alarm_dismissed = True
+        task.alarm_snoozed_until = None
+        task.save(update_fields=['alarm_dismissed', 'alarm_snoozed_until'])
+    else:
+        return JsonResponse({'success': False}, status=400)
+    return JsonResponse({'success': True})
+
+
+@csrf_exempt
+def cron_tick(request):
+    """
+    Called every minute by a free scheduler (cron-job.org). Sends due alarms
+    as push notifications / emails and the morning summaries. Protected by
+    CRON_SECRET, passed as ?key=... or an X-Cron-Secret header.
+    """
+    secret = settings.CRON_SECRET
+    given = request.headers.get('X-Cron-Secret') or request.GET.get('key', '')
+    if not secret or not hmac.compare_digest(given, secret):
+        return JsonResponse({'success': False}, status=404)
+    result = notify.run_tick()
+    return JsonResponse({'success': True, **result})

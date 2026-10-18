@@ -46,26 +46,27 @@ ALARM_TONE_CHOICES = [
 class TaskForm(forms.ModelForm):
     class Meta:
         model = Task
-        fields = ['title', 'description','due_date','priority','complete', 'categories',  'is_recurring', 'recurring_frequency', 'recurring_interval',
+        # 'complete' is left out on purpose: ticking happens on the list, and
+        # leaving it here un-ticked completed tasks every time they were edited.
+        fields = ['title', 'description','due_date','priority', 'categories',  'is_recurring', 'recurring_frequency', 'recurring_interval',
         'alarm_enabled',    
         'alarm_time',   
         'alarm_tone']
         widgets = {
-            'categories': forms.SelectMultiple(attrs={'class': 'category-select', 'multiple': True, 'size': 1}),
+            'categories': forms.CheckboxSelectMultiple(attrs={'class': 'chip-input'}),
             'description' : forms.Textarea(attrs={
                 'rows': 3,
-                'placeholder' : 'Add details about this task (optional)...'
+                'placeholder' : 'Anything that will help future you (optional)',
             }),
             'due_date' : forms.DateTimeInput(format=DATETIME_LOCAL_FORMAT, attrs= {
                 'type' : 'datetime-local',
                 'class' : 'form-input',
             }),
-            'priority' : forms.Select(attrs={
-                'class' : 'form-select'
-            }),
+            'priority' : forms.RadioSelect(attrs={'class': 'seg-input'}),
             'title': forms.TextInput(attrs={
                 'class': 'form-input',
-                'placeholder': 'e.g., Call dentist, Buy groceries, Finish report...',
+                'placeholder': 'e.g. Call mum, pay electricity bill',
+                'autocomplete': 'off',
             }),
             'is_recurring': forms.CheckboxInput(attrs={
                 'class': 'toggle-checkbox',
@@ -120,33 +121,15 @@ class TaskForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        #add custom styling to form fields
-        
-        self.fields['title'].widget.attrs.update({
-                'class': 'form-input',
-                'placeholder': "Enter task"
-            })
-        #style the description field
-        self.fields['description'].widget.attrs.update({
-            'class' : 'form-textarea',
-        })
-        self.fields['complete'].widget.attrs.update({
-            'class': 'complete',
-        })
-        #customize the complete field
-        self.fields['categories'].widget.attrs.update({
-            'class': 'category-select','multiple': True, 'size': 1
-        })
-        
-        # make categories field optional
+        self.fields['description'].widget.attrs.update({'class': 'form-textarea'})
         self.fields['categories'].required = False
-        self.fields['categories'].label = "Categories (hold Ctrl or Cmd to select multiple)"
-        self.fields['description'].required = False 
+        self.fields['categories'].label = 'Categories'
+        self.fields['description'].required = False
         self.fields['due_date'].required = False
-        
-        #labels
-        self.fields['due_date'].label = 'Due Date'
+        self.fields['due_date'].label = 'Due'
         self.fields['priority'].label = 'Priority'
+        # Category colours, so the template can colour each chip
+        self.category_colors = {c.pk: c.color for c in Category.objects.all()}
 
 
         self.fields['due_date'].input_formats = DATETIME_LOCAL_INPUTS
@@ -168,13 +151,20 @@ class TaskForm(forms.ModelForm):
             if cleaned.get('due_date'):
                 cleaned['alarm_time'] = cleaned['due_date']
             else:
-                self.add_error('alarm_time', 'Pick a time for the alarm (or set a due date).')
+                # Nothing to ring for yet: quietly leave the alarm off
+                cleaned['alarm_enabled'] = False
         if not cleaned.get('alarm_tone') or cleaned.get('alarm_tone') == 'default':
             cleaned['alarm_tone'] = 'classic'
         if cleaned.get('recurring_frequency') and cleaned['recurring_frequency'] != 'none':
             cleaned['is_recurring'] = True
+        if cleaned.get('is_recurring') and (cleaned.get('recurring_frequency') or 'none') == 'none':
+            cleaned['recurring_frequency'] = 'daily'
         if cleaned.get('is_recurring') and not cleaned.get('due_date'):
-            self.add_error('due_date', 'Repeating tasks need a due date to repeat from.')
+            # Repeats need a start: begin tomorrow at 9 AM
+            from datetime import datetime, time as dtime, timedelta as td
+            from django.utils import timezone as tz
+            start = tz.localdate() + td(days=1)
+            cleaned['due_date'] = tz.make_aware(datetime.combine(start, dtime(9, 0)))
         return cleaned
 
 
@@ -280,7 +270,6 @@ class NotificationSettingsForm(forms.ModelForm):
             'email_notifications',
             'email_daily_summary',
             'email_task_reminders',
-            'browser_notifications'
         ]
         widgets = {
             'email_notifications': forms.CheckboxInput(attrs={'class': 'toggle-checkbox'}),
@@ -289,16 +278,16 @@ class NotificationSettingsForm(forms.ModelForm):
             'browser_notifications': forms.CheckboxInput(attrs={'class': 'toggle-checkbox'}),
         }
         labels = {
-            'email_notifications': 'Enable Email Notifications',
-            'email_daily_summary': 'Daily Summary Email',
-            'email_task_reminders': 'Task Reminder Emails',
+            'email_notifications': 'Emails from Quantum Manager',
+            'email_daily_summary': 'Morning summary',
+            'email_task_reminders': 'Email me when an alarm rings',
             'browser_notifications': 'Browser Notifications',
         }
         help_texts = {
-            'email_notifications': 'Master switch for all email notifications',
-            'email_daily_summary': 'Receive a daily email with your pending tasks',
-            'email_task_reminders': 'Get reminders before tasks are due',
-            'browser_notifications': 'Enable desktop notifications (requires permission)',
+            'email_notifications': 'Turn this off to stop all reminder and summary emails',
+            'email_daily_summary': 'At 7 AM, an email with what is due today and anything overdue',
+            'email_task_reminders': 'A backup for your alarms, in case your phone is off',
+            'browser_notifications': '',
         }
 
 
@@ -309,8 +298,12 @@ class AppearanceSettingsForm(forms.ModelForm):
         model = UserProfile
         fields = ['theme', 'date_format']
         widgets = {
-            'theme': forms.RadioSelect(attrs={'class': 'radio-buttons'}),
-            'date_format': forms.Select(attrs={'class': 'form-select'}),
+            'theme': forms.RadioSelect(attrs={'class': 'theme-input'}),
+            'date_format': forms.Select(choices=[
+                ('DD/MM/YYYY', '17/10/2026 (day first)'),
+                ('MM/DD/YYYY', '10/17/2026 (month first)'),
+                ('YYYY-MM-DD', '2026-10-17 (year first)'),
+            ], attrs={'class': 'form-select'}),
         }
         labels = {
             'theme': 'Theme',
@@ -327,8 +320,19 @@ class TaskDefaultsForm(forms.ModelForm):
     
     class Meta:
         model = UserProfile
-        fields = ['default_priority', 'default_category', 'tasks_per_page']
+        fields = [
+            'alarm_enabled', 'alarm_minutes_before', 'default_alarm_tone',
+            'default_priority', 'default_category', 'tasks_per_page',
+        ]
         widgets = {
+            'alarm_enabled': forms.CheckboxInput(attrs={'class': 'toggle-checkbox'}),
+            'alarm_minutes_before': forms.Select(choices=[
+                (0, 'At the due time'), (5, '5 minutes before'), (15, '15 minutes before'),
+                (30, '30 minutes before'), (60, '1 hour before'), (1440, '1 day before'),
+            ], attrs={'class': 'form-select'}),
+            'default_alarm_tone': forms.Select(choices=[
+                ('classic', 'Classic alarm'), ('chime', 'Soft chime'), ('urgent', 'Urgent alert'),
+            ], attrs={'class': 'form-select'}),
             'default_priority': forms.Select(attrs={'class': 'form-select'}),
             'default_category': forms.Select(attrs={'class': 'form-select'}),
             'tasks_per_page': forms.NumberInput(attrs={
@@ -339,15 +343,27 @@ class TaskDefaultsForm(forms.ModelForm):
             }),
         }
         labels = {
-            'default_priority': 'Default Priority',
-            'default_category': 'Default Category',
-            'tasks_per_page': 'Tasks Per Page',
+            'alarm_enabled': 'Remind me when a task is due',
+            'alarm_minutes_before': 'When to remind me',
+            'default_alarm_tone': 'Alarm sound',
+            'default_priority': 'Priority',
+            'default_category': 'Category',
+            'tasks_per_page': 'Tasks per page',
         }
         help_texts = {
-            'default_priority': 'Pre-selected priority when creating tasks',
-            'default_category': 'Pre-selected category when creating tasks',
-            'tasks_per_page': 'Number of tasks to show per page (5-100)',
+            'alarm_enabled': 'New tasks with a due date get an alarm automatically. You can still turn it off per task.',
+            'alarm_minutes_before': '',
+            'default_alarm_tone': '',
+            'default_priority': 'Pre-selected when you create a task',
+            'default_category': 'Pre-selected when you create a task',
+            'tasks_per_page': 'How many tasks to show before "Next page" (5 to 100)',
         }
+
+    def clean_tasks_per_page(self):
+        return max(5, min(100, self.cleaned_data['tasks_per_page'] or 20))
+
+    def clean_alarm_minutes_before(self):
+        return max(0, min(10080, int(self.cleaned_data['alarm_minutes_before'] or 0)))
 
 
 class PrivacySettingsForm(forms.ModelForm):
@@ -384,12 +400,8 @@ class NoteForm(forms.ModelForm):
                 'rows': 6,
                 'placeholder': 'Write your thoughts, memories, or ideas here...'
             }),
-            'category': forms.Select(attrs={
-                'class': 'form-select'
-            }),
-            'color': forms.Select(attrs={
-                'class': 'form-select'
-            }),
+            'category': forms.RadioSelect(attrs={'class': 'chip-input'}),
+            'color': forms.RadioSelect(attrs={'class': 'swatch-input'}),
             'tags': forms.TextInput(attrs={
                 'class': 'form-input',
                 'placeholder': 'birthday, important, inspiration (comma-separated)'
@@ -397,4 +409,4 @@ class NoteForm(forms.ModelForm):
             'is_pinned': forms.CheckboxInput(attrs={
                 'class': 'form-checkbox'
             })
-        }
+        }

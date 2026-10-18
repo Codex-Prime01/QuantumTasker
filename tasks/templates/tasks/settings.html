@@ -1,606 +1,193 @@
 {% extends 'tasks/base.html' %}
-
-{% block title %}Settings - Quantum Manager{% endblock %}
-
+{% load qm_tags %}
+{% block title %}Settings · Quantum Manager{% endblock %}
+{% block topbar_title %}Settings{% endblock %}
+{% block fab %}{% endblock %}
 {% block content %}
-<div class="settings-container">
+<div class="page">
+  <div class="page-head"><div>
+    <h1 class="page-title">Settings</h1>
+    <p class="page-sub">Make Quantum Manager work the way you do.</p>
+  </div></div>
 
-    <!-- Settings Header -->
-    <div class="settings-header">
-        <div class="header-content">
-            <div class="header-icon">⚙️</div>
-            <div class="header-text">
-                <h1 class="settings-title">Settings</h1>
-                <p class="settings-subtitle">Customize your Quantum Manager experience</p>
-            </div>
-        </div>
+  <div class="tabs" role="tablist" data-tabs aria-label="Settings sections">
+    <button class="tab" role="tab" type="button" id="tab-notifications" data-tab="notifications" aria-controls="panel-notifications" aria-selected="{% if active_tab == 'notifications' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-bell"/></svg>Reminders</button>
+    <button class="tab" role="tab" type="button" id="tab-appearance" data-tab="appearance" aria-controls="panel-appearance" aria-selected="{% if active_tab == 'appearance' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-palette"/></svg>Look</button>
+    <button class="tab" role="tab" type="button" id="tab-task_defaults" data-tab="task_defaults" aria-controls="panel-task_defaults" aria-selected="{% if active_tab == 'task_defaults' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-sliders"/></svg>New tasks</button>
+    <button class="tab" role="tab" type="button" id="tab-privacy" data-tab="privacy" aria-controls="panel-privacy" aria-selected="{% if active_tab == 'privacy' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-shield"/></svg>Privacy</button>
+    <button class="tab" role="tab" type="button" id="tab-account" data-tab="account" aria-controls="panel-account" aria-selected="{% if active_tab == 'account' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-user"/></svg>Account</button>
+  </div>
+
+  <!-- Reminders -->
+  <section class="tab-panel {% if active_tab == 'notifications' %}active{% endif %}" id="panel-notifications" role="tabpanel" aria-labelledby="tab-notifications">
+    <div class="card">
+      <h2 class="card-title">This device</h2>
+      <p class="card-sub">Alarms ring with sound while the app is open. Turn this on so they also arrive as notifications when it's closed.</p>
+      {% if push_public_key %}
+      <label class="setting" for="pushToggle" style="margin-top:8px">
+        <span class="text">
+          <span class="setting-title">Alarms on this device</span>
+          <span class="setting-sub" style="display:block" data-push-show="on" hidden>On. You'll get alarms even with the app closed.</span>
+          <span class="setting-sub" style="display:block" data-push-show="off" hidden>Off.</span>
+          <span class="setting-sub" style="display:block; color:var(--danger)" data-push-show="blocked" hidden>Blocked by your browser. Allow notifications for this site in its settings, then come back.</span>
+          <span class="setting-sub" style="display:block" data-push-show="unsupported" hidden>This browser can't do it. On iPhone, add the app to your Home Screen first, then open it from there.</span>
+        </span>
+        <span class="switch"><input type="checkbox" id="pushToggle" data-push-toggle><span class="track"></span></span>
+      </label>
+      <div class="btn-row" data-push-show="on" hidden style="margin-top:8px">
+        <button class="btn btn-sm" type="button" id="pushTest"><svg class="icon icon-sm"><use href="#i-bell"/></svg>Send a test alarm</button>
+      </div>
+      {% else %}
+      <div class="banner warning"><svg class="icon"><use href="#i-info"/></svg><div class="banner-body"><div class="banner-title">Closed-app alarms aren't set up on the server yet</div><div class="banner-text">Alarms still ring while the app is open.</div></div></div>
+      {% endif %}
     </div>
 
-    <!-- Tabs Navigation -->
-    <div class="tabs-container">
-        <div class="tabs-nav">
-            <button class="tab-button {% if active_tab == 'notifications' %}active{% endif %}"
-                onclick="switchTab('notifications')">
-                <span class="tab-icon">🔔</span>
-                <span class="tab-label">Notifications</span>
-            </button>
+    <form method="post" class="card">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="notifications">
+      <h2 class="card-title">Email</h2>
+      <p class="card-sub">A backup for when your phone is off.</p>
+      <div style="margin-top:8px">
+        {% include 'tasks/_switch_setting.html' with field=notification_form.email_notifications %}
+        {% include 'tasks/_switch_setting.html' with field=notification_form.email_task_reminders %}
+        {% include 'tasks/_switch_setting.html' with field=notification_form.email_daily_summary %}
+      </div>
+      {% if not qm_profile.email_verified %}<p class="hint" style="color:var(--warning)">Verify your email first, or these can't reach you. <a href="{% url 'resend_verification' %}">Verify now</a></p>{% endif %}
+      <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+  </section>
 
-            <!--
-            <button class="tab-button {% if active_tab == 'appearance' %}active{% endif %}"
-                onclick="switchTab('appearance')">
-                <span class="tab-icon">🎨</span>
-                <span class="tab-label">Appearance</span>
-            </button>
-        -->
+  <!-- Look -->
+  <section class="tab-panel {% if active_tab == 'appearance' %}active{% endif %}" id="panel-appearance" role="tabpanel" aria-labelledby="tab-appearance">
+    <form method="post" class="card" id="appearanceForm">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="appearance">
+      <h2 class="card-title">Theme</h2>
+      <p class="card-sub">Changes as you pick. Save to keep it on every device.</p>
+      <div class="theme-picker" role="radiogroup" aria-label="Theme" style="margin-top:16px">
+        {% for r in appearance_form.theme %}
+        <label class="theme-opt" for="{{ r.id_for_label }}">
+          {{ r.tag }}
+          <span class="theme-swatch tsw-{{ r.data.value }}" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="theme-name">{{ r.choice_label }}{% if r.data.value == 'blue' %}<span class="pill accent">Default</span>{% endif %}</span>
+        </label>
+        {% endfor %}
+      </div>
+      <hr class="divider">
+      <div class="field" style="max-width:340px">
+        <label class="label" for="{{ appearance_form.date_format.id_for_label }}">Date format</label>
+        {{ appearance_form.date_format }}
+        <p class="hint">Used for dates further than a week away.</p>
+      </div>
+      <div class="btn-row" style="margin-top:16px"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+  </section>
 
-            <button class="tab-button {% if active_tab == 'task_defaults' %}active{% endif %}"
-                onclick="switchTab('task_defaults')">
-                <span class="tab-icon">📋</span>
-                <span class="tab-label">Task Defaults</span>
-            </button>
+  <!-- New task defaults -->
+  <section class="tab-panel {% if active_tab == 'task_defaults' %}active{% endif %}" id="panel-task_defaults" role="tabpanel" aria-labelledby="tab-task_defaults">
+    <form method="post" class="card">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="task_defaults">
+      <h2 class="card-title">When you add a task</h2>
+      <p class="card-sub">What's filled in for you. You can still change it on each task.</p>
+      <div style="margin-top:8px">
+        {% include 'tasks/_switch_setting.html' with field=task_defaults_form.alarm_enabled %}
+      </div>
+      <div class="field-row" style="margin-top:8px">
+        <div class="field"><label class="label" for="{{ task_defaults_form.alarm_minutes_before.id_for_label }}">{{ task_defaults_form.alarm_minutes_before.label }}</label>{{ task_defaults_form.alarm_minutes_before }}</div>
+        <div class="field"><label class="label" for="{{ task_defaults_form.default_alarm_tone.id_for_label }}">{{ task_defaults_form.default_alarm_tone.label }}</label>{{ task_defaults_form.default_alarm_tone }}</div>
+        <div class="field"><label class="label" for="{{ task_defaults_form.default_priority.id_for_label }}">{{ task_defaults_form.default_priority.label }}</label>{{ task_defaults_form.default_priority }}</div>
+        <div class="field"><label class="label" for="{{ task_defaults_form.default_category.id_for_label }}">{{ task_defaults_form.default_category.label }}</label>{{ task_defaults_form.default_category }}</div>
+        <div class="field"><label class="label" for="{{ task_defaults_form.tasks_per_page.id_for_label }}">{{ task_defaults_form.tasks_per_page.label }}</label>{{ task_defaults_form.tasks_per_page }}<p class="hint">{{ task_defaults_form.tasks_per_page.help_text }}</p></div>
+      </div>
+      <div class="btn-row" style="margin-top:16px"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+  </section>
 
-            <button class="tab-button {% if active_tab == 'privacy' %}active{% endif %}" onclick="switchTab('privacy')">
-                <span class="tab-icon">🔒</span>
-                <span class="tab-label">Privacy</span>
-            </button>
+  <!-- Privacy -->
+  <section class="tab-panel {% if active_tab == 'privacy' %}active{% endif %}" id="panel-privacy" role="tabpanel" aria-labelledby="tab-privacy">
+    <form method="post" class="card">
+      {% csrf_token %}
+      <input type="hidden" name="form_type" value="privacy">
+      <h2 class="card-title">Privacy</h2>
+      <p class="card-sub">Your tasks and notes are only ever visible to you. These are for sharing features that are on the way.</p>
+      <div style="margin-top:8px">
+        {% include 'tasks/_switch_setting.html' with field=privacy_form.show_email soon=True %}
+        {% include 'tasks/_switch_setting.html' with field=privacy_form.allow_shared_lists soon=True %}
+      </div>
+      <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" type="submit">Save</button></div>
+    </form>
+  </section>
 
-            <button class="tab-button {% if active_tab == 'account' %}active{% endif %}" onclick="switchTab('account')">
-                <span class="tab-icon">👤</span>
-                <span class="tab-label">Account</span>
-            </button>
+  <!-- Account -->
+  <section class="tab-panel {% if active_tab == 'account' %}active{% endif %}" id="panel-account" role="tabpanel" aria-labelledby="tab-account">
+    <div class="card">
+      <div class="profile-hero">
+        {% include 'tasks/_avatar.html' %}
+        <div class="who">
+          <div class="card-title">{{ user.username }}</div>
+          <p class="card-sub">{{ user.email }} · joined {% fmt_date user.date_joined %}</p>
         </div>
-
-        <!-- Tab Content -->
-        <div class="tabs-content">
-
-            <!-- Notifications Tab -->
-            <div class="tab-panel {% if active_tab == 'notifications' %}active{% endif %}" id="notifications-panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">
-                        <span class="panel-icon">🔔</span>
-                        <span>Notification Preferences</span>
-                    </h2>
-                    <p class="panel-description">
-                        Control how and when you receive notifications
-                    </p>
-                </div>
-
-                <form method="POST" class="settings-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="form_type" value="notifications">
-
-                    <div class="settings-group">
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <label class="setting-label">
-                                    {{ notification_form.email_notifications.label }}
-                                    <span class="badge-coming-soon">Coming Soon</span>
-                                </label>
-                                <p class="setting-description">
-                                    {{ notification_form.email_notifications.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="toggle-switch">
-                                    {{ notification_form.email_notifications }}
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <label class="setting-label">
-                                    {{ notification_form.email_daily_summary.label }}
-                                    <span class="badge-coming-soon">Coming Soon</span>
-                                </label>
-                                <p class="setting-description">
-                                    {{ notification_form.email_daily_summary.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="toggle-switch">
-                                    {{ notification_form.email_daily_summary }}
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <label class="setting-label">
-                                    {{ notification_form.email_task_reminders.label }}
-                                    <span class="badge-coming-soon">Coming Soon</span>
-                                </label>
-                                <p class="setting-description">
-                                    {{ notification_form.email_task_reminders.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="toggle-switch">
-                                    {{ notification_form.email_task_reminders }}
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <label class="setting-label">
-                                    {{ notification_form.browser_notifications.label }}
-                                    <span class="badge-coming-soon">Coming Soon</span>
-                                </label>
-                                <p class="setting-description">
-                                    {{ notification_form.browser_notifications.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="toggle-switch">
-                                    {{ notification_form.browser_notifications }}
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-save">
-                        <span>💾</span>
-                        <span>Save Notification Settings</span>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Appearance Tab 
-            <div class="tab-panel {% if active_tab == 'appearance' %}active{% endif %}" id="appearance-panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">
-                        <span class="panel-icon">🎨</span>
-                        <span>Appearance Settings</span>
-                    </h2>
-                    <p class="panel-description">
-                        Customize how Todo Manager looks
-                    </p>
-                </div>
-
-                <form method="POST" class="settings-form" id="appearanceForm">
-                    {% csrf_token %}
-                    <input type="hidden" name="form_type" value="appearance">
-
-                    <div class="settings-group">
-                        <div class="setting-item-vertical">
-                            <div class="setting-info">
-                                <label class="setting-label">
-                                    {{ appearance_form.theme.label }}
-                                </label>
-                                <p class="setting-description">
-                                    {{ appearance_form.theme.help_text }}
-                                </p>
-                            </div>
-                            <div class="theme-options">
-                                {% for choice in appearance_form.theme %}
-                                <label class="theme-card" data-theme-value="{{ choice.choice_value }}">
-                                    {{ choice.tag }}
-                                    <div class="theme-preview theme-{{ choice.choice_label|lower }}">
-                                        <div class="preview-header"></div>
-                                        <div class="preview-content">
-                                            <div class="preview-line"></div>
-                                            <div class="preview-line short"></div>
-                                            <div class="preview-line"></div>
-                                        </div>
-                                    </div>
-                                    <span class="theme-name">
-                                        {% if choice.choice_label == 'Dark' %}🌙
-                                        {% elif choice.choice_label == 'Light' %}☀️
-                                        {% else %}🌓{% endif %}
-                                        {{ choice.choice_label }}
-                                    </span>
-                                    {% if choice.choice_label == 'Auto' %}
-                                    <span class="badge-coming-soon">Soon</span>
-                                    {% endif %}
-                                </label>
-                                {% endfor %}
-                            </div>
-                        </div>
-
-                        <div class="setting-item-vertical">
-                            <div class="setting-info">
-                                <label class="setting-label" for="{{ appearance_form.date_format.id_for_label }}">
-                                    {{ appearance_form.date_format.label }}
-                                </label>
-                                <p class="setting-description">
-                                    {{ appearance_form.date_format.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control-full">
-                                {{ appearance_form.date_format }}
-                            </div>
-                        </div>
-                    -->
-
-            <!-- 👇 NEW! Live preview toggle 
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <label class="setting-label">
-                                    Live Preview
-                                </label>
-                                <p class="setting-description">
-                                    See changes before saving
-                                </p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="livePreview" checked>
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-save">
-                        <span>💾</span>
-                        <span>Save Appearance Settings</span>
-                    </button>
-                </form>
-            </div> -->
-            <!-- Task Defaults Tab -->
-            <div class="tab-panel {% if active_tab == 'task_defaults' %}active{% endif %}" id="task_defaults-panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">
-                        <span class="panel-icon">📋</span>
-                        <span>Task Defaults</span>
-                    </h2>
-                    <p class="panel-description">
-                        Set default values for new tasks
-                    </p>
-                </div>
-
-                <form method="POST" class="settings-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="form_type" value="task_defaults">
-
-                    <div class="settings-group">
-                        <div class="setting-item-vertical">
-                            <div class="setting-info">
-                                <label class="setting-label"
-                                    for="{{ task_defaults_form.default_priority.id_for_label }}">
-                                    {{ task_defaults_form.default_priority.label }}
-                                </label>
-                                <p class="setting-description">
-                                    {{ task_defaults_form.default_priority.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control-full">
-                                {{ task_defaults_form.default_priority }}
-                            </div>
-                        </div>
-
-                        <div class="setting-item-vertical">
-                            <div class="setting-info">
-                                <label class="setting-label"
-                                    for="{{ task_defaults_form.default_category.id_for_label }}">
-                                    {{ task_defaults_form.default_category.label }}
-                                </label>
-                                <p class="setting-description">
-                                    {{ task_defaults_form.default_category.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control-full">
-                                {{ task_defaults_form.default_category }}
-                            </div>
-                        </div>
-
-                        <div class="setting-item-vertical">
-                            <div class="setting-info">
-                                <label class="setting-label" for="{{ task_defaults_form.tasks_per_page.id_for_label }}">
-                                    {{ task_defaults_form.tasks_per_page.label }}
-                                </label>
-                                <p class="setting-description">
-                                    {{ task_defaults_form.tasks_per_page.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control-full">
-                                {{ task_defaults_form.tasks_per_page }}
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-save">
-                        <span>💾</span>
-                        <span>Save Task Defaults</span>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Privacy Tab -->
-            <div class="tab-panel {% if active_tab == 'privacy' %}active{% endif %}" id="privacy-panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">
-                        <span class="panel-icon">🔒</span>
-                        <span>Privacy Settings</span>
-                    </h2>
-                    <p class="panel-description">
-                        Control your privacy and data sharing
-                    </p>
-                </div>
-
-                <form method="POST" class="settings-form">
-                    {% csrf_token %}
-                    <input type="hidden" name="form_type" value="privacy">
-
-                    <div class="settings-group">
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <label class="setting-label">
-                                    {{ privacy_form.show_email.label }}
-                                    <span class="badge-coming-soon">Future Feature</span>
-                                </label>
-                                <p class="setting-description">
-                                    {{ privacy_form.show_email.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="toggle-switch">
-                                    {{ privacy_form.show_email }}
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="setting-item">
-                            <div class="setting-info">
-                                <label class="setting-label">
-                                    {{ privacy_form.allow_shared_lists.label }}
-                                    <span class="badge-coming-soon">Future Feature</span>
-                                </label>
-                                <p class="setting-description">
-                                    {{ privacy_form.allow_shared_lists.help_text }}
-                                </p>
-                            </div>
-                            <div class="setting-control">
-                                <label class="toggle-switch">
-                                    {{ privacy_form.allow_shared_lists }}
-                                    <span class="toggle-slider"></span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-save">
-                        <span>💾</span>
-                        <span>Save Privacy Settings</span>
-                    </button>
-                </form>
-            </div>
-
-            <!-- Account Tab -->
-            <div class="tab-panel {% if active_tab == 'account' %}active{% endif %}" id="account-panel">
-                <div class="panel-header">
-                    <h2 class="panel-title">
-                        <span class="panel-icon">👤</span>
-                        <span>Account Management</span>
-                    </h2>
-                    <p class="panel-description">
-                        Manage your account settings
-                    </p>
-                </div>
-
-                <div class="settings-group">
-                    <!-- Account Info -->
-                    <div class="info-card">
-                        {% if request.user.profile.get_avatar_url %}
-                        <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
-                            class="profile-avatar has-image">
-                        {% else %}
-                        <div class="user-avatar">
-                            {{ request.user.username|upper|slice:":2"|default:"?" }}
-                        </div>
-                        <div class="avatar-badge">
-                            {% if request.user.profile.email_verified %}
-                            <span class="verified-badge" title="Email Verified">✓</span>
-                            {% else %}
-                            <span class="unverified-badge" title="Email Not Verified">!</span>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                        <div class="info-content">
-                            <h3 class="info-title">Account Information</h3>
-                            <div class="info-details">
-                                <p><strong>Username:</strong> {{ request.user.username }}</p>
-                                <p><strong>Email:</strong> {{ request.user.email }}</p>
-                                <p><strong>Member Since:</strong> {{ request.user.date_joined|date:"F d, Y" }}</p>
-                                <p><strong>Email Verified:</strong>
-                                    {% if request.user.profile.email_verified %}
-                                    <span class="status-verified">✅ Verified</span>
-                                    {% else %}
-                                    <span class="status-unverified">⚠️ Not Verified</span>
-                                    <a href="/resend-verification/" class="link-inline">Verify Now</a>
-                                    {% endif %}
-                                </p>
-                            </div>
-                            <a href="/profile/" class="btn btn-update btn-small">
-                                <span>✏️</span>
-                                <span>Edit Profile</span>
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Delete Account -->
-                    <div class="danger-zone">
-                        <div class="danger-header">
-                            <h3 class="danger-title">⚠️ Danger Zone</h3>
-                            <p class="danger-description">
-                                Permanently delete your account and all associated data
-                            </p>
-                        </div>
-
-                        <button type="button" class="btn btn-danger" onclick="showDeleteModal()">
-                            <span>🗑️</span>
-                            <span>Delete Account</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-        </div>
+        <a class="btn btn-sm" href="{% url 'profile' %}#edit">Edit profile</a>
+      </div>
+      <hr class="divider">
+      <div class="setting" style="padding-top:0">
+        <span class="text"><span class="setting-title">Email</span>
+          <span class="setting-sub" style="display:block">{% if qm_profile.email_verified %}Verified{% else %}Not verified yet{% endif %}</span></span>
+        {% if not qm_profile.email_verified %}<a class="btn btn-sm" href="{% url 'resend_verification' %}">Verify</a>{% else %}<span class="pill success"><svg class="icon icon-xs"><use href="#i-check"/></svg>Verified</span>{% endif %}
+      </div>
+      <div class="setting">
+        <span class="text"><span class="setting-title">Password</span><span class="setting-sub" style="display:block">Change it from your profile.</span></span>
+        <a class="btn btn-sm" href="{% url 'profile' %}#password">Change</a>
+      </div>
+      <div class="setting">
+        <span class="text"><span class="setting-title">Your notes</span><span class="setting-sub" style="display:block">Download all of them as a text file.</span></span>
+        <a class="btn btn-sm" href="{% url 'export_all_notes' %}"><svg class="icon icon-sm"><use href="#i-download"/></svg>Export</a>
+      </div>
     </div>
 
-    <!-- Back Button -->
-    <div class="settings-footer">
-        <a href="/" class="btn btn-secondary">
-            <span>←</span>
-            <span class="text1">Back to Tasks</span>
-        </a>
+    <div class="card danger-zone">
+      <h2 class="card-title"><svg class="icon icon-sm"><use href="#i-alert"/></svg>Delete account</h2>
+      <p class="card-sub">Deletes your account, tasks, notes, templates and achievements for good.</p>
+      <div class="btn-row" style="margin-top:14px"><button class="btn btn-danger-ghost" type="button" onclick="document.getElementById('deleteDialog').showModal()">Delete my account</button></div>
     </div>
+  </section>
 </div>
 
-<!-- Delete Account Modal -->
-<div class="modal-overlay" id="deleteModal">
-    <div class="modal-content modal-danger">
-        <div class="modal-header">
-            <h2 class="modal-title">⚠️ Delete Account</h2>
-            <button class="modal-close" onclick="closeDeleteModal()">✕</button>
-        </div>
-
-        <div class="modal-body">
-            <div class="warning-box">
-                <p><strong>This action cannot be undone!</strong></p>
-                <p>Deleting your account will:</p>
-                <ul>
-                    <li>❌ Permanently delete all your tasks</li>
-                    <li>❌ Remove all your categories</li>
-                    <li>❌ Delete your profile and settings</li>
-                    <li>❌ Remove all associated data</li>
-                </ul>
-            </div>
-
-            <form method="POST" id="deleteAccountForm">
-                {% csrf_token %}
-                <input type="hidden" name="form_type" value="delete_account">
-
-                <div class="form-group">
-                    <label class="form-label">
-                        Type your username to confirm:
-                    </label>
-                    <input type="text" name="confirm_delete" class="form-input" placeholder="Enter your username"
-                        required autocomplete="off">
-                </div>
-
-                <div class="modal-actions">
-                    <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">
-                        <span>Cancel</span>
-                    </button>
-                    <button type="submit" class="btn btn-danger">
-                        <span>🗑️</span>
-                        <span>Delete My Account</span>
-                    </button>
-                </div>
-            </form>
-        </div>
+<dialog class="modal" id="deleteDialog" aria-labelledby="deleteTitle">
+  <form method="post" class="modal-body">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="delete_account">
+    <h2 class="modal-title" id="deleteTitle">Delete your account?</h2>
+    <p class="modal-text">This can't be undone. Type <strong>{{ user.username }}</strong> to confirm.</p>
+    <div class="field" style="margin-top:16px">
+      <label class="sr-only" for="confirmDelete">Your username</label>
+      <input class="input" type="text" name="confirm_delete" id="confirmDelete" autocomplete="off" required placeholder="{{ user.username }}">
     </div>
-</div>
+    <div class="modal-actions">
+      <button class="btn" type="button" onclick="this.closest('dialog').close()">Cancel</button>
+      <button class="btn btn-danger" type="submit">Delete forever</button>
+    </div>
+  </form>
+</dialog>
+{% endblock %}
 
+{% block scripts %}
 <script>
-    // Tab Switching
-    function switchTab(tabName) {
-        // Update URL without reload
-        const url = new URL(window.location);
-        url.searchParams.set('tab', tabName);
-        window.history.pushState({}, '', url);
-
-        // Hide all panels
-        document.querySelectorAll('.tab-panel').forEach(panel => {
-            panel.classList.remove('active');
-        });
-
-        // Hide all tab buttons
-        document.querySelectorAll('.tab-button').forEach(button => {
-            button.classList.remove('active');
-        });
-
-        // Show selected panel
-        document.getElementById(tabName + '-panel').classList.add('active');
-
-        // Highlight selected button
-        event.target.closest('.tab-button').classList.add('active');
-    }
-
-    // Delete Account Modal
-    function showDeleteModal() {
-        document.getElementById('deleteModal').classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closeDeleteModal() {
-        document.getElementById('deleteModal').classList.remove('active');
-        document.body.style.overflow = 'auto';
-    }
-
-    // Close modal on overlay click
-    document.getElementById('deleteModal').addEventListener('click', function (e) {
-        if (e.target === this) {
-            closeDeleteModal();
-        }
-    });
-
-    // Close modal on ESC key
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') {
-            closeDeleteModal();
-        }
-    });
-
-
-    // Theme Switcher with Live Preview
-    document.addEventListener('DOMContentLoaded', function () {
-        const form = document.getElementById('appearanceForm');
-        const themeCards = document.querySelectorAll('.theme-card');
-        const livePreviewToggle = document.getElementById('livePreview');
-        let originalTheme = document.documentElement.getAttribute('data-theme');
-
-        // Theme card click handler
-        themeCards.forEach(card => {
-            const radio = card.querySelector('input[type="radio"]');
-
-            card.addEventListener('click', function () {
-                // Check the radio
-                radio.checked = true;
-
-                // Live preview if enabled
-                if (livePreviewToggle.checked) {
-                    const themeValue = card.getAttribute('data-theme-value');
-                    if (themeValue !== 'auto') {  // Auto not implemented yet
-                        applyTheme(themeValue);
-                    }
-                }
-            });
-        });
-
-        // Apply theme function
-        function applyTheme(theme) {
-            document.documentElement.setAttribute('data-theme', theme);
-
-            // Add smooth transition class
-            document.body.classList.add('theme-transitioning');
-
-            setTimeout(() => {
-                document.body.classList.remove('theme-transitioning');
-            }, 300);
-        }
-
-        // Form submit - save permanently
-        form.addEventListener('submit', function (e) {
-            // Form will submit normally and save to database
-            // No need to prevent default
-        });
-
-        // Cancel/navigation - restore original theme if not saved
-        window.addEventListener('beforeunload', function () {
-            const selectedTheme = form.querySelector('input[name="theme"]:checked')?.value;
-            if (livePreviewToggle.checked && selectedTheme && !form.submitted) {
-                // Restore original theme if leaving without saving
-                // (This is just visual, actual saved theme unchanged)
-            }
-        });
-    });
+(function () {
+  // Live theme preview
+  document.querySelectorAll('#appearanceForm input[name="theme"]').forEach((r) => {
+    r.addEventListener('change', () => QM.setTheme(r.value, false));
+  });
+  // Test push
+  const test = document.getElementById('pushTest');
+  test && test.addEventListener('click', async () => {
+    test.classList.add('loading');
+    const res = await QM.post('/api/push/test/').catch(() => null);
+    test.classList.remove('loading');
+    const data = res ? await res.json().catch(() => ({})) : {};
+    QM.toast(data.success ? 'Test sent. It should pop up in a few seconds.' : (data.error || 'Could not send the test'), data.success ? 'success' : 'error');
+  });
+})();
 </script>
 {% endblock %}

@@ -1,0 +1,1 @@
+<span class="avatar {{ size }}">{% if qm_profile.avatar and qm_profile.get_avatar_url %}<img src="{{ qm_profile.get_avatar_url }}" alt="">{% else %}{{ user.username|first|upper }}{% endif %}</span>

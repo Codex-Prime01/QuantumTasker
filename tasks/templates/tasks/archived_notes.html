@@ -1,92 +1,57 @@
 {% extends 'tasks/base.html' %}
-{% load static %}
-
-{% block title %}Archived Notes - Quantum Manager{% endblock %}
-
+{% load qm_tags %}
+{% block title %}Archived notes · Quantum Manager{% endblock %}
+{% block topbar_title %}Archive{% endblock %}
+{% block fab %}{% endblock %}
 {% block content %}
-<div class="container">
-    <!-- Back Button -->
-    <a href="/notes/" class="back-button" style="margin-bottom: 20px; display: inline-flex;">
-        <span>←</span>
-        <span>Back to Notes</span>
-    </a>
-
-    <!-- Page Header -->
-    <header class="page-header">
-        <h1 class="page-title">
-            <span class="glow">📦 Archived</span> Notes
-        </h1>
-        <p style="text-align: center; color: rgba(255, 255, 255, 0.7); margin-top: 10px;">
-            Notes you've archived - restore them anytime!
-        </p>
-    </header>
-
-    <!-- Stats -->
-    <div class="stats-container">
-        <div class="stat-box">
-            <span class="stat-number">{{ total_notes }}</span>
-            <span class="stat-label">Archived</span>
-        </div>
+<div class="page page-wide">
+  <a class="back-link" href="{% url 'notes_list' %}"><svg class="icon icon-sm"><use href="#i-arrow-left"/></svg>Notes</a>
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Archived notes</h1>
+      <p class="page-sub">Out of the way, not gone. Restore any of them with one tap.</p>
     </div>
+    <span class="pill">{{ total_notes }} archived</span>
+  </div>
 
-    <!-- Search Bar -->
-    <div class="search-container">
-        <form action="/notes/archived/" method="GET" class="search-form">
-            <div class="search-input-wrapper">
-                <span class="search-icon">🔍</span>
-                <input type="text" name="search" class="search-input"
-                    placeholder="Search archived notes..." 
-                    value="{{ search_query }}" autocomplete="off">
-                {% if search_query %}
-                <a href="/notes/archived/" class="clear-search" title="Clear search">✕</a>
-                {% endif %}
-            </div>
-            <button type="submit" class="search-btn">Search</button>
-        </form>
-    </div>
+  <form method="get" action="{% url 'archived_notes' %}" role="search">
+    <label class="search">
+      <svg class="icon icon-sm"><use href="#i-search"/></svg>
+      <span class="sr-only">Search archived notes</span>
+      <input type="search" name="search" value="{{ search_query }}" placeholder="Search archived notes" autocomplete="off">
+      {% if search_query %}<a class="clear" href="{% url 'archived_notes' %}" aria-label="Clear search"><svg class="icon icon-sm"><use href="#i-x"/></svg></a>{% endif %}
+    </label>
+  </form>
 
-    <!-- Notes Grid -->
-    <div class="notes-grid">
-        {% for note in notes %}
-        <div class="note-card archived-note" style="--note-color: {{ note.color }};">
-            <div class="note-header">
-                <h3 class="note-title">{{ note.title }}</h3>
-                <span class="note-category">{{ note.get_category_display }}</span>
-            </div>
-
-            <div class="note-content">
-                {{ note.content|linebreaks }}
-            </div>
-
-            {% if note.tags %}
-            <div class="note-tags">
-                {% for tag in note.get_tags_list %}
-                <span class="note-tag">{{ tag }}</span>
-                {% endfor %}
-            </div>
-            {% endif %}
-
-            <div class="note-footer">
-                <span class="note-date">🕐 Archived {{ note.updated|timesince }} ago</span>
-                <div class="note-actions">
-                    <a href="/notes/{{ note.id }}/unarchive/" class="note-action-btn" title="Restore">
-                        📂
-                    </a>
-                    <a href="/notes/{{ note.id }}/delete/" class="note-action-btn" title="Delete Permanently">
-                        🗑️
-                    </a>
-                </div>
-            </div>
+  {% if notes %}
+  <div class="notes" style="margin-top:20px">
+    {% for note in notes %}
+    <article class="note" style="--note: {{ note.color }}; --i: {{ forloop.counter0 }}; opacity: .92">
+      <span class="note-band" aria-hidden="true"></span>
+      <div class="note-head"><div style="flex:1; min-width:0">
+        <h2 class="note-title">{{ note.title }}</h2>
+        <div class="note-cat">{{ note.get_category_display }}</div>
+      </div></div>
+      <div class="note-content {% if note.content|length < 300 %}short{% endif %}">{{ note.content }}</div>
+      {% if note.tags %}<div class="note-tags">{% for tag in note.get_tags_list %}{% if tag %}<span class="note-tag">#{{ tag }}</span>{% endif %}{% endfor %}</div>{% endif %}
+      <div class="note-foot">
+        <span class="note-date">Archived {{ note.updated|timesince }} ago</span>
+        <div class="note-actions">
+          <form method="post" action="{% url 'unarchive_note' note.id %}" class="inline-form">{% csrf_token %}
+            <button class="btn btn-sm" type="submit"><svg class="icon icon-sm"><use href="#i-restore"/></svg>Restore</button>
+          </form>
+          <a class="icon-btn danger" href="{% url 'delete_note' note.id %}" aria-label="Delete for good"><svg class="icon icon-sm"><use href="#i-trash"/></svg></a>
         </div>
-        {% empty %}
-        <div class="empty-state">
-            <div class="empty-tasks">
-                <div class="empty-icon">📦</div>
-                <h3>No archived notes</h3>
-                <p>Notes you archive will appear here</p>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <div class="empty-art"><svg class="icon"><use href="#i-archive"/></svg></div>
+    <h3>{% if search_query %}Nothing matches "{{ search_query }}"{% else %}Nothing archived{% endif %}</h3>
+    <p>Notes you archive land here. They stay searchable and you can bring them back any time.</p>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

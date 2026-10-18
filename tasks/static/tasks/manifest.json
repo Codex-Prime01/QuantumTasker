@@ -1,11 +1,11 @@
 {
-    "name": "Quantum Manager - Never Forget Again",
+    "name": "Quantum Manager",
     "short_name": "Quantum Manager",
-    "description": "A beautiful task manager with recurring tasks, templates, and achievements",
+    "description": "Tasks with alarms that ring, notes, templates and streaks. Never forget the little things.",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#0f0c29",
-    "theme_color": "#00f5ff",
+    "background_color": "#070D1F",
+    "theme_color": "#070D1F",
     "orientation": "portrait-primary",
     "icons": [
         {
@@ -59,7 +59,7 @@
     ],
     "shortcuts": [
         {
-            "name": "Create Task",
+            "name": "New task",
             "short_name": "New Task",
             "description": "Create a new task",
             "url": "/create/",
@@ -94,5 +94,7 @@
                 }
             ]
         }
-    ]
+    ],
+    "id": "/",
+    "scope": "/"
 }

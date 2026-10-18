@@ -1,144 +1,45 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Register</title>
-    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
-</head>
-
-<body>
-    <div class="container">
-        <header>
-            <h1 class="title">
-                <span class="glow">Create</span> Account
-            </h1>
-        </header>
-
-        <div class="centerColumn">
-            <div class="auth-form-wrapper">
-                <form method="POST" class="auth-form">
-                    {% csrf_token %}
-
-                    {% if form.errors %}
-                    <div class="error-box">
-                        <p class="error-title">⚠️ Oops! Something went wrong:</p>
-                        {% for field in form %}
-                        {% for error in field.errors %}
-                        <p class="error-message">{{ error }}</p>
-                        {% endfor %}
-                        {% endfor %}
-                        {% for error in form.non_field_errors %}
-                        <p class="error-message">{{ error }}</p>
-                        {% endfor %}
-                    </div>
-                    {% endif %}
-
-                    <div class="form-group">
-                        <label for="{{ form.username.id_for_label }}" class="form-label">Username
-                            <p class='me1'>(must not contain spaces or special characters)</p>
-                        </label>
-                        {{ form.username }}
-                    </div>
-
-                    <div class="form-group">
-                        <label for="{{ form.email.id_for_label }}" class="form-label">Email</label>
-                        {{ form.email }}
-                    </div>
-
-
-                    <div class="form-group">
-                        <label for="{{ form.password1.id_for_label }}" class="form-label">Password</label>
-                        <div class="password-wrapper">
-                            {{ form.password1 }}
-                            <button type="button" class="toggle-password" data-target="id_password1">
-                                <span class="eye-icon">👁️</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="{{ form.password2.id_for_label }}" class="form-label">Confirm Password</label>
-                        <div class="password-wrapper">
-                            {{ form.password2 }}
-                            <button type="button" class="toggle-password" data-target="id_password2">
-                                <span class="eye-icon">👁️</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-register">
-                            <span>🚀</span>
-                            <span>Create Account</span>
-                        </button>
-                    </div>
-
-                    <div class="auth-switch">
-                        <p>Already have an account? <a href="/login/" class="auth-link">Login here</a></p>
-                    </div>
-                </form>
-            </div>
-        </div>
+{% extends 'tasks/auth_base.html' %}
+{% block title %}Create account · Quantum Manager{% endblock %}
+{% block content %}
+<h1 class="auth-title">Create your account</h1>
+<p class="auth-sub">Takes a minute. Free.</p>
+<form method="post" class="form" novalidate>
+  {% csrf_token %}
+  {% for e in form.non_field_errors %}<p class="error">{{ e }}</p>{% endfor %}
+  <div class="field {% if form.username.errors %}has-error{% endif %}">
+    <label class="label" for="id_username">Username</label>
+    <input class="input" type="text" name="username" id="id_username" autocomplete="username" autocapitalize="none" required autofocus maxlength="150" value="{{ form.username.value|default:'' }}">
+    {% for e in form.username.errors %}<p class="error">{{ e }}</p>{% empty %}<p class="hint">Letters, numbers and _ only. No spaces.</p>{% endfor %}
+  </div>
+  <div class="field {% if form.email.errors %}has-error{% endif %}">
+    <label class="label" for="id_email">Email</label>
+    <input class="input" type="email" name="email" id="id_email" autocomplete="email" required value="{{ form.email.value|default:'' }}">
+    {% for e in form.email.errors %}<p class="error">{{ e }}</p>{% empty %}<p class="hint">For password resets and reminder emails. Never shared.</p>{% endfor %}
+  </div>
+  <div class="field {% if form.password1.errors %}has-error{% endif %}">
+    <label class="label" for="id_password1">Password</label>
+    <div class="input-wrap">
+      <input class="input" type="password" name="password1" id="id_password1" autocomplete="new-password" required>
+      <button class="icon-btn reveal" type="button" data-reveal="id_password1" aria-label="Show password"><svg class="icon"><use href="#i-eye"/></svg></button>
     </div>
-
-    <script>
-        // Get all toggle password buttons
-        const toggleButtons = document.querySelectorAll('.toggle-password');
-
-        toggleButtons.forEach(button => {
-            button.addEventListener('click', function () {
-                // Get the target input field ID from data-target attribute
-                const targetId = this.getAttribute('data-target');
-                const passwordInput = document.getElementById(targetId);
-
-                // Toggle between 'password' and 'text' type
-                if (passwordInput.type === 'password') {
-                    passwordInput.type = 'text';
-                    this.classList.add('visible');
-                    this.querySelector('.eye-icon').textContent = 'Hide'; // Closed eye
-                } else {
-                    passwordInput.type = 'password';
-                    this.classList.remove('visible');
-                    this.querySelector('.eye-icon').textContent = '👁️'; // Open eye
-                }
-            });
-        });
-
-        // Show loading overlay when form is submitted
-        document.addEventListener('DOMContentLoaded', function () {
-            const forms = document.querySelectorAll('form');
-            const loadingOverlay = document.getElementById('loadingOverlay');
-
-            forms.forEach(form => {
-                form.addEventListener('submit', function (e) {
-                    // Show loading overlay
-                    if (loadingOverlay) {
-                        loadingOverlay.classList.add('active');
-                    }
-
-                    // Add loading class to submit button
-                    const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.classList.add('loading');
-                        submitBtn.disabled = true;
-                    }
-                });
-            });
-
-            // Auto-hide toasts after 5 seconds
-            const toasts = document.querySelectorAll('.toast');
-            toasts.forEach(toast => {
-                setTimeout(() => {
-                    toast.style.animation = 'fadeOut 0.5s ease-in forwards';
-                    setTimeout(() => toast.remove(), 500);
-                }, 5000);
-            });
-        });
-    </script>
-
-</body>
-
-</html>
+    <div class="strength" aria-hidden="true"><i id="strengthBar"></i></div>
+    {% for e in form.password1.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  </div>
+  <div class="field {% if form.password2.errors %}has-error{% endif %}">
+    <label class="label" for="id_password2">Repeat password</label>
+    <div class="input-wrap">
+      <input class="input" type="password" name="password2" id="id_password2" autocomplete="new-password" required>
+      <button class="icon-btn reveal" type="button" data-reveal="id_password2" aria-label="Show password"><svg class="icon"><use href="#i-eye"/></svg></button>
+    </div>
+    {% for e in form.password2.errors %}<p class="error">{{ e }}</p>{% endfor %}
+    <ul class="checklist" id="pwChecks">
+      <li data-check="len"><svg class="icon icon-xs"><use href="#i-check-circle"/></svg>At least 8 characters</li>
+      <li data-check="mix"><svg class="icon icon-xs"><use href="#i-check-circle"/></svg>Not only numbers</li>
+      <li data-check="match"><svg class="icon icon-xs"><use href="#i-check-circle"/></svg>Both passwords match</li>
+    </ul>
+  </div>
+  <button class="btn btn-primary btn-lg btn-block" type="submit">Create account</button>
+</form>
+<p class="auth-foot">Already have one? <a href="{% url 'login' %}">Log in</a></p>
+{% endblock %}
+{% block scripts %}{% include 'tasks/_password_js.html' with first='id_password1' second='id_password2' %}{% endblock %}

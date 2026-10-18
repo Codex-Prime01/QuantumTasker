@@ -1,831 +1,180 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en" data-theme="{{ request.user.profile.theme|default:'dark' }}">
-
-
+{% load static qm_tags %}<!doctype html>
+<html lang="en" data-theme="{% if user.is_authenticated %}{{ qm_theme }}{% else %}guest{% endif %}">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description"
-        content="Never forget again! Manage tasks with recurring reminders, templates, and achievements.">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Quantum Manager">
-
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="{% static 'tasks/manifest.json' %}">
-
-    <!-- App Icons -->
-    <link rel="icon" type="image/png" sizes="192x192" href="{% static 'tasks/icons/icon-192x192.png' %}">
-    <link rel="apple-touch-icon" href="{% static 'tasks/icons/icon-192x192.png' %}">
-
-    <!-- 👇 NEW! Open Graph Meta Tags (Facebook, LinkedIn) -->
-    <meta property="og:title" content="Quantumnager - Never Forget Again">
-    <meta property="og:description"
-        content="A beautiful task manager with recurring tasks, templates, achievements, and voice input. Stay productive and never forget important tasks!">
-    <meta property="og:image" content="{% static 'tasks/icons/icon-512x512.png' %}">
-    <meta property="og:url" content="{{ request.build_absolute_uri }}">
-    <meta property="og:type" content="website">
-    <meta property="og:site_name" content="Quantum Manager">
-
-    <!-- Twitter Card Meta Tags -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="Quantum Manager - Never Forget Again">
-    <meta name="twitter:description" content="Stay productive with recurring tasks, templates, and achievements!">
-    <meta name="twitter:image" content="{% static 'tasks/icons/icon-512x512.png' %}">
-
-    <!-- Additional SEO -->
-    <meta name="keywords"
-        content="quantum, querySelector manager, productivity, recurring tasks, templates, achievements, voice input">
-    <meta name="author" content="Quantum Manager">
-
-    <title>{% block title %}Quantum Manager{% endblock %}</title>
-    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
-    {% block extra_css %}{% endblock %}
-
-
-    <script>
-        // Tell the server the user's timezone so times show and save correctly
-        try {
-            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            if (tz) document.cookie = `tz=${encodeURIComponent(tz)}; path=/; max-age=31536000; SameSite=Lax`;
-        } catch (e) { /* old browser, server falls back to its default */ }
-
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then(registration => {
-                        console.log('✅ Service Worker registered:', registration);
-                    })
-                    .catch(error => {
-                        console.log('❌ Service Worker registration failed:', error);
-                    });
-            });
-        }
-    </script>
+  {% include 'tasks/_head.html' %}
+  <title>{% block title %}Quantum Manager{% endblock %}</title>
+  {% block extra_head %}{% endblock %}
 </head>
+<body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-push-key="{{ push_public_key }}" class="{% block body_class %}{% endblock %}">
+{% include 'tasks/_icons.html' %}
+{% csrf_token %}
+<a class="sr-only" href="#main">Skip to content</a>
 
-<body>
-
-    <div id="installPrompt" class="install-prompt" style="display: none;">
-        <div class="install-content">
-            <div class="install-icon">📱</div>
-            <div class="install-text">
-                <h3>Install Quantum Manager</h3>
-                <p>Add to your home screen for quick access!</p>
-            </div>
-            <button id="installBtn" class="btn btn-primary btn-sm">Install</button>
-            <button id="dismissInstall" class="btn btn-secondary btn-sm">Maybe Later</button>
-        </div>
+<div class="app">
+  {% if user.is_authenticated %}
+  <!-- Sidebar: everything from the original menu -->
+  <aside class="sidebar" id="sidebar" aria-label="Main menu">
+    <div class="sidebar-head">
+      <a class="brand" href="{% url 'list' %}">
+        <img src="{% static 'tasks/icons/icon-96x96.png' %}" alt="">
+        <span>Quantum Manager<span class="brand-sub">Never forget again</span></span>
+      </a>
+      <button class="icon-btn sidebar-close" type="button" data-sidebar-close aria-label="Close menu">
+        <svg class="icon"><use href="#i-x"/></svg>
+      </button>
     </div>
 
-
-    <!-- Toast Notifications Container -->
-    <div class="toast-container" id="toastContainer">
-        {% if messages %}
-        {% for message in messages %}
-        <div class="toast toast-{{ message.tags }} show" role="alert">
-            <div class="toast-content">
-                <span class="toast-message">{{ message }}</span>
-                <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
-            </div>
-        </div>
-        {% endfor %}
-        {% endif %}
-    </div>
-
-    {% csrf_token %}
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner">
-            <div class="spinner"></div>
-            <p class="loading-text">Processing...</p>
-        </div>
-    </div>
-
-    <!-- Hamburger Menu Button (Fixed) -->
-    <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleSidebar()">
-        <span></span>
-        <span></span>
-        <span></span>
-    </button>
-
-    <!-- Sidebar Navigation -->
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <div class="user-profile">
-                {% if request.user.profile.avatar %}
-                <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
-                    class="profile-avatar has-image">
-                {% else %}
-
-                <div class="user-avatar">
-                    {{ request.user.username|upper|slice:":2"|default:"?" }}
-                </div>
-                {% endif %}
-                <div class="avatar-badge1">
-                    {% if request.user.profile.email_verified %}
-                    <span class="verified-badge" title="Email Verified">✓</span>
-                    {% else %}
-                    <span class="unverified-badge" title="Email Not Verified">!</span>
-                    {% endif %}
-                </div>
-                <div class="user-info">
-                    <h3 class="user-name">{{ request.user.username }}</h3>
-                    <p class="user-email">{{ request.user.email }}</p>
-                </div>
-            </div>
-            <button class="sidebar-close" onclick="toggleSidebar()">✕</button>
-        </div>
-        <!--
-        <div class="menu-theme-switcher">
-            <button class="theme-toggle-btn" onclick="quickToggleTheme()" title="Toggle Theme">
-                <span class="theme-icon-dark">🌙</span>
-                <span class="theme-icon-light">☀️</span>
-            </button>
-        </div>
-    -->
-        <nav class="sidebar-nav">
-            <a href="/" class="nav-item {% if request.path == '/' %}active{% endif %}">
-                <span class="nav-icon">📝</span>
-                <span class="nav-text">My Tasks</span>
-            </a>
-
-            <a href="/notes/" class="nav-item {% if request.path == '/notes/' %}active{% endif %}">
-                <span class="nav-icon">📝</span>
-                <span class="nav-text">Notes</span>
-            </a>
-
-            <a href="/notes/archived/" class="nav-item {% if '/notes/archived/' in request.path %}active{% endif %}">
-                <span class="nav-icon">📦</span>
-                <span class="nav-text">Archived Notes</span>
-            </a>
-
-            <a href="/templates/" class="nav-item {% if request.path == '/templates/' %}active{% endif %}">
-                <span class="nav-icon">✨</span>
-                <span class="nav-text">Templates</span>
-            </a>
-
-            <a href="/dashboard/" class="nav-item {% if request.path == '/dashboard/' %}active{% endif %}">
-                <span class="nav-icon">📊</span>
-                <span class="nav-text">Dashboard</span>
-            </a>
-
-
-            <a href="/achievements/" class="nav-item {% if request.path == '/achievements/' %}active{% endif %}">
-                <span class="nav-icon">🏆</span>
-                <span class="nav-text"> Achievements</span>
-            </a>
-
-            <a href="/profile/" class="nav-item {% if request.path == '/profile/' %}active{% endif %}">
-                <span class="nav-icon">👤</span>
-                <span class="nav-text">Profile</span>
-            </a>
-
-            <a href="/settings/" class="nav-item {% if request.path == '/settings/' %}active{% endif %}">
-                <span class="nav-icon">⚙️</span>
-                <span class="nav-text">Settings</span>
-            </a>
-            <div class="nav-divider"></div>
-
-
-            <a href="/logout/" class="nav-item logout">
-                <span class="nav-icon">🚪</span>
-                <span class="nav-text">Logout</span>
-            </a>
-            <div class="install-content" id="sidebarInstallSection" style="display: none;">
-                <div class="install-ico">📱</div>
-                <div class="install-tex">
-                    <h3>Install Quantum Manager</h3>
-                    <p>Add to your home screen for quick access!</p>
-                </div>
-                <button id="sidebarInstallBtn" class="btn btn-primary btn-sm">Install</button>
-            </div>
-        </nav>
-
-        <div class="sidebar-footer">
-            <p class="app-version">Quantum Manager v1.0</p>
-            <p class="tagline">Never forget again 💙</p>
-        </div>
-    </div>
-
-    <!-- Sidebar Overlay (Dark background when menu open) -->
-    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
-
-    <!-- Main Content Area -->
-    <div class="main-content">
-        {% block content %}
-        {% endblock %}
-    </div>
-
-    <!-- Floating Action Button (FAB) -->
-    {% if request.path == '/' %}
-    <a href="/create/" class="fab" title="Create New Task">
-        <span class="fab-icon">+</span>
-        <span class="fab-pulse"></span>
+    <a class="sidebar-user" href="{% url 'profile' %}">
+      {% include 'tasks/_avatar.html' with size='avatar-sm' %}
+      <span class="who">
+        <span class="name">{{ user.username }}
+          {% if qm_profile.email_verified %}<svg class="icon icon-xs" style="color: var(--accent-text)" aria-label="Verified"><use href="#i-check-circle"/></svg>{% endif %}
+        </span>
+        <span class="email">{{ user.email }}</span>
+      </span>
     </a>
 
+    <nav class="nav" aria-label="Pages">
+      <span class="nav-label">Plan</span>
+      <a class="nav-item {% if url_name == 'list' %}active{% endif %}" href="{% url 'list' %}" {% if url_name == 'list' %}aria-current="page"{% endif %}>
+        <svg class="icon"><use href="#i-tasks"/></svg>My Tasks
+        {% if nav_counts.tasks %}<span class="count">{{ nav_counts.tasks }}</span>{% endif %}
+      </a>
+      <a class="nav-item {% if url_name == 'notes_list' %}active{% endif %}" href="{% url 'notes_list' %}" {% if url_name == 'notes_list' %}aria-current="page"{% endif %}>
+        <svg class="icon"><use href="#i-note"/></svg>Notes
+        {% if nav_counts.notes %}<span class="count">{{ nav_counts.notes }}</span>{% endif %}
+      </a>
+      <a class="nav-item {% if url_name|among:"templates_list template_detail create_template edit_template create_template_from_tasks delete_template" %}active{% endif %}" href="{% url 'templates_list' %}">
+        <svg class="icon"><use href="#i-grid"/></svg>Templates
+      </a>
+      <a class="nav-item {% if url_name == 'archived_notes' %}active{% endif %}" href="{% url 'archived_notes' %}">
+        <svg class="icon"><use href="#i-archive"/></svg>Archived Notes
+      </a>
 
-    {% elif '/notes/' in request.path %}
-    <a href="/notes/create/" class="fab" title="Create New Note">
-        <span class="fab-icon">+</span>
-        <span class="fab-pulse"></span>
-    </a>
+      <span class="nav-label">Progress</span>
+      <a class="nav-item {% if url_name == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}">
+        <svg class="icon"><use href="#i-chart"/></svg>Dashboard
+      </a>
+      <a class="nav-item {% if url_name == 'achievements' %}active{% endif %}" href="{% url 'achievements' %}">
+        <svg class="icon"><use href="#i-trophy"/></svg>Achievements
+      </a>
+
+      <span class="nav-label">You</span>
+      <a class="nav-item {% if url_name == 'profile' %}active{% endif %}" href="{% url 'profile' %}">
+        <svg class="icon"><use href="#i-user"/></svg>Profile
+      </a>
+      <a class="nav-item {% if url_name == 'userp_settings' %}active{% endif %}" href="{% url 'userp_settings' %}">
+        <svg class="icon"><use href="#i-settings"/></svg>Settings
+      </a>
+      <a class="nav-item danger" href="{% url 'logout' %}">
+        <svg class="icon"><use href="#i-logout"/></svg>Log out
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="install-card" data-install hidden>
+        <img src="{% static 'tasks/icons/icon-96x96.png' %}" alt="">
+        <div style="flex:1; min-width:0">
+          <div class="t">Install the app</div>
+          <div class="s">Faster, and alarms work better</div>
+        </div>
+        <button class="btn btn-primary btn-sm" type="button" data-install-btn>Install</button>
+      </div>
+      <div class="theme-switch" role="group" aria-label="Theme">
+        <button type="button" data-set-theme="blue" aria-pressed="false"><span class="sw" style="background:#2B6CFF"></span>Blue</button>
+        <button type="button" data-set-theme="light" aria-pressed="false"><span class="sw" style="background:#FFFFFF"></span>White</button>
+        <button type="button" data-set-theme="dark" aria-pressed="false"><span class="sw" style="background:#0A0A0A"></span>Dark</button>
+      </div>
+      <p class="sidebar-tagline">Quantum Manager · Never forget again</p>
+    </div>
+  </aside>
+  <div class="sidebar-scrim" id="sidebarScrim"></div>
+  {% endif %}
+
+  <div class="main">
+    {% if user.is_authenticated %}
+    <header class="topbar">
+      <button class="icon-btn bordered menu-btn" type="button" data-sidebar-open aria-controls="sidebar" aria-expanded="false" aria-label="Open menu">
+        <svg class="icon"><use href="#i-menu"/></svg>
+      </button>
+      {% block topbar_center %}
+      <div class="topbar-title hide-desktop">{% block topbar_title %}{% endblock %}</div>
+      <form class="topbar-search hide-mobile" action="{% url 'list' %}" method="get" role="search">
+        <label class="search">
+          <svg class="icon icon-sm"><use href="#i-search"/></svg>
+          <span class="sr-only">Search tasks</span>
+          <input type="search" name="search" placeholder="Search tasks" autocomplete="off" data-search>
+          <kbd>/</kbd>
+        </label>
+      </form>
+      {% endblock %}
+      <div class="topbar-actions">
+        <a class="btn btn-primary new-task-btn hide-mobile" href="{% url 'create' %}">
+          <svg class="icon icon-sm"><use href="#i-plus"/></svg>New task
+        </a>
+        <details class="menu">
+          <summary aria-label="Account menu">{% include 'tasks/_avatar.html' %}</summary>
+          <div class="menu-panel">
+            <div class="menu-head">
+              <div class="name">{{ user.get_full_name|default:user.username }}</div>
+              <div class="email">{{ user.email }}</div>
+            </div>
+            <a class="menu-item" href="{% url 'profile' %}"><svg class="icon icon-sm"><use href="#i-user"/></svg>Profile</a>
+            <a class="menu-item" href="{% url 'dashboard' %}"><svg class="icon icon-sm"><use href="#i-chart"/></svg>Dashboard</a>
+            <a class="menu-item" href="{% url 'achievements' %}"><svg class="icon icon-sm"><use href="#i-trophy"/></svg>Achievements</a>
+            <a class="menu-item" href="{% url 'userp_settings' %}"><svg class="icon icon-sm"><use href="#i-settings"/></svg>Settings</a>
+            <div class="menu-sep"></div>
+            <div class="theme-switch" role="group" aria-label="Theme" style="margin: 4px 6px 6px">
+              <button type="button" data-set-theme="blue" aria-pressed="false"><span class="sw" style="background:#2B6CFF"></span>Blue</button>
+              <button type="button" data-set-theme="light" aria-pressed="false"><span class="sw" style="background:#FFFFFF"></span>White</button>
+              <button type="button" data-set-theme="dark" aria-pressed="false"><span class="sw" style="background:#0A0A0A"></span>Dark</button>
+            </div>
+            <div class="menu-sep"></div>
+            <a class="menu-item danger" href="{% url 'logout' %}"><svg class="icon icon-sm"><use href="#i-logout"/></svg>Log out</a>
+          </div>
+        </details>
+      </div>
+    </header>
     {% endif %}
 
-    <!-- Base Scripts -->
-    <script>
-        // Toggle Sidebar
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('sidebarOverlay');
-            const hamburger = document.getElementById('hamburgerBtn');
-
-            sidebar.classList.toggle('active');
-            overlay.classList.toggle('active');
-            hamburger.classList.toggle('active');
-
-            // Prevent body scroll when sidebar is open
-            if (sidebar.classList.contains('active')) {
-                document.body.style.overflow = 'hidden';
-            } else {
-                document.body.style.overflow = '';
-            }
-        }
-
-        // Close sidebar on ESC key
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') {
-                const sidebar = document.getElementById('sidebar');
-                if (sidebar.classList.contains('active')) {
-                    toggleSidebar();
-                }
-            }
-        });
-
-        // Auto-hide toasts after 5 seconds
-        document.addEventListener('DOMContentLoaded', function () {
-            const toasts = document.querySelectorAll('.toast');
-            toasts.forEach(toast => {
-                setTimeout(() => {
-                    toast.style.animation = 'fadeOut 0.5s ease-in forwards';
-                    setTimeout(() => toast.remove(), 500);
-                }, 5000);
-            });
-
-            // Show loading overlay when form is submitted
-            const forms = document.querySelectorAll('form');
-            const loadingOverlay = document.getElementById('loadingOverlay');
-
-            forms.forEach(form => {
-                form.addEventListener('submit', function (e) {
-                    if (loadingOverlay) {
-                        loadingOverlay.classList.add('active');
-                    }
-
-                    const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
-                    if (submitBtn) {
-                        submitBtn.classList.add('loading');
-                        submitBtn.disabled = true;
-                    }
-                });
-            });
-        });
-
-
-        function quickToggleTheme() {
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-            // Apply theme immediately
-            html.setAttribute('data-theme', newTheme);
-
-            // Save to server (async)
-            fetch('/api/update-theme/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': '{{ csrf_token }}'
-                },
-                body: JSON.stringify({ theme: newTheme })
-            });
-        }
-
-        let deferredPrompt;
-        const installPrompt = document.getElementById('installPrompt');
-        const topInstallBtn = document.getElementById('installBtn'); // Popup button
-        const sidebarInstallBtn = document.getElementById('sidebarInstallBtn'); // Sidebar button
-        const sidebarInstallSection = document.getElementById('sidebarInstallSection');
-        const dismissBtn = document.getElementById('dismissInstall');
-
-        // Capture install prompt
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            deferredPrompt = e;
-
-            // Show popup install prompt if not dismissed before
-            if (!localStorage.getItem('installDismissed')) {
-                if (installPrompt) installPrompt.style.display = 'block';
-            }
-
-            // ALWAYS show sidebar install button when app is installable
-            if (sidebarInstallSection) {
-                sidebarInstallSection.style.display = 'block';
-            }
-        });
-
-        // Handle install for BOTH buttons
-        async function handleInstall() {
-            if (!deferredPrompt) {
-                alert('❌ App is already installed or not available for installation.');
-                return;
-            }
-
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-
-            console.log(`User choice: ${outcome}`);
-
-            if (outcome === 'accepted') {
-                console.log('✅ User accepted the install prompt');
-                // Hide both install UIs
-                if (installPrompt) installPrompt.style.display = 'none';
-                if (sidebarInstallSection) sidebarInstallSection.style.display = 'none';
-            }
-
-            deferredPrompt = null;
-        }
-
-        // Attach install handler to TOP popup button
-        if (topInstallBtn) {
-            topInstallBtn.addEventListener('click', handleInstall);
-        }
-
-        // Attach install handler to SIDEBAR button
-        if (sidebarInstallBtn) {
-            sidebarInstallBtn.addEventListener('click', handleInstall);
-        }
-
-        // Dismiss popup button (doesn't affect sidebar button)
-        if (dismissBtn) {
-            dismissBtn.addEventListener('click', () => {
-                if (installPrompt) installPrompt.style.display = 'none';
-                localStorage.setItem('installDismissed', 'true');
-                // Sidebar button still available!
-            });
-        }
-
-        // Log when app is installed
-        window.addEventListener('appinstalled', () => {
-            console.log('✅ Quantum Manager installed!');
-            if (installPrompt) installPrompt.style.display = 'none';
-            if (sidebarInstallSection) sidebarInstallSection.style.display = 'none';
-        });
-
-
-
-        class AlarmSystem {
-            constructor() {
-                this.checkInterval = null;
-                this.audioContext = null;
-                this.isPlaying = false;
-                this.currentAlarm = null;
-                this.notificationPermission = 'default';
-
-                this.init();
-            }
-
-            async init() {
-                if ('Notification' in window) {
-                    this.notificationPermission = Notification.permission;
-                }
-
-                // Browsers only allow sound and the permission popup after the
-                // user taps something, so unlock both on the first tap.
-                const unlock = async () => {
-                    try {
-                        if (!this.audioContext) {
-                            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                        }
-                        if (this.audioContext.state === 'suspended') await this.audioContext.resume();
-                    } catch (e) { console.warn('Audio unavailable', e); }
-                    if ('Notification' in window && Notification.permission === 'default') {
-                        try {
-                            this.notificationPermission = await Notification.requestPermission();
-                        } catch (e) { /* ignore */ }
-                    }
-                };
-                document.addEventListener('pointerdown', unlock, { once: true });
-                document.addEventListener('keydown', unlock, { once: true });
-
-                // Start checking for due tasks
-                this.startChecking();
-
-                // Listen for visibility change
-                document.addEventListener('visibilitychange', () => {
-                    if (!document.hidden) {
-                        this.checkDueTasks();
-                    }
-                });
-            }
-
-            startChecking() {
-                // Check immediately
-                this.checkDueTasks();
-
-                // Then check every 30 seconds
-                this.checkInterval = setInterval(() => {
-                    this.checkDueTasks();
-                }, 30000);
-            }
-
-            stopChecking() {
-                if (this.checkInterval) {
-                    clearInterval(this.checkInterval);
-                }
-            }
-
-            async checkDueTasks() {
-                try {
-                    const response = await fetch('/api/check-due-tasks/', {
-                        method: 'GET',
-                        cache: 'no-store',
-                        credentials: 'same-origin',
-                        headers: { 'Accept': 'application/json' }
-                    });
-                    const type = response.headers.get('content-type') || '';
-                    if (!response.ok || !type.includes('application/json')) return;
-
-                    const data = await response.json();
-
-                    if (data.due_tasks && data.due_tasks.length > 0) {
-                        console.log(`Found ${data.due_tasks.length} due tasks`);
-                        data.due_tasks.forEach(task => {
-                            this.triggerAlarm(task);
-                        });
-                    }
-                } catch (error) {
-                    console.error('Error checking due tasks:', error);
-                }
-            }
-
-            triggerAlarm(task) {
-                // Already showing this task's alarm on screen
-                if (document.querySelector(`.alarm-modal-overlay[data-task-id="${task.id}"]`)) return;
-
-                let notifiedTasks = {};
-                try { notifiedTasks = JSON.parse(localStorage.getItem('notifiedTasks') || '{}'); } catch (e) {}
-                // ring_at changes after a snooze, so a snoozed alarm counts as a new ring
-                const taskKey = `task_${task.id}_${task.ring_at || task.alarm_time}`;
-
-                const now = Date.now();
-                if (notifiedTasks[taskKey] && (now - notifiedTasks[taskKey] < 300000)) {
-                    // Rang within the last 5 minutes; re-ring after that until dismissed
-                    return;
-                }
-
-                // Mark as notified
-                notifiedTasks[taskKey] = now;
-                localStorage.setItem('notifiedTasks', JSON.stringify(notifiedTasks));
-
-                // Clean old notifications
-                this.cleanOldNotifications(notifiedTasks);
-
-                // Each step is separate so one failing can't silence the others
-                try { this.showNotification(task); } catch (e) { console.warn('Notification failed', e); }
-                try { if (!this.isPlaying) this.playAlarmSound(task.alarm_tone || 'classic'); } catch (e) { console.warn('Sound failed', e); }
-                this.showAlarmModal(task);
-            }
-
-            cleanOldNotifications(notifiedTasks) {
-                const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-                const cleaned = {};
-
-                for (let key in notifiedTasks) {
-                    if (notifiedTasks[key] > oneDayAgo) {
-                        cleaned[key] = notifiedTasks[key];
-                    }
-                }
-
-                localStorage.setItem('notifiedTasks', JSON.stringify(cleaned));
-            }
-
-            showNotification(task) {
-                if (!('Notification' in window) || Notification.permission !== 'granted') return;
-
-                const priorityEmoji = { urgent: '🚨', high: '🔴', medium: '🟡', low: '🟢' };
-                const title = '⏰ Task Due!';
-                const options = {
-                    body: `${priorityEmoji[task.priority] || ''} ${task.title}`.trim(),
-                    icon: '/static/tasks/icons/icon-192x192.png',
-                    badge: '/static/tasks/icons/icon-96x96.png',
-                    tag: `task-${task.id}`,
-                    renotify: true,
-                    requireInteraction: true,
-                    vibrate: [200, 100, 200, 100, 400],
-                    data: { url: `/update/${task.id}/` }
-                };
-
-                // Android Chrome only allows notifications through the service worker
-                if ('serviceWorker' in navigator) {
-                    navigator.serviceWorker.ready
-                        .then((reg) => reg.showNotification(title, options))
-                        .catch(() => this.pageNotification(title, options));
-                } else {
-                    this.pageNotification(title, options);
-                }
-            }
-
-            pageNotification(title, options) {
-                try {
-                    const n = new Notification(title, options);
-                    n.onclick = () => { window.focus(); window.location.href = options.data.url; n.close(); };
-                } catch (e) { console.warn('Page notification not allowed here', e); }
-            }
-
-            playAlarmSound(tone = 'classic') {
-                this.isPlaying = true;
-
-                // Uploaded tones are stored as a URL
-                if (tone && (tone.startsWith('/') || tone.startsWith('http'))) {
-                    this.playCustomSound(tone);
-                    return;
-                }
-
-                if (!this.audioContext) {
-                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                if (this.audioContext.state === 'suspended') {
-                    this.audioContext.resume().catch(() => {});
-                }
-
-                const context = this.audioContext;
-
-                if (tone === 'classic') {
-                    this.playClassicBeep(context);
-                } else if (tone === 'chime') {
-                    this.playSoftChime(context);
-                } else if (tone === 'urgent') {
-                    this.playUrgentAlert(context);
-                } else {
-                    this.playClassicBeep(context);
-                }
-            }
-
-            playClassicBeep(context) {
-                const times = [0, 0.3, 0.6, 1.2, 1.5, 1.8];
-
-                times.forEach(time => {
-                    const oscillator = context.createOscillator();
-                    const gainNode = context.createGain();
-
-                    oscillator.connect(gainNode);
-                    gainNode.connect(context.destination);
-
-                    oscillator.frequency.value = 800;
-                    oscillator.type = 'square';
-
-                    gainNode.gain.setValueAtTime(0.3, context.currentTime + time);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, context.currentTime + time + 0.2);
-
-                    oscillator.start(context.currentTime + time);
-                    oscillator.stop(context.currentTime + time + 0.2);
-                });
-
-                setTimeout(() => {
-                    this.isPlaying = false;
-                }, 2000);
-            }
-
-            playSoftChime(context) {
-                const frequencies = [523.25, 659.25, 783.99];
-
-                frequencies.forEach((freq, index) => {
-                    const oscillator = context.createOscillator();
-                    const gainNode = context.createGain();
-
-                    oscillator.connect(gainNode);
-                    gainNode.connect(context.destination);
-
-                    oscillator.frequency.value = freq;
-                    oscillator.type = 'sine';
-
-                    const startTime = context.currentTime + (index * 0.1);
-
-                    gainNode.gain.setValueAtTime(0.2, startTime);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 1);
-
-                    oscillator.start(startTime);
-                    oscillator.stop(startTime + 1);
-                });
-
-                setTimeout(() => {
-                    this.isPlaying = false;
-                }, 1500);
-            }
-
-            playUrgentAlert(context) {
-                const duration = 3;
-                const oscillator = context.createOscillator();
-                const gainNode = context.createGain();
-                const lfo = context.createOscillator();
-                const lfoGain = context.createGain();
-
-                lfo.frequency.value = 5;
-                lfoGain.gain.value = 100;
-
-                lfo.connect(lfoGain);
-                lfoGain.connect(oscillator.frequency);
-
-                oscillator.connect(gainNode);
-                gainNode.connect(context.destination);
-
-                oscillator.frequency.value = 800;
-                oscillator.type = 'sawtooth';
-                gainNode.gain.value = 0.4;
-
-                const now = context.currentTime;
-                oscillator.start(now);
-                lfo.start(now);
-
-                oscillator.stop(now + duration);
-                lfo.stop(now + duration);
-
-                setTimeout(() => {
-                    this.isPlaying = false;
-                }, duration * 1000);
-            }
-
-            async playCustomSound(soundUrl) {
-                try {
-                    const audio = new Audio(soundUrl);
-                    audio.volume = 0.7;
-                    await audio.play();
-
-                    audio.onended = () => {
-                        this.isPlaying = false;
-                    };
-                } catch (error) {
-                    console.error('Error playing custom sound:', error);
-                    this.isPlaying = false;
-                    this.playAlarmSound('classic');
-                }
-            }
-
-            showAlarmModal(task) {
-                const modal = document.createElement('div');
-                modal.className = 'alarm-modal-overlay';
-                modal.dataset.taskId = task.id;
-                const dueText = task.due_date ? `📅 Due: ${new Date(task.due_date).toLocaleString()}` : '⏰ Reminder';
-                modal.innerHTML = `
-            <div class="alarm-modal">
-                <div class="alarm-modal-header">
-                    <div class="alarm-icon">⏰</div>
-                    <h2 class="alarm-title">Task Due!</h2>
-                </div>
-                <div class="alarm-modal-body">
-                    <div class="alarm-task-info">
-                        <h3 class="alarm-task-title">${this.escapeHtml(task.title)}</h3>
-                        ${task.description ? `<p class="alarm-task-desc">${this.escapeHtml(task.description)}</p>` : ''}
-                        <div class="alarm-task-meta">
-                            <span class="priority-badge priority-${task.priority}">
-                                ${task.priority.toUpperCase()}
-                            </span>
-                            <span class="alarm-time">${dueText}</span>
-                        </div>
-                    </div>
-                </div>
-                <div class="alarm-modal-actions">
-                    <button onclick="alarmSystem.snoozeAlarm(${task.id}, 10)" class="alarm-btn alarm-btn-snooze">
-                        ⏰ Snooze 10 min
-                    </button>
-                    <button onclick="alarmSystem.viewTask(${task.id})" class="alarm-btn alarm-btn-view">
-                        👁️ View Task
-                    </button>
-                    <button onclick="alarmSystem.dismissAlarm(${task.id})" class="alarm-btn alarm-btn-dismiss">
-                        ✅ Dismiss
-                    </button>
-                </div>
-            </div>
-        `;
-
-                document.body.appendChild(modal);
-
-                setTimeout(() => modal.classList.add('show'), 10);
-            }
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            async snoozeAlarm(taskId, minutes) {
-                try {
-                    const response = await fetch(`/api/snooze-alarm/${taskId}/`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': this.getCookie('csrftoken')
-                        },
-                        body: JSON.stringify({ minutes })
-                    });
-
-                    if (response.ok) {
-                        this.closeModal(taskId);
-                        this.showToast(`⏰ Snoozed for ${minutes} minutes`, 'info');
-                    }
-                } catch (error) {
-                    console.error('Error snoozing alarm:', error);
-                }
-            }
-
-            async viewTask(taskId) {
-                await this.dismissAlarm(taskId);
-                window.location.href = `/update/${taskId}/`;
-            }
-
-            async dismissAlarm(taskId) {
-                this.closeModal(taskId);
-                if (!taskId) return;
-                try {
-                    await fetch(`/api/dismiss-alarm/${taskId}/`, {
-                        method: 'POST',
-                        credentials: 'same-origin',
-                        headers: { 'X-CSRFToken': this.getCookie('csrftoken') }
-                    });
-                } catch (error) {
-                    console.error('Error dismissing alarm:', error);
-                }
-            }
-
-            closeModal(taskId) {
-                const selector = taskId
-                    ? `.alarm-modal-overlay[data-task-id="${taskId}"]`
-                    : '.alarm-modal-overlay';
-                document.querySelectorAll(selector).forEach((modal) => {
-                    modal.classList.remove('show');
-                    setTimeout(() => modal.remove(), 300);
-                });
-            }
-
-            showToast(message, type) {
-                const toast = document.createElement('div');
-                toast.className = `toast toast-${type}`;
-                toast.textContent = message;
-                toast.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 15px 25px;
-            background: ${type === 'success' ? '#2ecc71' : type === 'warning' ? '#f39c12' : '#3498db'};
-            color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-        `;
-
-                document.body.appendChild(toast);
-
-                setTimeout(() => {
-                    toast.style.animation = 'slideOut 0.3s ease';
-                    setTimeout(() => toast.remove(), 300);
-                }, 3000);
-            }
-
-            getCookie(name) {
-                let cookieValue = null;
-                if (document.cookie && document.cookie !== '') {
-                    const cookies = document.cookie.split(';');
-                    for (let i = 0; i < cookies.length; i++) {
-                        const cookie = cookies[i].trim();
-                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                            break;
-                        }
-                    }
-                }
-                return cookieValue;
-            }
-        }
-
-        // Alarms only make sense for logged-in users
-        let alarmSystem;
-        {% if user.is_authenticated %}
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => {
-                alarmSystem = new AlarmSystem();
-            });
-        } else {
-            alarmSystem = new AlarmSystem();
-        }
-        {% endif %}
-    </script>
-
-
-    {% block extra_js %}{% endblock %}
+    <main id="main">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+{% if user.is_authenticated %}
+  {% block fab %}
+  <a class="fab" href="{% url 'create' %}"><svg class="icon"><use href="#i-plus"/></svg>New task</a>
+  {% endblock %}
+
+  <nav class="bottom-nav" aria-label="Quick navigation">
+    <a href="{% url 'list' %}" class="{% if url_name == 'list' %}active{% endif %}">
+      <svg class="icon"><use href="#i-tasks"/></svg>Tasks
+    </a>
+    <a href="{% url 'notes_list' %}" class="{% if url_name == 'notes_list' or url_name == 'archived_notes' %}active{% endif %}">
+      <svg class="icon"><use href="#i-note"/></svg>Notes
+    </a>
+    <a href="{% url 'templates_list' %}" class="{% if url_name|among:"templates_list template_detail create_template edit_template create_template_from_tasks" %}active{% endif %}">
+      <svg class="icon"><use href="#i-grid"/></svg>Templates
+    </a>
+    <a href="{% url 'profile' %}" class="{% if url_name|among:"profile userp_settings dashboard achievements" %}active{% endif %}">
+      <svg class="icon"><use href="#i-user"/></svg>Me
+    </a>
+  </nav>
+{% endif %}
+
+<div class="toasts" id="toasts" aria-live="polite">
+  {% for message in messages %}
+  <div class="toast {{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+    <svg class="icon"><use href="#i-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'warning' %}alert{% else %}info{% endif %}"/></svg>
+    <div class="msg">{{ message|clean_msg }}</div>
+    <button class="close" type="button" aria-label="Close"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+  </div>
+  {% endfor %}
+</div>
+
+<script src="{% static 'tasks/app.js' %}"></script>
+{% block scripts %}{% endblock %}
 </body>
-
-</html>
+</html>

@@ -1,139 +1,69 @@
 {% extends 'tasks/base.html' %}
-
-{% block title %}Create Template from Tasks - Todo Manager{% endblock %}
-
+{% block title %}Template from tasks · Quantum Manager{% endblock %}
+{% block topbar_title %}From my tasks{% endblock %}
+{% block fab %}{% endblock %}
 {% block content %}
-<div class="from-tasks-container">
-    
-    <!-- Header -->
-    <div class="page-header">
-        <h1 class="page-title">Create Template from Existing Tasks</h1>
-        <p class="page-subtitle">Select tasks to turn into a reusable template</p>
+<div class="page page-narrow">
+  <a class="back-link" href="{% url 'templates_list' %}"><svg class="icon icon-sm"><use href="#i-arrow-left"/></svg>Templates</a>
+  <div class="page-head"><div>
+    <h1 class="page-title">Template from my tasks</h1>
+    <p class="page-sub">Pick tasks you'll need again. They stay on your list too.</p>
+  </div></div>
+
+  <form method="post" class="form">
+    {% csrf_token %}
+    <section class="form-section">
+      <div class="form-section-body" style="margin-top:0">
+        <div class="field">
+          <label class="label" for="template_name">Template name</label>
+          <input class="input" type="text" id="template_name" name="template_name" maxlength="200" required placeholder="e.g. My weekly routine">
+        </div>
+        <div class="field">
+          <label class="label" for="template_icon">Icon</label>
+          <input class="input" type="text" id="template_icon" name="template_icon" value="📋" maxlength="10" style="max-width:120px; font-size:22px; text-align:center">
+          {% include 'tasks/_emoji_picker.html' with target='template_icon' %}
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <div class="form-section-head">
+        <div class="form-section-title"><svg class="icon icon-sm"><use href="#i-tasks"/></svg>Pick tasks</div>
+        <span class="pill accent"><span id="selectedCount">0</span> picked</span>
+      </div>
+      <div class="pick-list" style="margin-top:14px">
+        {% for task in tasks %}
+        <label class="pick">
+          <input type="checkbox" name="task_ids" value="{{ task.id }}" class="task-selector">
+          <span style="min-width:0">
+            <span class="item-title" style="display:block">{{ task.title }}</span>
+            <span class="item-meta" style="margin-top:4px"><span><span class="pdot {{ task.priority }}"></span>{{ task.get_priority_display }}</span>
+              {% if task.is_recurring and task.recurring_frequency != 'none' %}<span><svg class="icon icon-xs"><use href="#i-repeat"/></svg>{{ task.get_recurring_frequency_display }}</span>{% endif %}</span>
+          </span>
+        </label>
+        {% empty %}
+        <div class="empty" style="padding:24px 0">
+          <p>You have no open tasks to pick from.</p>
+          <div class="btn-row"><a class="btn btn-primary" href="{% url 'create' %}">Add a task</a></div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="form-actions sticky">
+      <a class="btn" href="{% url 'templates_list' %}">Cancel</a>
+      <button class="btn btn-primary" type="submit" id="submitBtn" disabled>Create template</button>
     </div>
-    
-    <form method="POST" class="from-tasks-form">
-        {% csrf_token %}
-        
-        <!-- Template Info -->
-        <div class="template-info-card">
-            <h2 class="card-title">Template Information</h2>
-            
-            <div class="form-group">
-                <label for="template_name" class="form-label">
-                    <span class="label-icon">📋</span>
-                    <span>Template Name</span>
-                </label>
-                <input 
-                    type="text" 
-                    id="template_name" 
-                    name="template_name" 
-                    class="form-input" 
-                    placeholder="e.g., My Weekly Routine"
-                    required
-                >
-            </div>
-            
-            <div class="form-group">
-                <label for="template_icon" class="form-label">
-                    <span class="label-icon">😀</span>
-                    <span>Icon</span>
-                </label>
-                <input 
-                    type="text" 
-                    id="template_icon" 
-                    name="template_icon" 
-                    class="form-input" 
-                    value="📋"
-                    maxlength="10"
-                >
-                
-                <!-- Quick Emoji Picker -->
-                <div class="emoji-picker">
-                    <button type="button" class="emoji-btn" onclick="setIcon('📋')">📋</button>
-                    <button type="button" class="emoji-btn" onclick="setIcon('✅')">✅</button>
-                    <button type="button" class="emoji-btn" onclick="setIcon('🏠')">🏠</button>
-                    <button type="button" class="emoji-btn" onclick="setIcon('💼')">💼</button>
-                    <button type="button" class="emoji-btn" onclick="setIcon('🛒')">🛒</button>
-                    <button type="button" class="emoji-btn" onclick="setIcon('🧹')">🧹</button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Task Selection -->
-        <div class="task-selection-card">
-            <h2 class="card-title">
-                Select Tasks 
-                <span class="selection-count">(Selected: <span id="selectedCount">0</span>)</span>
-            </h2>
-            
-            <div class="tasks-list">
-                {% for task in tasks %}
-                <label class="task-checkbox-card">
-                    <input 
-                        type="checkbox" 
-                        name="task_ids" 
-                        value="{{ task.id }}"
-                        class="task-selector"
-                        onchange="updateCount()"
-                    >
-                    <div class="task-check-content">
-                        <div class="task-check-title">{{ task.title }}</div>
-                        {% if task.description %}
-                        <div class="task-check-description">{{ task.description|truncatewords:10 }}</div>
-                        {% endif %}
-                        <div class="task-check-meta">
-                            <span class="priority-badge priority-{{ task.priority }}">
-                                {{ task.get_priority_display }}
-                            </span>
-                            {% if task.is_recurring %}
-                            <span class="recurring-badge-small">🔄</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    <div class="task-checkmark">✓</div>
-                </label>
-                {% empty %}
-                <div class="empty-state">
-                    <p>No pending tasks found. Create some tasks first!</p>
-                    <a href="/create/" class="btn btn-primary">
-                        <span>➕</span>
-                        <span>Create Task</span>
-                    </a>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-        
-        <!-- Actions -->
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary btn-large" id="submitBtn" disabled>
-                <span>✨</span>
-                <span>Create Template</span>
-            </button>
-            <a href="{% url 'templates_list' %}" class="btn btn-secondary">
-                <span class="text1">Cancel</span>
-            </a>
-        </div>
-    </form>
+  </form>
 </div>
-
+{% endblock %}
+{% block scripts %}
 <script>
-function setIcon(emoji) {
-    document.getElementById('template_icon').value = emoji;
-}
-
-function updateCount() {
-    const checkboxes = document.querySelectorAll('.task-selector:checked');
-    const count = checkboxes.length;
-    document.getElementById('selectedCount').textContent = count;
-    
-    // Enable/disable submit button
-    const submitBtn = document.getElementById('submitBtn');
-    if (count > 0) {
-        submitBtn.disabled = false;
-    } else {
-        submitBtn.disabled = true;
-    }
-}
+document.addEventListener('change', (e) => {
+  if (!e.target.classList.contains('task-selector')) return;
+  const n = document.querySelectorAll('.task-selector:checked').length;
+  document.getElementById('selectedCount').textContent = n;
+  document.getElementById('submitBtn').disabled = n === 0;
+});
 </script>
 {% endblock %}

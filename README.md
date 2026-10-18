@@ -41,6 +41,21 @@ Environment variables to set in the Render dashboard:
 | `DEFAULT_FROM_EMAIL` | Sender address. Must be a verified sender in Brevo. |
 | `CLOUDINARY_URL` | Stores avatars and custom ringtones. Render's disk is wiped on every deploy. |
 | `SITE_URL` | Optional. Public URL used in email links. |
+| `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | Push alarms. Make them once with `python manage.py generate_vapid_keys`. |
+| `CRON_SECRET` | Any long random string. Protects the reminder job below. |
+
+### The reminder job (alarms with the app closed, reminder emails, morning summary)
+
+Render's free plan has no cron jobs, so use a free scheduler such as
+[cron-job.org](https://cron-job.org) to open this URL **every minute**:
+
+```
+https://YOUR-SITE.onrender.com/api/cron/tick/?key=YOUR_CRON_SECRET
+```
+
+Each run sends any alarms that just came due (once per ring, again after a
+snooze) and the 7 AM summary emails. Pinging every minute also stops the free
+Render service from going to sleep.
 
 ## How times work
 
@@ -56,4 +71,13 @@ dismissed rings: sound, an on-screen popup, and a system notification (shown
 through the service worker so it also works on Android). Snooze pushes the
 ring time forward; Dismiss stops it for good.
 
-Alarms do not ring while the app is fully closed yet. That needs Web Push.
+With the push keys and the reminder job set up, alarms also arrive as normal
+phone/computer notifications with **Snooze** and **Got it** buttons while the app
+is closed. Each person turns this on per device (home screen banner, or
+Settings → Reminders). On iPhone, the app must be added to the Home Screen first.
+
+## Quick add
+
+The box on the home screen understands plain phrases (see `tasks/nlp.py`):
+`Call mum tomorrow 7pm`, `Pay rent every month !!`, `Gym every monday 6am`,
+`Take medicine in 30 min`. `!!` means high priority, `!!!` urgent.

@@ -1,115 +1,54 @@
 {% extends 'tasks/base.html' %}
-
-{% block title %}{{ template.name }} - Todo Manager{% endblock %}
-
+{% block title %}{{ template.name }} · Quantum Manager{% endblock %}
+{% block topbar_title %}Template{% endblock %}
 {% block content %}
-<div class="template-detail-container">
-    
-    <!-- Template Header -->
-    <div class="template-detail-header">
-        <div class="template-hero">
-            <div class="template-hero-icon">{{ template.icon }}</div>
-            <div class="template-hero-info">
-                <h1 class="template-hero-title">{{ template.name }}</h1>
-                <p class="template-hero-description">{{ template.description }}</p>
-                <div class="template-hero-meta">
-                    <span class="meta-badge">
-                        {% if template.is_default %}
-                        ⭐ Default Template
-                        {% else %}
-                        👤 Custom Template
-                        {% endif %}
-                    </span>
-                    <span class="meta-badge">📋 {{ items.count }} task{{ items.count|pluralize }}</span>
-                </div>
-            </div>
-        </div>
-        
-        <div class="template-actions-bar">
-            <a href="{% url 'use_template' template.id %}" class="btn btn-primary btn-large">
-                <span>✨</span>
-                <span class="text1">Use This Template</span>
-            </a>
-            {% if not template.is_default %}
-            <a href="{% url 'edit_template' template.id %}" class="btn btn-update">
-                <span>✏️</span>
-                <span>Edit</span>
-            </a>
-            <a href="{% url 'delete_template' template.id %}" class="btn btn-danger">
-                <span>🗑️</span>
-                <span class="text1">Delete</span>
-            </a>
-            {% endif %}
-        </div>
+<div class="page">
+  <a class="back-link" href="{% url 'templates_list' %}"><svg class="icon icon-sm"><use href="#i-arrow-left"/></svg>Templates</a>
+  <div class="page-head" style="align-items:center">
+    <div style="display:flex; gap:16px; align-items:center">
+      <div class="tpl-emoji" style="width:64px; height:64px; font-size:34px; border-radius:20px" aria-hidden="true">{{ template.icon }}</div>
+      <div>
+        <h1 class="page-title">{{ template.name }}</h1>
+        <p class="page-sub">{% if template.is_default %}Ready-made template{% else %}Your template{% endif %} · {{ items|length }} task{{ items|length|pluralize }}</p>
+      </div>
     </div>
-    
-    <!-- Template Items List -->
-    <div class="template-items-section">
-        <h2 class="section-title">
-            <span class="section-icon">📝</span>
-            <span>Tasks in This Template</span>
-        </h2>
-        
-        <div class="template-items-list">
-            {% for item in items %}
-            <div class="template-item">
-                <div class="item-order">{{ forloop.counter }}</div>
-                <div class="item-content">
-                    <h3 class="item-title">{{ item.title }}</h3>
-                    {% if item.description %}
-                    <p class="item-description">{{ item.description }}</p>
-                    {% endif %}
-                    <div class="item-meta">
-                        <span class="priority-badge priority-{{ item.priority }}">
-                            {{ item.get_priority_display }}
-                        </span>
-                        {% if item.categories.all %}
-                        {% for category in item.categories.all %}
-                        <span class="category-tag" style="background: {{ category.color }}20; border-color: {{ category.color }};">
-                            {{ category.name }}
-                        </span>
-                        {% endfor %}
-                        {% endif %}
-                        {% if item.is_recurring and item.recurring_frequency != 'none' %}
-                        <span class="recurring-badge-small" title="Recurring task">
-                            🔄 {{ item.get_recurring_frequency_display }}
-                        </span>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="empty-items">
-                <p>This template has no tasks yet.</p>
-                {% if not template.is_default %}
-                <a href="{% url 'edit_template' template.id %}" class="btn btn-primary">
-                    <span>➕</span>
-                    <span>Add Tasks</span>
-                </a>
-                {% endif %}
-            </div>
-            {% endfor %}
+    <div class="btn-row">
+      {% if not template.is_default %}
+        <a class="btn" href="{% url 'edit_template' template.id %}"><svg class="icon icon-sm"><use href="#i-edit"/></svg>Edit</a>
+      {% endif %}
+      <form method="post" action="{% url 'use_template' template.id %}" class="inline-form">{% csrf_token %}
+        <button class="btn btn-primary" type="submit" {% if not items %}disabled{% endif %}><svg class="icon icon-sm"><use href="#i-plus"/></svg>Add all {{ items|length }} tasks</button>
+      </form>
+    </div>
+  </div>
+  {% if template.description %}<p style="color:var(--text-2); margin-bottom:20px">{{ template.description }}</p>{% endif %}
+
+  {% if items %}
+  <div class="card">
+    <div class="item-list" style="border-top:0">
+      {% for item in items %}
+      <div class="item" {% if forloop.last %}style="border-bottom:0"{% endif %}>
+        <span class="item-n">{{ forloop.counter }}</span>
+        <div class="item-body">
+          <div class="item-title">{{ item.title }}</div>
+          {% if item.description %}<div class="item-desc">{{ item.description }}</div>{% endif %}
+          <div class="item-meta">
+            <span><span class="pdot {{ item.priority }}"></span>{{ item.get_priority_display }}</span>
+            {% if item.is_recurring and item.recurring_frequency != 'none' %}<span><svg class="icon icon-xs"><use href="#i-repeat"/></svg>{{ item.get_recurring_frequency_display }}</span>{% endif %}
+            {% for category in item.categories.all %}<span><span class="cdot" style="--c: {{ category.color }}"></span>{{ category.name }}</span>{% endfor %}
+          </div>
         </div>
+      </div>
+      {% endfor %}
     </div>
-    
-    <!-- Use Template CTA -->
-    <div class="template-cta">
-        <div class="cta-content">
-            <h3>Ready to get started?</h3>
-            <p>Click below to create all {{ items.count }} tasks from this template instantly!</p>
-        </div>
-        <a href="{% url 'use_template' template.id %}" class="btn btn-primary btn-large">
-            <span>✨</span>
-            <span>Use Template Now</span>
-        </a>
-    </div>
-    
-    <!-- Back Button -->
-    <div class="template-footer">
-        <a href="{% url 'templates_list' %}" class="btn btn-secondary">
-            <span>←</span>
-            <span class="text1">Back to Templates</span>
-        </a>
-    </div>
+  </div>
+  <p class="hint" style="margin-top:12px">Adding the template creates these as normal tasks. Set dates and alarms on them afterwards, or edit them first.</p>
+  {% else %}
+  <div class="empty">
+    <div class="empty-art"><svg class="icon"><use href="#i-grid"/></svg></div>
+    <h3>This template is empty</h3>
+    {% if not template.is_default %}<div class="btn-row"><a class="btn btn-primary" href="{% url 'edit_template' template.id %}">Add tasks to it</a></div>{% endif %}
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

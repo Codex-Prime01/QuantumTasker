@@ -1,0 +1,42 @@
+{% load static qm_tags %}<!doctype html>
+<html lang="en" data-theme="guest">
+<head>
+  {% include 'tasks/_head.html' %}
+  <title>{% block title %}Quantum Manager{% endblock %}</title>
+</head>
+<body data-auth="0">
+{% include 'tasks/_icons.html' %}
+<div class="auth">
+  <aside class="auth-side" aria-hidden="true">
+    <span class="brand"><img src="{% static 'tasks/icons/icon-96x96.png' %}" alt=""><span>Quantum Manager<span class="brand-sub">Never forget again</span></span></span>
+    <div class="auth-pitch">
+      <h2>Never forget <span>the little things.</span></h2>
+      <p>Tasks with alarms that actually ring, notes for everything else, and streaks that keep you going.</p>
+      <div class="auth-points">
+        <div class="auth-point"><svg class="icon"><use href="#i-bell"/></svg><div><strong>Alarms that ring</strong>Even with the app closed, on your phone or laptop.</div></div>
+        <div class="auth-point"><svg class="icon"><use href="#i-zap"/></svg><div><strong>Type it like you say it</strong>"Call mum tomorrow 7pm" sets the date and alarm for you.</div></div>
+        <div class="auth-point"><svg class="icon"><use href="#i-flame"/></svg><div><strong>Streaks and achievements</strong>Small wins, every day.</div></div>
+      </div>
+    </div>
+    <p style="color:#8E9BC3; font-size:13px">Free · Works on any phone · Install it like an app</p>
+  </aside>
+  <main class="auth-main">
+    <div class="auth-card">
+      <a class="brand" href="{% url 'login' %}"><img src="{% static 'tasks/icons/icon-96x96.png' %}" alt=""><span>Quantum Manager<span class="brand-sub">Never forget again</span></span></a>
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+</div>
+<div class="toasts" id="toasts" aria-live="polite">
+  {% for message in messages %}
+  <div class="toast {{ message.tags }}" role="{% if message.tags == 'error' %}alert{% else %}status{% endif %}">
+    <svg class="icon"><use href="#i-{% if message.tags == 'success' %}check-circle{% elif message.tags == 'error' or message.tags == 'warning' %}alert{% else %}info{% endif %}"/></svg>
+    <div class="msg">{{ message|clean_msg }}</div>
+    <button class="close" type="button" aria-label="Close"><svg class="icon icon-sm"><use href="#i-x"/></svg></button>
+  </div>
+  {% endfor %}
+</div>
+<script src="{% static 'tasks/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

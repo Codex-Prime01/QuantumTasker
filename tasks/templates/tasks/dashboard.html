@@ -1,263 +1,117 @@
 {% extends 'tasks/base.html' %}
-{% load static %}
-
-{% block title %}Dashboard - Todo Manager{% endblock %}
-
-{% block extra_css %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-{% endblock %}
-
+{% load qm_tags %}
+{% block title %}Dashboard · Quantum Manager{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
 {% block content %}
-<div class="container">
-    <header class="page-header">
-        <h1 class="page-title">
-            <span class="glow">Analytics</span> Dashboard
-        </h1>
-    </header>
-
-    <!-- Overall Stats Grid -->
-    <div class="stats-grid">
-        <div class="stat-card">
-            <div class="stat-icon">📋</div>
-            <div class="stat-info">
-                <div class="stat-value">{{ total_tasks }}</div>
-                <div class="stat-label">Total Tasks</div>
-            </div>
-        </div>
-
-        <div class="stat-card completed">
-            <div class="stat-icon">✅</div>
-            <div class="stat-info">
-                <div class="stat-value">{{ completed_tasks }}</div>
-                <div class="stat-label">Completed</div>
-            </div>
-        </div>
-
-        <div class="stat-card pending">
-            <div class="stat-icon">⏳</div>
-            <div class="stat-info">
-                <div class="stat-value">{{ pending_tasks }}</div>
-                <div class="stat-label">Pending</div>
-            </div>
-        </div>
-
-        <div class="stat-card rate">
-            <div class="stat-icon">📈</div>
-            <div class="stat-info">
-                <div class="stat-value">{{ completion_rate }}%</div>
-                <div class="stat-label">Completion Rate</div>
-            </div>
-        </div>
+<div class="page page-wide">
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">Dashboard</h1>
+      <p class="page-sub">How you're doing, at a glance.</p>
     </div>
+  </div>
 
-    <!-- Warning Cards -->
-    {% if overdue_count > 0 %}
-    <div class="warning-card overdue">
-        <span class="warning-icon">🚨</span>
-        <span class="warning-text">You have <strong>{{ overdue_count }}</strong>
-            overdue task{{ overdue_count|pluralize }}</span>
-        <a href="/?sort=due_date" class="warning-action">View →</a>
+  {% if overdue_count %}
+  <div class="banner danger" style="margin:0 0 16px">
+    <svg class="icon"><use href="#i-alert"/></svg>
+    <div class="banner-body"><div class="banner-title">{{ overdue_count }} task{{ overdue_count|pluralize }} overdue</div>
+    <div class="banner-text">Clear these first and the rest feels lighter.</div></div>
+    <a class="btn btn-sm" href="{% url 'list' %}">Show me</a>
+  </div>
+  {% endif %}
+
+  <div class="kpis">
+    <div class="kpi" style="--i:0">
+      <div class="kpi-label"><svg class="icon icon-xs"><use href="#i-check-circle"/></svg>Done this week</div>
+      <div class="kpi-value">{{ week_total }}</div>
+      <div class="kpi-sub">{{ tasks_this_week }} added this week</div>
     </div>
-    {% endif %}
-
-    <!-- Charts Section -->
-    <div class="charts-grid">
-        <!-- Priority Breakdown Chart -->
-        <div class="chart-card">
-            <h3 class="chart-title">📊 Tasks by Priority</h3>
-            <canvas id="priorityChart"></canvas>
-        </div>
-
-        <!-- Category Distribution Chart -->
-        {% if category_stats %}
-        <div class="chart-card">
-            <h3 class="chart-title">📚 Tasks by Category</h3>
-            <canvas id="categoryChart"></canvas>
-        </div>
-        {% endif %}
+    <div class="kpi" style="--i:1">
+      <div class="kpi-label"><svg class="icon icon-xs"><use href="#i-tasks"/></svg>Open</div>
+      <div class="kpi-value">{{ pending_tasks }}</div>
+      <div class="kpi-sub">of {{ total_tasks }} total</div>
     </div>
+    <div class="kpi" style="--i:2">
+      <div class="kpi-label"><svg class="icon icon-xs"><use href="#i-chart"/></svg>Completion</div>
+      <div class="kpi-value">{{ completion_rate|floatformat:0 }}%</div>
+      <div class="progress progress-sm" style="margin-top:10px"><div class="progress-fill" style="--p: {{ completion_rate|floatformat:0 }}%"></div></div>
+    </div>
+    <div class="kpi" style="--i:3">
+      <div class="kpi-label"><svg class="icon icon-xs" style="color:var(--p-high)"><use href="#i-flame"/></svg>Streak</div>
+      <div class="kpi-value">{{ stats.current_streak }} <span style="font-size:15px; font-weight:600">day{{ stats.current_streak|pluralize }}</span></div>
+      <div class="kpi-sub">Best: {{ stats.longest_streak }} days</div>
+    </div>
+  </div>
 
-    <!-- Upcoming Deadlines -->
-    {% if upcoming_tasks %}
-    <div class="dashboard-section">
-        <h3 class="section-title">📅 Upcoming Deadlines (Next 7 Days)</h3>
-        <div class="upcoming-list">
-            {% for task in upcoming_tasks %}
-            <div class="upcoming-item">
-                <div class="upcoming-info">
-                    <h4 class="upcoming-title">{{ task.title }}</h4>
-                    <span class="upcoming-date">{{ task.due_date|date:"M d, Y h:i A" }}</span>
-                </div>
-                <span class="priority-badge priority-{{ task.priority }}">
-                    {{ task.get_priority_display }}
-                </span>
+  <div class="grid-2" style="margin-top:16px">
+    <section class="card">
+      <div class="card-head"><div>
+        <h2 class="card-title">Finished, last 7 days</h2>
+        <p class="card-sub">{{ week_total }} task{{ week_total|pluralize }} done</p>
+      </div></div>
+      <div class="bars" role="img" aria-label="Tasks finished per day: {% for d in week %}{{ d.label }} {{ d.count }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+        {% for d in week %}
+        <div class="bar-col">
+          <div class="bar-wrap">
+            <div class="bar {% if d.count %}has{% endif %} {% if d.is_today %}today{% endif %}" style="--h: {{ d.height }}%; --i: {{ forloop.counter0 }}">
+              {% if d.count %}<span class="bar-val">{{ d.count }}</span>{% endif %}
             </div>
-            {% endfor %}
+          </div>
+          <span class="bar-day {% if d.is_today %}today{% endif %}">{{ d.label }}</span>
         </div>
-    </div>
-    {% endif %}
+        {% endfor %}
+      </div>
+    </section>
 
-    <!-- Recent Activity -->
-    {% if recent_completed %}
-    <div class="dashboard-section">
-        <h3 class="section-title">✨ Recently Completed</h3>
-        <div class="recent-list">
-            {% for task in recent_completed %}
-            <div class="recent-item">
-                <span class="recent-icon">✓</span>
-                <span class="recent-title">{{ task.title }}</span>
-            </div>
-            {% endfor %}
+    <section class="card">
+      <div class="card-head"><div><h2 class="card-title">By priority</h2><p class="card-sub">All tasks, open and done</p></div></div>
+      <div class="hbars">
+        {% for row in priority_rows %}
+        <div>
+          <div class="hbar-top"><span class="name"><span class="pdot {{ row.key }}"></span>{{ row.label }}</span><span class="val">{{ row.count }} · {{ row.pct }}%</span></div>
+          <div class="hbar"><i style="--w: {{ row.pct }}%; --c: var(--p-{{ row.key }})"></i></div>
         </div>
-    </div>
-    {% endif %}
+        {% endfor %}
+      </div>
+    </section>
 
-    <!-- Weekly Stats -->
-    <div class="weekly-stats">
-        <div class="weekly-card">
-            <span class="weekly-icon">📝</span>
-            <div class="weekly-info">
-                <div class="weekly-value">{{ tasks_this_week }}</div>
-                <div class="weekly-label">Created This Week</div>
-            </div>
+    <section class="card">
+      <div class="card-head"><div><h2 class="card-title">Coming up</h2><p class="card-sub">Next 7 days</p></div>
+        <a class="btn btn-sm btn-ghost" href="{% url 'list' %}">All tasks</a></div>
+      {% if upcoming_tasks %}
+      <div class="mini-list">
+        {% for task in upcoming_tasks %}
+        <a class="mini" href="{% url 'update' task.id %}"><span class="pdot {{ task.priority }}"></span><span class="t">{{ task.title }}</span><span class="d">{% when task.due_date %}</span></a>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">Nothing due in the next week.</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2 class="card-title">By category</h2><p class="card-sub">Where your tasks go</p></div></div>
+      {% if category_stats %}
+      <div class="hbars">
+        {% for c in category_stats %}
+        <div>
+          <div class="hbar-top"><span class="name"><span class="cdot" style="--c: {{ c.color }}"></span>{{ c.name }}</span><span class="val">{{ c.count }}</span></div>
+          <div class="hbar"><i style="--w: {{ c.pct }}%; --c: {{ c.color }}"></i></div>
         </div>
-        <div class="weekly-card">
-            <span class="weekly-icon">✅</span>
-            <div class="weekly-info">
-                <div class="weekly-value">{{ completed_this_week }}</div>
-                <div class="weekly-label">Completed This Week</div>
-            </div>
-        </div>
-    </div>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">Tag tasks with a category to see this.</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2 class="card-title">Recently finished</h2></div>
+        <a class="btn btn-sm btn-ghost" href="{% url 'achievements' %}">Achievements</a></div>
+      {% if recent_completed %}
+      <div class="mini-list">
+        {% for task in recent_completed %}
+        <div class="mini"><svg class="icon icon-sm" style="color:var(--success)"><use href="#i-check-circle"/></svg><span class="t">{{ task.title }}</span>{% if task.completed_date %}<span class="d">{{ task.completed_date|timesince }} ago</span>{% endif %}</div>
+        {% endfor %}
+      </div>
+      {% else %}<p class="muted">Tick off a task and it shows up here.</p>{% endif %}
+    </section>
+  </div>
 </div>
-
-<!-- Chart.js Configuration -->
-<script>
-    // Priority Pie Chart
-    const priorityCtx = document.getElementById('priorityChart').getContext('2d');
-    new Chart(priorityCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Urgent', 'High', 'Medium', 'Low'],
-            datasets: [{
-                data: [
-                    {{ priority_stats.urgent }},
-            {{ priority_stats.high }},
-                        {{ priority_stats.medium }},
-        {{ priority_stats.low }}
-                    ],
-        backgroundColor: [
-        '#9C27B0',  // Urgent - Purple
-        '#F44336',  // High - Red
-        '#FFC107',  // Medium - Yellow
-        '#4CAF50'   // Low - Green
-    ],
-        borderColor: 'rgba(0, 0, 0, 0.8)',
-        borderWidth: 2
-                }]
-            },
-        options: {
-        responsive: true,
-        maintainAspectRatio: true,
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: {
-                    color: '#fff',
-                    font: {
-                        size: 14,
-                        family: 'Rajdhani'
-                    },
-                    padding: 15
-                }
-            }
-        }
-    }
-        });
-
-    {% if category_stats %}
-    // Category Bar Chart
-    const categoryCtx = document.getElementById('categoryChart').getContext('2d');
-    new Chart(categoryCtx, {
-        type: 'bar',
-        data: {
-            labels: [{% for cat in category_stats %}'{{ cat.name }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
-        datasets: [{
-            label: 'Tasks',
-            data: [{% for cat in category_stats %}{{ cat.count }}{% if not forloop.last %}, {% endif %} {% endfor %}],
-    backgroundColor: [{% for cat in category_stats %}'{{ cat.color }}'{% if not forloop.last %}, {% endif %} {% endfor %}],
-    borderColor: 'rgba(0, 0, 0, 0.8)',
-        borderWidth: 2
-                }]
-            },
-    options: {
-        responsive: true,
-            maintainAspectRatio: true,
-                plugins: {
-            legend: {
-                display: false
-            }
-        },
-        scales: {
-            y: {
-                beginAtZero: true,
-                    ticks: {
-                    color: '#fff',
-                        font: {
-                        family: 'Rajdhani'
-                    },
-                    stepSize: 1
-                },
-                grid: {
-                    color: 'rgba(255, 255, 255, 0.1)'
-                }
-            },
-            x: {
-                ticks: {
-                    color: '#fff',
-                        font: {
-                        family: 'Rajdhani'
-                    }
-                },
-                grid: {
-                    display: false
-                }
-            }
-        }
-    }
-        });
-    {% endif %}
-
-
-    // Show loading overlay when form is submitted
-    document.addEventListener('DOMContentLoaded', function () {
-        const forms = document.querySelectorAll('form');
-        const loadingOverlay = document.getElementById('loadingOverlay');
-
-        forms.forEach(form => {
-            form.addEventListener('submit', function (e) {
-                // Show loading overlay
-                if (loadingOverlay) {
-                    loadingOverlay.classList.add('active');
-                }
-
-                // Add loading class to submit button
-                const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
-                if (submitBtn) {
-                    submitBtn.classList.add('loading');
-                    submitBtn.disabled = true;
-                }
-            });
-        });
-
-        // Auto-hide toasts after 5 seconds
-        const toasts = document.querySelectorAll('.toast');
-        toasts.forEach(toast => {
-            setTimeout(() => {
-                toast.style.animation = 'fadeOut 0.5s ease-in forwards';
-                setTimeout(() => toast.remove(), 500);
-            }, 5000);
-        });
-    });
-</script>
 {% endblock %}
