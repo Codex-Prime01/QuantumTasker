@@ -1,24 +1,20 @@
 {% extends 'tasks/base.html' %}
-
-{% block title %}Delete Template - Quantum Manager{% endblock %}
-
+{% block title %}Delete template · Quantum Manager{% endblock %}
+{% block topbar_title %}Delete template{% endblock %}
+{% block fab %}{% endblock %}
 {% block content %}
-<div class="container">
-    <div class="delete-modal">
-        <div class="warning-icon"><span class="icon-pulse">⚠️</span></div>
-        <h2 class="delete-title"><span class="danger-text">Delete template?</span></h2>
-        <p class="delete-message">This removes the template and its {{ template.items.count }} item{{ template.items.count|pluralize }}. Tasks you already created from it stay.</p>
-        <div class="task-preview">
-            <span class="preview-label">Template:</span>
-            <span class="preview-title">{{ template.icon }} "{{ template.name }}"</span>
-        </div>
-        <div class="delete-actions">
-            <form method="POST" class="delete-form">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-delete"><span>🗑️</span><span>Yes, delete it</span></button>
-            </form>
-            <a href="{% url 'edit_template' template.id %}" class="btn btn-secondary">Cancel</a>
-        </div>
+<div class="page">
+  <div class="confirm">
+    <div class="confirm-icon"><svg class="icon"><use href="#i-trash"/></svg></div>
+    <h1>Delete this template?</h1>
+    <p>Its {{ template.items.count }} task{{ template.items.count|pluralize }} go with it. Tasks you already added from it stay on your list.</p>
+    <div class="confirm-item">{{ template.icon }} {{ template.name }}</div>
+    <div class="btn-row">
+      <a class="btn" href="{% url 'edit_template' template.id %}">Keep it</a>
+      <form method="post" class="inline-form">{% csrf_token %}
+        <button class="btn btn-danger" type="submit"><svg class="icon icon-sm"><use href="#i-trash"/></svg>Delete</button>
+      </form>
     </div>
+  </div>
 </div>
 {% endblock %}

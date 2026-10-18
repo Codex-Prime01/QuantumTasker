@@ -57,4 +57,11 @@ urlpatterns = [
     path('api/check-due-tasks/', views.check_due_tasks, name='check_due_tasks'),
     path('api/snooze-alarm/<int:pk>/', views.snooze_alarm, name='snooze_alarm'),
     path('api/dismiss-alarm/<int:pk>/', views.dismiss_alarm, name='dismiss_alarm'),
+
+    # Push alarms (work with the app closed)
+    path('api/push/subscribe/', views.push_subscribe, name='push_subscribe'),
+    path('api/push/unsubscribe/', views.push_unsubscribe, name='push_unsubscribe'),
+    path('api/push/test/', views.push_test, name='push_test'),
+    path('api/alarm-action/', views.alarm_action, name='alarm_action'),
+    path('api/cron/tick/', views.cron_tick, name='cron_tick'),
 ]

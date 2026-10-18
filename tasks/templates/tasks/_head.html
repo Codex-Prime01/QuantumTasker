@@ -1,0 +1,29 @@
+{% load static %}<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Quantum Manager: tasks, alarms, notes and templates that make sure you never forget the little things.">
+<meta name="theme-color" content="#070D1F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Quantum">
+<meta property="og:title" content="Quantum Manager: never forget again">
+<meta property="og:description" content="Tasks with alarms that actually ring, notes, templates and streaks.">
+<meta property="og:image" content="{% static 'tasks/icons/icon-512x512.png' %}">
+<meta property="og:type" content="website">
+<link rel="manifest" href="{% static 'tasks/manifest.json' %}">
+<link rel="icon" type="image/png" sizes="192x192" href="{% static 'tasks/icons/icon-192x192.png' %}">
+<link rel="apple-touch-icon" href="{% static 'tasks/icons/icon-192x192.png' %}">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{% static 'tasks/qm.css' %}">
+<script>
+  // Paint the right theme before anything shows (no flash)
+  (function () {
+    var t = document.documentElement.getAttribute('data-theme');
+    if (!t || t === 'guest') {
+      try { t = localStorage.getItem('qm-theme'); } catch (e) { t = null; }
+      document.documentElement.setAttribute('data-theme', t || 'blue');
+    }
+  })();
+</script>

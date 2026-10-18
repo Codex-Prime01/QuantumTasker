@@ -1,0 +1,26 @@
+<article class="tpl" style="--i: {{ forloop.counter0 }}">
+  <div class="tpl-head">
+    <div class="tpl-emoji" aria-hidden="true">{{ template.icon }}</div>
+    <div style="min-width:0">
+      <a class="tpl-name" href="{% url 'template_detail' template.id %}">{{ template.name }}</a>
+      {% if template.description %}<p class="tpl-desc">{{ template.description|truncatewords:16 }}</p>{% endif %}
+    </div>
+  </div>
+  <div class="tpl-meta">
+    <span class="pill">{{ template.items.count }} task{{ template.items.count|pluralize }}</span>
+    {% if mine %}<span class="pill accent">Yours</span>{% endif %}
+  </div>
+  <div class="tpl-actions">
+    <form method="post" action="{% url 'use_template' template.id %}" class="inline-form">{% csrf_token %}
+      <button class="btn btn-primary btn-sm" type="submit" {% if not template.items.count %}disabled{% endif %}><svg class="icon icon-sm"><use href="#i-plus"/></svg>Add tasks</button>
+    </form>
+    <a class="btn btn-sm" href="{% url 'template_detail' template.id %}">View</a>
+    {% if mine %}
+      <a class="btn btn-sm btn-ghost" href="{% url 'edit_template' template.id %}" aria-label="Edit {{ template.name }}"><svg class="icon icon-sm"><use href="#i-edit"/></svg></a>
+      <button class="btn btn-sm btn-ghost" type="button" aria-label="Share {{ template.name }}"
+        data-share-title="A template from Quantum Manager"
+        data-share-text="{{ template.icon }} {{ template.name }}: {% for item in template.items.all %}{{ item.title }}{% if not forloop.last %}, {% endif %}{% endfor %}"
+        data-share-path="/templates/"><svg class="icon icon-sm"><use href="#i-share"/></svg></button>
+    {% endif %}
+  </div>
+</article>

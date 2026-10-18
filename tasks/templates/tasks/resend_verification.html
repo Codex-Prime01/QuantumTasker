@@ -1,27 +1,15 @@
-{% extends 'tasks/base.html' %}
-
-{% block title %}Resend Verification - Quantum Manager{% endblock %}
-
+{% extends 'tasks/auth_base.html' %}
+{% block title %}New verification link · Quantum Manager{% endblock %}
 {% block content %}
-<div class="verification-container">
-    <div class="verification-card">
-        <div class="verification-icon">🔄</div>
-        <h1 class="verification-title">Resend Verification Email</h1>
-        <p class="verification-text">
-            Need a new verification link? Enter the email you signed up with and we'll send a fresh one.
-        </p>
-        
-        <form method="POST" class="resend-form">
-            {% csrf_token %}
-            <input type="email" name="email" class="form-input" placeholder="you@example.com"
-                   value="{{ pending_email }}" required autocomplete="email" style="margin-bottom: 1rem; width: 100%;">
-            <button type="submit" class="btn-resend-large">
-                <span>📧</span>
-                <span>Send New Verification Email</span>
-            </button>
-        </form>
-        
-        <a href="{% url 'login' %}" class="back-link">← Back to Login</a>
-    </div>
-</div>
+<h1 class="auth-title">Send a new link</h1>
+<p class="auth-sub">Enter the email you signed up with.</p>
+<form method="post" class="form">
+  {% csrf_token %}
+  <div class="field">
+    <label class="label" for="email">Email</label>
+    <input class="input" type="email" id="email" name="email" value="{% if pending_email %}{{ pending_email }}{% elif user.is_authenticated %}{{ user.email }}{% endif %}" required autocomplete="email" autofocus>
+  </div>
+  <button class="btn btn-primary btn-lg btn-block" type="submit">Send verification email</button>
+</form>
+<p class="auth-foot"><a href="{% if user.is_authenticated %}{% url 'list' %}{% else %}{% url 'login' %}{% endif %}">{% if user.is_authenticated %}Back to tasks{% else %}Back to log in{% endif %}</a></p>
 {% endblock %}

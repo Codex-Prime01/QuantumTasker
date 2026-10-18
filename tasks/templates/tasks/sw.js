@@ -9,7 +9,7 @@
  *   - Static files (/static/...): cache first. They have hashed names in
  *     production, so a new deploy means new URLs.
  */
-const CACHE_VERSION = 'qm-v3';
+const CACHE_VERSION = 'qm-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline/';
 
@@ -80,29 +80,53 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-    const data = event.data ? event.data.json() : {};
-    event.waitUntil(
-        self.registration.showNotification(data.title || 'Quantum Manager', {
-            body: data.body || '',
-            icon: '/static/tasks/icons/icon-192x192.png',
-            badge: '/static/tasks/icons/icon-96x96.png',
-            data: { url: data.url || '/' },
-        })
-    );
+    let data = {};
+    try { data = event.data ? event.data.json() : {}; } catch (e) { data = { body: event.data && event.data.text() }; }
+    const options = {
+        body: data.body || '',
+        icon: '/static/tasks/icons/icon-192x192.png',
+        badge: '/static/tasks/icons/icon-96x96.png',
+        tag: data.tag || undefined,
+        renotify: !!data.tag,
+        requireInteraction: !!data.requireInteraction,
+        vibrate: [300, 120, 300, 120, 500],
+        data: { url: data.url || '/', token: data.actionToken || '' },
+    };
+    if (data.actionToken) {
+        options.actions = [
+            { action: 'snooze', title: 'Snooze 10 min' },
+            { action: 'dismiss', title: 'Got it' },
+        ];
+    }
+    event.waitUntil(self.registration.showNotification(data.title || 'Quantum Manager', options));
 });
+
+function openPage(target) {
+    return self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+        for (const win of windows) {
+            if ('focus' in win) {
+                if ('navigate' in win) win.navigate(target);
+                return win.focus();
+            }
+        }
+        return self.clients.openWindow(target);
+    });
+}
 
 self.addEventListener('notificationclick', (event) => {
     event.notification.close();
-    const target = (event.notification.data && event.notification.data.url) || '/';
-    event.waitUntil(
-        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
-            for (const win of windows) {
-                if ('focus' in win) {
-                    win.navigate(target);
-                    return win.focus();
-                }
-            }
-            return self.clients.openWindow(target);
-        })
-    );
+    const data = event.notification.data || {};
+    const target = data.url || '/';
+    if ((event.action === 'snooze' || event.action === 'dismiss') && data.token) {
+        // Buttons on the notification work without opening the app
+        event.waitUntil(
+            fetch('/api/alarm-action/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token: data.token, action: event.action }),
+            }).catch(() => openPage(target))
+        );
+        return;
+    }
+    event.waitUntil(openPage(target));
 });

@@ -1,0 +1,48 @@
+{% load qm_tags %}{% with offset=task.due_date|day_offset %}
+<article class="task {% if task.complete %}done{% endif %} {% if task.is_overdue %}overdue{% endif %}"
+  data-id="{{ task.id }}" data-priority="{{ task.priority }}"
+  data-due-today="{% if offset == 0 %}1{% else %}0{% endif %}"
+  data-recurring="{% if task.is_recurring and task.recurring_frequency != 'none' %}1{% else %}0{% endif %}"
+  style="--i: {{ forloop.counter0 }}">
+  <label class="task-check">
+    <input type="checkbox" {% if task.complete %}checked{% endif %} aria-label="Mark “{{ task.title }}” as done">
+    <span class="box"><svg class="icon"><use href="#i-check"/></svg></span>
+  </label>
+
+  <div class="task-body" tabindex="0" role="button" aria-expanded="false" aria-controls="more-{{ task.id }}">
+    <div class="task-title">{{ task.title }}</div>
+    <div class="task-meta">
+      {% if task.due_date %}
+        <span class="when {% if task.is_overdue %}overdue{% elif offset == 0 %}today{% endif %}">
+          {% if task.alarm_enabled and not task.complete %}<svg class="icon icon-xs alarm" aria-label="Alarm set"><use href="#i-bell"/></svg>{% endif %}
+          {% if task.is_overdue %}Overdue · {% endif %}{% when task.due_date %}
+        </span>
+      {% endif %}
+      <span><span class="pdot {{ task.priority }}"></span>{{ task.get_priority_display }}</span>
+      {% if task.is_recurring and task.recurring_frequency != 'none' %}
+        <span><svg class="icon icon-xs"><use href="#i-repeat"/></svg>{% if task.recurring_frequency == 'custom' %}Every {{ task.recurring_interval }} days{% else %}{{ task.get_recurring_frequency_display }}{% endif %}</span>
+      {% endif %}
+      {% for category in task.categories.all %}
+        <span><span class="cdot" style="--c: {{ category.color }}"></span>{{ category.name }}</span>
+      {% endfor %}
+      {% if task.description %}<span><svg class="icon icon-xs"><use href="#i-file"/></svg>Notes</span>{% endif %}
+    </div>
+
+    <div class="task-more" id="more-{{ task.id }}">
+      {% if task.description %}<div class="task-desc">{{ task.description }}</div>{% endif %}
+      <div class="task-actions">
+        <a class="btn btn-sm" href="{% url 'update' task.id %}"><svg class="icon icon-sm"><use href="#i-edit"/></svg>Edit</a>
+        <button class="btn btn-sm" type="button"
+          data-share-title="A task from Quantum Manager"
+          data-share-text="{{ task.title }}{% if task.due_date %} · due {% when task.due_date %}{% endif %}"
+          data-share-path="/"><svg class="icon icon-sm"><use href="#i-share"/></svg>Share</button>
+        <a class="btn btn-sm btn-danger-ghost" href="{% url 'delete' task.id %}"><svg class="icon icon-sm"><use href="#i-trash"/></svg>Delete</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="task-side">
+    <a class="icon-btn" href="{% url 'update' task.id %}" aria-label="Edit “{{ task.title }}”"><svg class="icon icon-sm"><use href="#i-edit"/></svg></a>
+  </div>
+</article>
+{% endwith %}

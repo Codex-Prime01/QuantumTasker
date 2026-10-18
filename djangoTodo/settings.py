@@ -86,6 +86,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'tasks.context_processors.app_context',
             ],
         },
     },
@@ -189,6 +190,16 @@ EMAIL_BACKEND = (
 )
 # Users must verify their email before logging in only when real email works
 REQUIRE_EMAIL_VERIFICATION = config('REQUIRE_EMAIL_VERIFICATION', default=bool(BREVO_API_KEY), cast=bool)
+
+# ---------------------------------------------------------------------------
+# Push alarms (ring even when the app is closed)
+# Generate the two keys once with: python manage.py generate_vapid_keys
+# CRON_SECRET protects /api/cron/tick/, which a scheduler calls every minute.
+# ---------------------------------------------------------------------------
+VAPID_PUBLIC_KEY = config('VAPID_PUBLIC_KEY', default='')
+VAPID_PRIVATE_KEY = config('VAPID_PRIVATE_KEY', default='')
+VAPID_CLAIM_EMAIL = config('VAPID_CLAIM_EMAIL', default=DEFAULT_FROM_EMAIL_ADDRESS)
+CRON_SECRET = config('CRON_SECRET', default='')
 
 # ---------------------------------------------------------------------------
 # Security (production)

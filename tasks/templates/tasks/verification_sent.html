@@ -1,50 +1,14 @@
-{% extends 'tasks/base.html' %}
-
-{% block title %}Check Your Email - Quantum Manager{% endblock %}
-
+{% extends 'tasks/auth_base.html' %}
+{% block title %}Verify your email · Quantum Manager{% endblock %}
 {% block content %}
-<div class="verification-container">
-    <div class="verification-card">
-        <div class="verification-icon">📧</div>
-        <h1 class="verification-title">Check Your Email!</h1>
-        <p class="verification-text">
-            We've sent a verification link to {% if pending_email %}<strong>{{ pending_email }}</strong>{% else %}your email address{% endif %}. 
-            Please check your inbox and click the link to activate your account.
-        </p>
-        
-        <div class="verification-steps">
-            <div class="step">
-                <span class="step-number">1</span>
-                <p>Open your email inbox</p>
-            </div>
-            <div class="step">
-                <span class="step-number">2</span>
-                <p>Find the verification email from Quantum Manager</p>
-            </div>
-            <div class="step">
-                <span class="step-number">3</span>
-                <p>Click the "Verify My Email" button</p>
-            </div>
-            <div class="step">
-                <span class="step-number">4</span>
-                <p>Start organizing your tasks!</p>
-            </div>
-        </div>
-        
-        <div class="verification-help">
-            <p class="help-title">Didn't receive the email?</p>
-            <ul class="help-list">
-                <li>Check your spam/junk folder</li>
-                <li>Make sure you entered the correct email</li>
-                <li>Wait a few minutes and check again</li>
-            </ul>
-            <a href="{% url 'resend_verification' %}" class="btn-resend">
-                <span>📨</span>
-                <span>Resend Verification Email</span>
-            </a>
-        </div>
-        
-        <a href="{% url 'login' %}" class="back-link">← Back to Login</a>
-    </div>
-</div>
+<div class="empty-art" style="margin:0 0 18px"><svg class="icon"><use href="#i-mail"/></svg></div>
+<h1 class="auth-title">Check your email</h1>
+<p class="auth-sub">We sent a link to {% if pending_email %}<strong style="color:var(--text)">{{ pending_email }}</strong>{% else %}your email{% endif %}. Tap it to finish setting up. It works for 24 hours.</p>
+<ol class="steps-plain">
+  <li>Open the email from Quantum Manager</li>
+  <li>Tap "Verify my email"</li>
+  <li>You're in</li>
+</ol>
+<div class="banner" style="margin-top:22px"><svg class="icon"><use href="#i-info"/></svg><div class="banner-body"><div class="banner-text">Can't find it? Check spam or promotions. Still nothing? <a href="{% url 'resend_verification' %}">Send a new link</a>.</div></div></div>
+<p class="auth-foot"><a href="{% url 'login' %}">Back to log in</a></p>
 {% endblock %}

@@ -1,105 +1,20 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delete Task</title>
-    <link rel="stylesheet" href="{% static 'tasks/style.css' %}">
-</head>
-
-<body>
-
-    <body>
-        <!-- Toast Notifications Container -->
-        <div class="toast-container" id="toastContainer">
-            {% if messages %}
-            {% for message in messages %}
-            <div class="toast toast-{{ message.tags }} show" role="alert">
-                <div class="toast-content">
-                    <span class="toast-message">{{ message }}</span>
-                    <button class="toast-close" onclick="this.parentElement.parentElement.remove()">✕</button>
-                </div>
-            </div>
-            {% endfor %}
-            {% endif %}
-        </div>
-
-
-
-        <div class="container">
-            <div class="delete-modal">
-                <div class="warning-icon">
-                    <span class="icon-pulse">⚠️</span>
-                </div>
-
-                <h2 class="delete-title">
-                    <span class="danger-text">Danger Zone</span>
-                </h2>
-
-                <p class="delete-message">
-                    Are you sure you want to delete this task?
-                </p>
-
-                <div class="task-preview">
-                    <span class="preview-label">Task:</span>
-                    <span class="preview-title">"{{ item.title }}"</span>
-                </div>
-
-                <p class="warning-text">
-                    ⚡ This action cannot be undone!
-                </p>
-
-                <div class="delete-actions">
-                    <form action="" method="POST" class="delete-form">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-delete">
-                            <span>🗑️</span>
-                            <span>Yes, Delete Forever</span>
-                        </button>
-                    </form>
-
-                    <a href="/" class="btn btn-safe">
-                        <span>🛡️</span>
-                        <span>No, Keep It Safe</span>
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <script>
-            // Show loading overlay when form is submitted
-            document.addEventListener('DOMContentLoaded', function () {
-                const forms = document.querySelectorAll('form');
-                const loadingOverlay = document.getElementById('loadingOverlay');
-
-                forms.forEach(form => {
-                    form.addEventListener('submit', function (e) {
-                        // Show loading overlay
-                        if (loadingOverlay) {
-                            loadingOverlay.classList.add('active');
-                        }
-
-                        // Add loading class to submit button
-                        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]');
-                        if (submitBtn) {
-                            submitBtn.classList.add('loading');
-                            submitBtn.disabled = true;
-                        }
-                    });
-                });
-
-                // Auto-hide toasts after 5 seconds
-                const toasts = document.querySelectorAll('.toast');
-                toasts.forEach(toast => {
-                    setTimeout(() => {
-                        toast.style.animation = 'fadeOut 0.5s ease-in forwards';
-                        setTimeout(() => toast.remove(), 500);
-                    }, 5000);
-                });
-            });
-        </script>
-    </body>
-
-</html>
+{% extends 'tasks/base.html' %}
+{% block title %}Delete task · Quantum Manager{% endblock %}
+{% block topbar_title %}Delete task{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="confirm">
+    <div class="confirm-icon"><svg class="icon"><use href="#i-trash"/></svg></div>
+    <h1>Delete this task?</h1>
+    <p>It will be gone for good. If you just finished it, tick it off instead and keep your streak.</p>
+    <div class="confirm-item">{{ item.title }}</div>
+    <div class="btn-row">
+      <a class="btn" href="{% url 'list' %}">Keep it</a>
+      <form method="post" class="inline-form">{% csrf_token %}
+        <button class="btn btn-danger" type="submit"><svg class="icon icon-sm"><use href="#i-trash"/></svg>Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

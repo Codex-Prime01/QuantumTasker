@@ -1,330 +1,119 @@
 {% extends 'tasks/base.html' %}
-
-{% block title %}Profile - Quantum Manager{% endblock %}
-
+{% load qm_tags %}
+{% block title %}Profile · Quantum Manager{% endblock %}
+{% block topbar_title %}Me{% endblock %}
+{% block fab %}{% endblock %}
 {% block content %}
-<div class="profile-container">
+<div class="page">
+  <section class="card" style="margin-top:12px">
+    <div class="profile-hero">
+      {% include 'tasks/_avatar.html' with size='avatar-lg' %}
+      <div class="who">
+        <h1 class="profile-name">{{ user.get_full_name|default:user.username }}
+          {% if qm_profile.email_verified %}<span class="pill accent"><svg class="icon icon-xs"><use href="#i-check-circle"/></svg>Verified</span>
+          {% else %}<a class="pill warning" href="{% url 'resend_verification' %}">Verify email</a>{% endif %}
+        </h1>
+        <p class="profile-email">@{{ user.username }} · {{ user.email }}</p>
+        {% if qm_profile.bio %}<p class="profile-bio">{{ qm_profile.bio }}</p>{% endif %}
+        <p class="hint" style="margin-top:8px">Member since {% fmt_date user.date_joined %}</p>
+      </div>
+      <button class="btn" type="button" data-share-title="My progress on Quantum Manager"
+        data-share-text="{{ completed_tasks }} tasks done on Quantum Manager{% if user.stats.current_streak %}, on a {{ user.stats.current_streak }}-day streak{% endif %}." data-share-path="/">
+        <svg class="icon icon-sm"><use href="#i-share"/></svg>Share progress</button>
+    </div>
+  </section>
 
-    <!-- Profile Header Card -->
-    <div class="profile-header-card">
-        <div class="profile-avatar-section">
-            <div class="avatar-wrapper">
-                {% if request.user.profile.get_avatar_url %}
-                <img src="{{ request.user.profile.get_avatar_url }}" alt="{{ request.user.username }}"
-                    class="profile-avatar has-image">
-                {% else %}
-                <div class="user-avatar1">
-                    {{ request.user.username|upper|slice:":2"|default:"?" }}
-                </div>
-                {% endif %}
-                <div class="avatar-badge">
-                    {% if request.user.profile.email_verified %}
-                    <span class="verified-badge" title="Email Verified">✓</span>
-                    {% else %}
-                    <span class="unverified-badge" title="Email Not Verified">!</span>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="profile-info">
-                <h1 class="profile-username">{{ request.user.username }}</h1>
-                {% if request.user.first_name %}
-                <p class="profile-fullname">{{ request.user.first_name }} {{ request.user.last_name }}</p>
-                {% endif %}
-                <p class="profile-email">
-                    <span class="email-icon">📧</span>
-                    {{ request.user.email }}
-                </p>
-                {% if request.user.profile.bio %}
-                <p class="profile-bio">{{ request.user.profile.bio }}</p>
-                {% endif %}
-            </div>
+  <div class="kpis" style="margin-top:16px">
+    <div class="kpi" style="--i:0"><div class="kpi-label">Tasks</div><div class="kpi-value">{{ total_tasks }}</div></div>
+    <div class="kpi" style="--i:1"><div class="kpi-label">Done</div><div class="kpi-value">{{ completed_tasks }}</div></div>
+    <div class="kpi" style="--i:2"><div class="kpi-label">Open</div><div class="kpi-value">{{ pending_tasks }}</div></div>
+    <div class="kpi" style="--i:3"><div class="kpi-label">Completion</div><div class="kpi-value">{{ completion_rate|floatformat:0 }}%</div></div>
+  </div>
+
+  <!-- Quick links (what used to live only in the sidebar) -->
+  <nav class="card card-tight" style="margin-top:16px" aria-label="More">
+    <div class="mini-list">
+      <a class="mini" href="{% url 'dashboard' %}"><svg class="icon icon-sm"><use href="#i-chart"/></svg><span class="t">Dashboard</span><svg class="icon icon-sm muted"><use href="#i-chevron-right"/></svg></a>
+      <a class="mini" href="{% url 'achievements' %}"><svg class="icon icon-sm"><use href="#i-trophy"/></svg><span class="t">Achievements</span><svg class="icon icon-sm muted"><use href="#i-chevron-right"/></svg></a>
+      <a class="mini" href="{% url 'archived_notes' %}"><svg class="icon icon-sm"><use href="#i-archive"/></svg><span class="t">Archived notes</span><svg class="icon icon-sm muted"><use href="#i-chevron-right"/></svg></a>
+      <a class="mini" href="{% url 'userp_settings' %}"><svg class="icon icon-sm"><use href="#i-settings"/></svg><span class="t">Settings</span><svg class="icon icon-sm muted"><use href="#i-chevron-right"/></svg></a>
+      <a class="mini" href="{% url 'logout' %}" style="color:var(--danger)"><svg class="icon icon-sm"><use href="#i-logout"/></svg><span class="t">Log out</span></a>
+    </div>
+  </nav>
+
+  <!-- Edit profile -->
+  <form method="post" enctype="multipart/form-data" class="form-section" style="margin-top:16px" id="edit">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="profile_info">
+    <div class="form-section-title"><svg class="icon icon-sm"><use href="#i-user"/></svg>Edit profile</div>
+    <div class="form-section-body">
+      <div class="avatar-edit">
+        <span class="avatar avatar-lg" id="avatarPreview">{% if qm_profile.avatar and qm_profile.get_avatar_url %}<img src="{{ qm_profile.get_avatar_url }}" alt="">{% else %}{{ user.username|first|upper }}{% endif %}</span>
+        <div>
+          <input type="file" name="avatar" id="id_avatar" accept="image/*" class="file-input">
+          <label class="btn btn-sm" for="id_avatar"><svg class="icon icon-sm"><use href="#i-upload"/></svg>Choose photo</label>
+          {% if qm_profile.avatar %}
+          <label class="hint" style="display:flex; gap:6px; align-items:center; margin-top:8px"><input type="checkbox" name="avatar-clear" id="avatar-clear_id"> Remove photo</label>
+          {% endif %}
+          <p class="hint" style="margin-top:6px">JPG or PNG.</p>
+          {% for e in profile_form.avatar.errors %}<p class="error">{{ e }}</p>{% endfor %}
         </div>
+      </div>
+      <div class="field-row">
+        <div class="field {% if user_form.username.errors %}has-error{% endif %}"><label class="label" for="id_username">Username</label>{{ user_form.username }}{% for e in user_form.username.errors %}<p class="error">{{ e }}</p>{% endfor %}</div>
+        <div class="field {% if user_form.email.errors %}has-error{% endif %}"><label class="label" for="id_email">Email</label>{{ user_form.email }}{% for e in user_form.email.errors %}<p class="error">{{ e }}</p>{% endfor %}</div>
+        <div class="field"><label class="label" for="id_first_name">First name</label>{{ user_form.first_name }}</div>
+        <div class="field"><label class="label" for="id_last_name">Last name</label>{{ user_form.last_name }}</div>
+      </div>
+      <div class="field">
+        <label class="label" for="id_bio">Bio <span class="opt">(<span id="charCount">0</span>/500)</span></label>
+        {{ profile_form.bio }}
+      </div>
+      <div><button class="btn btn-primary" type="submit">Save profile</button></div>
+    </div>
+  </form>
 
-        <!-- Statistics -->
-        <div class="profile-stats">
-            <div class="stat-card">
-                <div class="stat-icon">📋</div>
-                <div class="stat-info">
-                    <div class="stat-value">{{ total_tasks }}</div>
-                    <div class="stat-label">Total Tasks</div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon">✅</div>
-                <div class="stat-info">
-                    <div class="stat-value">{{ completed_tasks }}</div>
-                    <div class="stat-label">Completed</div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon">⏳</div>
-                <div class="stat-info">
-                    <div class="stat-value">{{ pending_tasks }}</div>
-                    <div class="stat-label">Pending</div>
-                </div>
-            </div>
-
-            <div class="stat-card">
-                <div class="stat-icon">📊</div>
-                <div class="stat-info">
-                    <div class="stat-value">{{ completion_rate }}%</div>
-                    <div class="stat-label">Completed</div>
-                </div>
-            </div>
+  <!-- Password -->
+  <form method="post" class="form-section" id="password">
+    {% csrf_token %}
+    <input type="hidden" name="form_type" value="password_change">
+    <div class="form-section-title"><svg class="icon icon-sm"><use href="#i-lock"/></svg>Change password</div>
+    <div class="form-section-body">
+      <div class="field {% if password_form.current_password.errors %}has-error{% endif %}">
+        <label class="label" for="id_current_password">Current password</label>
+        <div class="input-wrap">{{ password_form.current_password }}<button class="icon-btn reveal" type="button" data-reveal="id_current_password" aria-label="Show password"><svg class="icon"><use href="#i-eye"/></svg></button></div>
+        {% for e in password_form.current_password.errors %}<p class="error">{{ e }}</p>{% endfor %}
+      </div>
+      <div class="field-row">
+        <div class="field {% if password_form.new_password1.errors %}has-error{% endif %}">
+          <label class="label" for="id_new_password1">New password</label>
+          <div class="input-wrap">{{ password_form.new_password1 }}<button class="icon-btn reveal" type="button" data-reveal="id_new_password1" aria-label="Show password"><svg class="icon"><use href="#i-eye"/></svg></button></div>
+          {% for e in password_form.new_password1.errors %}<p class="error">{{ e }}</p>{% endfor %}
         </div>
-
-        <!-- 👇 NEW! Share Your Progress Banner -->
-        <div class="share-banner">
-            <div class="share-banner-content">
-                <div class="share-icon">🎉</div>
-                <div class="share-text">
-                    <h3>Share Your Progress!</h3>
-                    <p>Let your friends know about your productivity journey</p>
-                </div>
-            </div>
-            <div class="share-actions">
-                <button
-                    onclick="shareStreak({{ request.user.stats.current_streak }}, {{ request.user.stats.longest_streak }}, {{ request.user.stats.total_tasks_completed }})"
-                    class="btn btn-primary">
-                    <span>🔥</span>
-                    <span>Share Streak</span>
-                </button>
-            </div>
+        <div class="field {% if password_form.new_password2.errors %}has-error{% endif %}">
+          <label class="label" for="id_new_password2">Repeat new password</label>
+          <div class="input-wrap">{{ password_form.new_password2 }}<button class="icon-btn reveal" type="button" data-reveal="id_new_password2" aria-label="Show password"><svg class="icon"><use href="#i-eye"/></svg></button></div>
+          {% for e in password_form.new_password2.errors %}<p class="error">{{ e }}</p>{% endfor %}
         </div>
-
+      </div>
+      <p class="hint">At least 8 characters, not just numbers, not too common.</p>
+      <div><button class="btn btn-primary" type="submit">Change password</button></div>
     </div>
-
-    <!-- Edit Profile Section -->
-    <div>
-
-    </div>
-    <div class="profile-edit-section">
-        <h2 class="section-title">
-            <span class="title-icon">✏️</span>
-            <span>Edit Profile</span>
-        </h2>
-
-        <form method="POST" enctype="multipart/form-data" class="profile-form">
-            {% csrf_token %}
-            <input type="hidden" name="form_type" value="profile_info">
-
-            <div class="form-grid">
-                <!-- Avatar Upload -->
-                <div class="form-group full-width">
-                    <label class="form-label">
-                        <span class="label-icon">📸</span>
-                        <span>Profile Picture</span>
-                    </label>
-
-                    <div class="avatar-upload-wrapper">
-                        <div class="current-avatar">
-
-                            <img src="{{ request.user.profile.get_avatar_url }}" alt=" nil " class=" profile-avatar has-image">
-
-                        </div>
-                        <div class="upload-controls">
-                            {{ profile_form.avatar }}
-                            <label for="id_avatar" class="upload-label">
-                                <span class="upload-icon">📁</span>
-                                <span>Choose Image</span>
-                            </label>
-                            <p class="form-hint">JPG, PNG, or GIF. Max 5MB.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Username -->
-                <div class="form-group">
-                    <label for="{{ user_form.username.id_for_label }}" class="form-label">
-                        <span class="label-icon">👤</span>
-                        <span>Username</span>
-                    </label>
-                    {{ user_form.username }}
-                    {% if user_form.username.errors %}
-                    <div class="form-error">{{ user_form.username.errors.0 }}</div>
-                    {% endif %}
-                </div>
-
-                <!-- Email -->
-                <div class="form-group">
-                    <label for="{{ user_form.email.id_for_label }}" class="form-label">
-                        <span class="label-icon">📧</span>
-                        <span>Email</span>
-                    </label>
-                    {{ user_form.email }}
-                    {% if user_form.email.errors %}
-                    <div class="form-error">{{ user_form.email.errors.0 }}</div>
-                    {% endif %}
-                </div>
-
-                <!-- First Name -->
-                <div class="form-group">
-                    <label for="{{ user_form.first_name.id_for_label }}" class="form-label">
-                        <span class="label-icon">✍️</span>
-                        <span>First Name</span>
-                    </label>
-                    {{ user_form.first_name }}
-                </div>
-
-                <!-- Last Name -->
-                <div class="form-group">
-                    <label for="{{ user_form.last_name.id_for_label }}" class="form-label">
-                        <span class="label-icon">✍️</span>
-                        <span>Last Name</span>
-                    </label>
-                    {{ user_form.last_name }}
-                </div>
-
-                <!-- Bio -->
-                <div class="form-group full-width">
-                    <label for="{{ profile_form.bio.id_for_label }}" class="form-label">
-                        <span class="label-icon">💭</span>
-                        <span>Bio</span>
-                    </label>
-                    {{ profile_form.bio }}
-                    <p class="form-hint char-counter">
-                        <span id="charCount">0</span> / 500 characters
-                    </p>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-save">
-                <span>💾</span>
-                <span>Save Changes</span>
-            </button>
-        </form>
-    </div>
-
-    <!-- Change Password Section -->
-    <div class="profile-edit-section">
-        <h2 class="section-title">
-            <span class="title-icon">🔐</span>
-            <span>Change Password</span>
-        </h2>
-
-        <form method="POST" class="profile-form password-form">
-            {% csrf_token %}
-            <input type="hidden" name="form_type" value="password_change">
-
-            <div class="form-grid">
-                <!-- Current Password -->
-                <div class="form-group full-width">
-                    <label for="{{ password_form.current_password.id_for_label }}" class="form-label">
-                        <span class="label-icon">🔒</span>
-                        <span>Current Password</span>
-                    </label>
-                    {{ password_form.current_password }}
-                    {% if password_form.current_password.errors %}
-                    <div class="form-error">{{ password_form.current_password.errors.0 }}</div>
-                    {% endif %}
-                </div>
-
-                <!-- New Password -->
-                <div class="form-group">
-                    <label for="{{ password_form.new_password1.id_for_label }}" class="form-label">
-                        <span class="label-icon">🔑</span>
-                        <span>New Password</span>
-                    </label>
-                    {{ password_form.new_password1 }}
-                    {% if password_form.new_password1.errors %}
-                    <div class="form-error">{{ password_form.new_password1.errors.0 }}</div>
-                    {% endif %}
-                    <p class="form-hint">At least 8 characters</p>
-                </div>
-
-                <!-- Confirm New Password -->
-                <div class="form-group">
-                    <label for="{{ password_form.new_password2.id_for_label }}" class="form-label">
-                        <span class="label-icon">🔑</span>
-                        <span>Confirm New Password</span>
-                    </label>
-                    {{ password_form.new_password2 }}
-                    {% if password_form.new_password2.errors %}
-                    <div class="form-error">{{ password_form.new_password2.errors.0 }}</div>
-                    {% endif %}
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-save">
-                <span>🔐</span>
-                <span>Change Password</span>
-            </button>
-        </form>
-    </div>
-
-    <!-- Priority Breakdown -->
-    {% if priority_stats %}
-    <div class="profile-edit-section">
-        <h2 class="section-title">
-            <span class="title-icon">📊</span>
-            <span>Tasks by Priority</span>
-        </h2>
-
-        <div class="priority-breakdown">
-            {% for stat in priority_stats %}
-            <div class="priority-item priority-{{ stat.priority }}">
-                <div class="priority-label">
-                    {% if stat.priority == 'urgent' %}🔴
-                    {% elif stat.priority == 'high' %}🟠
-                    {% elif stat.priority == 'medium' %}🟡
-                    {% else %}🟢{% endif %}
-                    <span>{{ stat.priority|title }}</span>
-                </div>
-                <div class="priority-count">{{ stat.count }}</div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Account Actions -->
-    <div class="profile-actions">
-        <a href="/" class="btn btn-secondary">
-            <span>←</span>
-            <span class="text1">Back to Tasks</span>
-        </a>
-        <a href="/dashboard/" class="btn btn-update">
-            <span>📊</span>
-            <span>View Dashboard</span>
-        </a>
-    </div>
+  </form>
 </div>
-
+{% endblock %}
+{% block scripts %}
 <script>
-    // Avatar Preview
-    document.getElementById('id_avatar').addEventListener('change', function (e) {
-        const file = e.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                document.getElementById('avatarPreview').src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-
-    // Bio Character Counter
-    const bioField = document.getElementById('id_bio');
-    const charCount = document.getElementById('charCount');
-
-    function updateCharCount() {
-        const count = bioField.value.length;
-        charCount.textContent = count;
-
-        if (count > 450) {
-            charCount.style.color = '#F44336';
-        } else if (count > 400) {
-            charCount.style.color = '#FF9800';
-        } else {
-            charCount.style.color = '#00f5ff';
-        }
-    }
-
-    if (bioField) {
-        updateCharCount();
-        bioField.addEventListener('input', updateCharCount);
-    }
+(function () {
+  const input = document.getElementById('id_avatar');
+  input && input.addEventListener('change', () => {
+    const f = input.files && input.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    document.getElementById('avatarPreview').innerHTML = `<img src="${url}" alt="">`;
+  });
+  const bio = document.getElementById('id_bio'), count = document.getElementById('charCount');
+  if (bio) { const up = () => { count.textContent = bio.value.length; }; up(); bio.addEventListener('input', up); }
+})();
 </script>
 {% endblock %}
