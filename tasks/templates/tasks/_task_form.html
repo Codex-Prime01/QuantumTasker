@@ -1,260 +1,507 @@
 {% load qm_tags %}
-<form method="post" enctype="multipart/form-data" class="form" id="taskForm" novalidate>
+{# iPhone Clock-style task sheet. Same form fields as before, just laid out like iOS. #}
+<form method="post" enctype="multipart/form-data" class="ios-form" id="taskForm" novalidate>
   {% csrf_token %}
+
+  <div class="ios-navbar">
+    <a class="ios-link" href="{% url 'list' %}">Cancel</a>
+    <span class="ios-navbar-title">{% if task %}Edit Task{% else %}New Task{% endif %}</span>
+    <button class="ios-link strong" type="submit" id="saveBtn">Save</button>
+  </div>
+
+  {% if task %}
+  <p class="ios-meta">
+    {% if task.complete %}<span class="pill success"><svg class="icon icon-xs"><use href="#i-check"/></svg>Done</span>{% endif %}
+    Created {% fmt_date task.created %}{% if task.is_overdue %} · <span style="color:var(--danger); font-weight:600">overdue</span>{% endif %}
+  </p>
+  {% endif %}
+
   {% if form.non_field_errors %}<div class="banner danger"><svg class="icon"><use href="#i-alert"/></svg><div class="banner-body">{{ form.non_field_errors }}</div></div>{% endif %}
 
-  <!-- What -->
-  <section class="form-section">
-    <div class="field {% if form.title.errors %}has-error{% endif %}">
-      <label class="label" for="id_title">What do you need to remember?</label>
-      <div style="display:flex; gap:10px; align-items:center">
-        <input type="text" name="title" id="id_title" class="title-input input" maxlength="200" required
-          value="{{ form.title.value|default:'' }}" placeholder="e.g. Call mum, pay electricity bill" autocomplete="off" {% if not task %}autofocus{% endif %}>
-        <button class="voice-btn" type="button" id="voiceBtn" aria-label="Say it instead" title="Say it instead" hidden>
-          <svg class="icon"><use href="#i-mic"/></svg>
-        </button>
-      </div>
-      <p class="voice-status" id="voiceStatus" aria-live="polite" hidden></p>
-      {% for e in form.title.errors %}<p class="error">{{ e }}</p>{% endfor %}
+  <!-- Label -->
+  <div class="ios-group">
+    <div class="ios-row ios-title-row {% if form.title.errors %}has-error{% endif %}">
+      <label class="sr-only" for="id_title">What do you need to remember?</label>
+      <input type="text" name="title" id="id_title" class="ios-title-input" maxlength="200" required
+        value="{{ form.title.value|default:'' }}" placeholder="What do you need to remember?" autocomplete="off"
+        aria-describedby="titleError" {% if not task %}autofocus{% endif %}>
+      <button class="voice-btn" type="button" id="voiceBtn" aria-label="Say it instead" title="Say it instead" hidden>
+        <svg class="icon"><use href="#i-mic"/></svg>
+      </button>
     </div>
-    <div class="field" style="margin-top:16px">
-      <label class="label" for="id_description">Notes <span class="opt">(optional)</span></label>
-      {{ form.description }}
-    </div>
-  </section>
+  </div>
+  <p class="ios-foot voice-status" id="voiceStatus" aria-live="polite" hidden></p>
+  <p class="ios-foot error" id="titleError" {% if not form.title.errors %}hidden{% endif %}>{% for e in form.title.errors %}{{ e }}{% empty %}Give your task a name.{% endfor %}</p>
 
-  <!-- When + priority + categories -->
-  <section class="form-section">
-    <div class="form-section-head">
-      <div>
-        <div class="form-section-title"><svg class="icon icon-sm"><use href="#i-calendar"/></svg>When and how important</div>
-      </div>
-    </div>
-    <div class="form-section-body">
-      <div class="field {% if form.due_date.errors %}has-error{% endif %}">
-        <label class="label" for="id_due_date">Due <span class="opt">(optional)</span></label>
-        {{ form.due_date }}
-        <div class="presets" aria-label="Quick dates">
-          <button class="preset" type="button" data-due="today-18">Today 6 PM</button>
-          <button class="preset" type="button" data-due="tonight-21">Tonight 9 PM</button>
-          <button class="preset" type="button" data-due="tomorrow-9">Tomorrow 9 AM</button>
-          <button class="preset" type="button" data-due="weekend-10">Saturday 10 AM</button>
-          <button class="preset" type="button" data-due="nextweek-9">Next Monday</button>
-          <button class="preset" type="button" data-due="clear">No date</button>
-        </div>
-        {% for e in form.due_date.errors %}<p class="error">{{ e }}</p>{% endfor %}
-      </div>
-
-      <div class="field">
-        <span class="label" id="priorityLabel">Priority</span>
-        <div class="seg" role="radiogroup" aria-labelledby="priorityLabel">
-          {% for radio in form.priority %}
-            <label for="{{ radio.id_for_label }}">{{ radio.tag }}<span class="pdot {{ radio.data.value }}"></span>{{ radio.choice_label }}</label>
-          {% endfor %}
-        </div>
-      </div>
-
-      <div class="field">
-        <span class="label" id="catLabel">Categories <span class="opt">(pick any)</span></span>
-        <div class="choice-chips" role="group" aria-labelledby="catLabel">
-          {% for box in form.categories %}
-            <label for="{{ box.id_for_label }}">{{ box.tag }}<span class="cdot" style="--c: {{ form.category_colors|get_item:box.data.value.value|default:'#888' }}"></span>{{ box.choice_label }}</label>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Repeat -->
-  <section class="form-section">
-    <label class="switch-row" for="id_is_recurring">
-      <span class="text">
-        <span class="form-section-title"><svg class="icon icon-sm"><use href="#i-repeat"/></svg>Repeat this task</span>
-        <span class="form-section-sub" style="display:block">When you tick it off, the next one is created for you.</span>
-      </span>
-      <span class="switch">{{ form.is_recurring }}<span class="track"></span></span>
+  <!-- When: the iPhone-style wheel -->
+  <h2 class="ios-section">When</h2>
+  <div class="ios-group">
+    <label class="ios-row" for="whenOn">
+      <span class="ios-ico" style="--ico: #FF453A"><svg class="icon icon-sm"><use href="#i-calendar"/></svg></span>
+      <span class="ios-row-label">Date &amp; time<span class="ios-row-sub" id="whenSummary"></span></span>
+      <span class="switch ios-green"><input type="checkbox" id="whenOn"><span class="track"></span></span>
     </label>
-    <div class="form-section-body" id="repeatOptions" hidden>
-      <div class="field-row">
-        <div class="field">
-          <label class="label" for="id_recurring_frequency">How often</label>
-          {{ form.recurring_frequency }}
-        </div>
-        <div class="field" id="intervalField" hidden>
-          <label class="label" for="id_recurring_interval">Every how many days</label>
-          {{ form.recurring_interval }}
-        </div>
+
+    <div class="ios-when" id="whenBody" hidden>
+      <div class="ios-days" id="dayChips" role="radiogroup" aria-label="Day"></div>
+      <div class="ios-wheel" id="timeWheel" role="group" aria-label="Time">
+        <div class="ios-wheel-band" aria-hidden="true"></div>
+        <div class="ios-wheel-col" data-col="h" role="spinbutton" tabindex="0" aria-label="Hour" aria-valuemin="1" aria-valuemax="12"></div>
+        <div class="ios-wheel-sep" aria-hidden="true">:</div>
+        <div class="ios-wheel-col" data-col="m" role="spinbutton" tabindex="0" aria-label="Minute" aria-valuemin="0" aria-valuemax="59"></div>
+        <div class="ios-wheel-col narrow" data-col="ap" role="spinbutton" tabindex="0" aria-label="AM or PM"></div>
       </div>
-      <p class="hint" id="repeatPreview"></p>
     </div>
-  </section>
+
+    {# Plain date box: shown only if the wheel can't load (old browser, script error) #}
+    <div class="ios-row ios-native-due {% if form.due_date.errors %}has-error{% endif %}" id="nativeDue">
+      <label class="ios-row-label" for="id_due_date">Due</label>
+      {{ form.due_date }}
+    </div>
+
+    <label class="ios-row ios-select-row" for="id_recurring_frequency">
+      <span class="ios-ico" style="--ico: #5E5CE6"><svg class="icon icon-sm"><use href="#i-repeat"/></svg></span>
+      <span class="ios-row-label">Repeat</span>
+      {% with freq=form.recurring_frequency.value|default:'none' %}
+      <select name="recurring_frequency" id="id_recurring_frequency" class="ios-select">
+        <option value="none" {% if freq == 'none' %}selected{% endif %}>Never</option>
+        <option value="daily" {% if freq == 'daily' %}selected{% endif %}>Every Day</option>
+        <option value="weekly" {% if freq == 'weekly' %}selected{% endif %}>Every Week</option>
+        <option value="biweekly" {% if freq == 'biweekly' %}selected{% endif %}>Every 2 Weeks</option>
+        <option value="monthly" {% if freq == 'monthly' %}selected{% endif %}>Every Month</option>
+        <option value="yearly" {% if freq == 'yearly' %}selected{% endif %}>Every Year</option>
+        <option value="custom" {% if freq == 'custom' %}selected{% endif %}>Custom</option>
+      </select>
+      {% endwith %}
+      <svg class="icon icon-sm ios-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+    </label>
+    <div class="ios-row" id="intervalField" hidden>
+      <label class="ios-row-label" for="id_recurring_interval">Every how many days</label>
+      {{ form.recurring_interval }}
+    </div>
+    <div hidden>{{ form.is_recurring }}</div>
+  </div>
+  <p class="ios-foot" id="repeatPreview"></p>
+  {% for e in form.due_date.errors %}<p class="ios-foot error">{{ e }}</p>{% endfor %}
 
   <!-- Alarm -->
-  <section class="form-section">
-    <label class="switch-row" for="id_alarm_enabled">
-      <span class="text">
-        <span class="form-section-title"><svg class="icon icon-sm"><use href="#i-bell"/></svg>Alarm</span>
-        <span class="form-section-sub" style="display:block">Rings with sound and a notification, even when the app is closed.</span>
-      </span>
-      <span class="switch">{{ form.alarm_enabled }}<span class="track"></span></span>
+  <h2 class="ios-section">Alarm</h2>
+  <div class="ios-group">
+    <label class="ios-row" for="id_alarm_enabled">
+      <span class="ios-ico" style="--ico: #FF9F0A"><svg class="icon icon-sm"><use href="#i-bell"/></svg></span>
+      <span class="ios-row-label">Alarm<span class="ios-row-sub">Rings even when the app is closed</span></span>
+      <span class="switch ios-green">{{ form.alarm_enabled }}<span class="track"></span></span>
     </label>
 
-    <div class="form-section-body" id="alarmOptions" hidden>
-      <div class="field {% if form.alarm_time.errors %}has-error{% endif %}">
-        <label class="label" for="id_alarm_time">Ring at</label>
-        {{ form.alarm_time }}
-        <div class="presets" aria-label="Quick alarm times">
-          <button class="preset" type="button" data-alarm="0">At the due time</button>
-          <button class="preset" type="button" data-alarm="15">15 min before</button>
-          <button class="preset" type="button" data-alarm="30">30 min before</button>
-          <button class="preset" type="button" data-alarm="60">1 hour before</button>
-          <button class="preset" type="button" data-alarm="1440">1 day before</button>
-        </div>
-        <p class="hint">Leave it empty to ring at the due time.</p>
-        {% for e in form.alarm_time.errors %}<p class="error">{{ e }}</p>{% endfor %}
-      </div>
+    <div id="alarmOptions" hidden>
+      <label class="ios-row ios-select-row {% if form.alarm_time.errors %}has-error{% endif %}" for="alarmOffset">
+        <span class="ios-ico" style="--ico: #0A84FF"><svg class="icon icon-sm"><use href="#i-clock"/></svg></span>
+        <span class="ios-row-label">Rings</span>
+        <select id="alarmOffset" class="ios-select">
+          <option value="0">At the due time</option>
+          <option value="5">5 min before</option>
+          <option value="15">15 min before</option>
+          <option value="30">30 min before</option>
+          <option value="60">1 hour before</option>
+          <option value="1440">1 day before</option>
+        </select>
+        <svg class="icon icon-sm ios-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+      </label>
+      <div hidden>{{ form.alarm_time }}</div>
 
-      <div class="field">
-        <span class="label" id="toneLabel">Sound</span>
-        <div class="tones" role="radiogroup" aria-labelledby="toneLabel">
+      <div class="ios-row ios-sound-row">
+        <span class="ios-ico" style="--ico: #FF375F"><svg class="icon icon-sm"><use href="#i-play"/></svg></span>
+        <label class="ios-row-label" for="id_alarm_tone">Sound</label>
+        <div class="ios-sound">
           {% with tone=form.alarm_tone.value|default:'classic' %}
-          <div class="tone">
-            <input type="radio" name="alarm_tone" value="classic" id="tone-classic" {% if tone == 'classic' or tone == 'default' %}checked{% endif %}>
-            <label for="tone-classic">
-              <span class="tone-name"><svg class="icon icon-sm"><use href="#i-clock"/></svg>Classic</span>
-              <span class="tone-desc">Beep beep beep</span>
-              <button class="btn btn-sm btn-ghost tone-play" type="button" data-preview-tone="classic"><svg class="icon icon-sm"><use href="#i-play"/></svg>Play</button>
-            </label>
-          </div>
-          <div class="tone">
-            <input type="radio" name="alarm_tone" value="chime" id="tone-chime" {% if tone == 'chime' %}checked{% endif %}>
-            <label for="tone-chime">
-              <span class="tone-name"><svg class="icon icon-sm"><use href="#i-bell"/></svg>Soft chime</span>
-              <span class="tone-desc">Gentle, three notes</span>
-              <button class="btn btn-sm btn-ghost tone-play" type="button" data-preview-tone="chime"><svg class="icon icon-sm"><use href="#i-play"/></svg>Play</button>
-            </label>
-          </div>
-          <div class="tone">
-            <input type="radio" name="alarm_tone" value="urgent" id="tone-urgent" {% if tone == 'urgent' %}checked{% endif %}>
-            <label for="tone-urgent">
-              <span class="tone-name"><svg class="icon icon-sm"><use href="#i-zap"/></svg>Urgent</span>
-              <span class="tone-desc">Loud, hard to ignore</span>
-              <button class="btn btn-sm btn-ghost tone-play" type="button" data-preview-tone="urgent"><svg class="icon icon-sm"><use href="#i-play"/></svg>Play</button>
-            </label>
-          </div>
-          <div class="tone">
-            <input type="radio" name="alarm_tone" value="custom" id="tone-custom" {% if tone == 'custom' or has_custom_tone %}checked{% endif %}>
-            <label for="tone-custom">
-              <span class="tone-name"><svg class="icon icon-sm"><use href="#i-upload"/></svg><span id="customToneName">{% if has_custom_tone %}Your sound{% else %}Your own sound{% endif %}</span></span>
-              <span class="tone-desc">MP3, WAV or M4A, up to 2 MB</span>
-              <input type="file" accept="audio/*" id="custom-tone-upload" name="custom_tone_file" class="file-input">
-              <span class="btn-row" style="gap:4px">
-                <button class="btn btn-sm btn-ghost tone-play" type="button" id="pickTone"><svg class="icon icon-sm"><use href="#i-upload"/></svg>{% if has_custom_tone %}Change{% else %}Choose file{% endif %}</button>
-                {% if has_custom_tone %}<button class="btn btn-sm btn-ghost tone-play" type="button" data-preview-tone="{{ task.alarm_tone }}"><svg class="icon icon-sm"><use href="#i-play"/></svg>Play</button>{% endif %}
-              </span>
-            </label>
-          </div>
+          <select name="alarm_tone" id="id_alarm_tone" class="form-select" data-tone-select data-upload="custom-tone-upload">
+            {% if has_custom_tone %}<optgroup label="Yours"><option value="{{ task.alarm_tone }}" data-desc="Uploaded earlier" selected>My uploaded sound</option></optgroup>{% endif %}
+            {% for group, items in tone_groups %}
+            <optgroup label="{{ group }}">
+              {% for id, name, desc in items %}<option value="{{ id }}" data-desc="{{ desc }}" {% if not has_custom_tone and tone == id %}selected{% endif %}>{{ name }}</option>{% endfor %}
+            </optgroup>
+            {% endfor %}
+            <optgroup label="Your own">
+              <option value="custom" data-desc="MP3, WAV or M4A, up to 25 MB" {% if tone == 'custom' %}selected{% endif %}>{% if has_custom_tone %}Upload a different sound{% else %}Upload your own sound{% endif %}</option>
+            </optgroup>
+          </select>
           {% endwith %}
+          <input type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" id="custom-tone-upload" name="custom_tone_file" class="file-input">
         </div>
       </div>
-
-      {% if push_public_key %}
-      <div class="banner accent" data-push-show="off" hidden style="margin-top:0">
-        <svg class="icon"><use href="#i-bell"/></svg>
-        <div class="banner-body">
-          <div class="banner-title">Alarms are off on this device</div>
-          <div class="banner-text">Turn them on so this rings even when the app is closed.</div>
-        </div>
-        <button class="btn btn-primary btn-sm" type="button" data-push-enable>Turn on</button>
-      </div>
-      <div class="banner danger" data-push-show="blocked" hidden style="margin-top:0">
-        <svg class="icon"><use href="#i-bell-off"/></svg>
-        <div class="banner-body"><div class="banner-title">Notifications are blocked</div><div class="banner-text">Allow notifications for this site in your browser settings.</div></div>
-      </div>
-      {% endif %}
     </div>
-  </section>
-
-  <div class="form-actions sticky">
-    {% if task %}
-      <a class="btn btn-danger-ghost" href="{% url 'delete' task.id %}" style="margin-right:auto" aria-label="Delete task"><svg class="icon icon-sm"><use href="#i-trash"/></svg><span class="del-text">Delete</span></a>
-    {% endif %}
-    <a class="btn" href="{% url 'list' %}">Cancel</a>
-    <button class="btn btn-primary" type="submit"><svg class="icon icon-sm"><use href="#i-check"/></svg>{% if task %}Save changes{% else %}Create task{% endif %}</button>
   </div>
+  <p class="ios-foot" id="alarmHint">Keeps ringing, a little louder each time, until you tap Snooze or Got it.</p>
+  {% for e in form.alarm_time.errors %}<p class="ios-foot error">{{ e }}</p>{% endfor %}
+
+  {% if push_public_key %}
+  <div class="banner accent" data-push-show="off" hidden>
+    <svg class="icon"><use href="#i-bell"/></svg>
+    <div class="banner-body">
+      <div class="banner-title">Alarms are off on this device</div>
+      <div class="banner-text">Turn them on so this rings even when the app is closed.</div>
+    </div>
+    <button class="btn btn-primary btn-sm" type="button" data-push-enable>Turn on</button>
+  </div>
+  <div class="banner danger" data-push-show="blocked" hidden>
+    <svg class="icon"><use href="#i-bell-off"/></svg>
+    <div class="banner-body"><div class="banner-title">Notifications are blocked</div><div class="banner-text">Allow notifications for this site in your browser settings.</div></div>
+  </div>
+  {% endif %}
+
+  <!-- Details -->
+  <h2 class="ios-section">Details</h2>
+  <div class="ios-group">
+    <div class="ios-row ios-stack">
+      <span class="ios-row-label" id="priorityLabel">Priority</span>
+      <div class="seg" role="radiogroup" aria-labelledby="priorityLabel">
+        {% for radio in form.priority %}
+          <label for="{{ radio.id_for_label }}">{{ radio.tag }}<span class="pdot {{ radio.data.value }}"></span>{{ radio.choice_label }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="ios-row ios-stack">
+      <span class="ios-row-label" id="catLabel">Categories</span>
+      <div class="choice-chips" role="group" aria-labelledby="catLabel">
+        {% for box in form.categories %}
+          <label for="{{ box.id_for_label }}">{{ box.tag }}<span class="cdot" style="--c: {{ form.category_colors|get_item:box.data.value.value|default:'#888' }}"></span>{{ box.choice_label }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="ios-row ios-stack">
+      <label class="ios-row-label" for="id_description">Notes</label>
+      {{ form.description }}
+    </div>
+  </div>
+
+  {% if task %}
+  <div class="ios-group">
+    <a class="ios-row ios-danger" href="{% url 'delete' task.id %}">Delete Task</a>
+  </div>
+  {% endif %}
 </form>
 
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
+  const form = $('taskForm');
   const due = $('id_due_date'), alarmTime = $('id_alarm_time');
   const pad = (n) => String(n).padStart(2, '0');
   const toLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Quick due dates
-  document.querySelectorAll('[data-due]').forEach((b) => b.addEventListener('click', () => {
-    const now = new Date();
-    const d = new Date(now);
-    const [kind, h] = b.dataset.due.split('-');
-    if (kind === 'clear') { due.value = ''; syncAlarm(); return; }
-    if (kind === 'tomorrow') d.setDate(d.getDate() + 1);
-    if (kind === 'weekend') d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7));
-    if (kind === 'nextweek') d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7));
-    d.setHours(Number(h), 0, 0, 0);
-    if ((kind === 'today' || kind === 'tonight') && d <= now) d.setDate(d.getDate() + 1);
-    due.value = toLocal(d);
+  // Opened from the Share menu while offline: the saved page can't know the
+  // shared text, so take it from the address bar instead
+  const shared = new URLSearchParams(location.search);
+  if (!$('id_title').value && shared.get('title')) $('id_title').value = shared.get('title');
+  if (!$('id_description').value && shared.get('notes')) $('id_description').value = shared.get('notes');
+  const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
+  const dayDiff = (a, b) => Math.round((startOfDay(a) - startOfDay(b)) / 86400000);
+  const timeText = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  function dayText(d) {
+    const diff = dayDiff(d, new Date());
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    if (diff === -1) return 'Yesterday';
+    if (diff > 1 && diff < 7) return d.toLocaleDateString([], { weekday: 'long' });
+    return d.toLocaleDateString([], { day: 'numeric', month: 'short', year: d.getFullYear() === new Date().getFullYear() ? undefined : 'numeric' });
+  }
+
+  // ---------------------------------------------------------------
+  // The wheel. The hidden due-date box stays the single source of truth;
+  // the wheel and day chips just read from it and write back to it.
+  // ---------------------------------------------------------------
+  const whenOn = $('whenOn'), whenBody = $('whenBody'), summary = $('whenSummary');
+  const ROW = 40; // px height of one wheel item (matches the CSS)
+  const cols = {};
+  const ranges = {
+    h: Array.from({ length: 12 }, (_, i) => ({ v: i + 1, t: String(i + 1) })),
+    m: Array.from({ length: 60 }, (_, i) => ({ v: i, t: pad(i) })),
+    ap: [{ v: 'AM', t: 'AM' }, { v: 'PM', t: 'PM' }],
+  };
+  let state = null; // { day: Date (midnight), h: 1-12, m: 0-59, ap: 'AM'|'PM' }
+
+  function stateFromDate(d) {
+    const h24 = d.getHours();
+    return { day: startOfDay(d), h: h24 % 12 || 12, m: d.getMinutes(), ap: h24 < 12 ? 'AM' : 'PM' };
+  }
+  function dateFromState() {
+    const d = new Date(state.day);
+    d.setHours((state.h % 12) + (state.ap === 'PM' ? 12 : 0), state.m, 0, 0);
+    return d;
+  }
+  function defaultDate() {
+    // Next whole hour, like opening a fresh alarm on the phone
+    const d = new Date();
+    d.setMinutes(0, 0, 0);
+    d.setHours(d.getHours() + 1);
+    return d;
+  }
+
+  function buildCol(key) {
+    const col = form.querySelector(`[data-col="${key}"]`);
+    col.innerHTML = ranges[key].map((it, i) => `<div class="ios-wheel-item" data-i="${i}">${it.t}</div>`).join('');
+    cols[key] = col;
+    let timer = null, frame = 0, lastIdx = -1;
+    col.addEventListener('scroll', () => {
+      // Drum effect follows the finger every frame; the value is read once it settles
+      if (!frame) frame = requestAnimationFrame(() => {
+        frame = 0;
+        drum(key);
+        const idx = Math.round(col.scrollTop / ROW);
+        if (idx !== lastIdx && lastIdx !== -1 && !reduceMotion && navigator.vibrate) {
+          try { navigator.vibrate(4); } catch (e) { /* not allowed yet */ }
+        }
+        lastIdx = idx;
+      });
+      clearTimeout(timer);
+      // Wait for the snap to settle before reading the value
+      timer = setTimeout(() => {
+        const i = Math.max(0, Math.min(ranges[key].length - 1, Math.round(col.scrollTop / ROW)));
+        if (state && state[key] !== ranges[key][i].v) {
+          state[key] = ranges[key][i].v;
+          writeDue();
+        }
+        paintCol(key);
+      }, 90);
+    }, { passive: true });
+    col.addEventListener('click', (e) => {
+      const item = e.target.closest('.ios-wheel-item');
+      if (item) scrollCol(key, Number(item.dataset.i), true);
+    });
+    col.addEventListener('keydown', (e) => {
+      const list = ranges[key];
+      let i = list.findIndex((it) => it.v === state[key]);
+      const step = { ArrowDown: 1, ArrowUp: -1, PageDown: 5, PageUp: -5 }[e.key];
+      if (step) i = Math.max(0, Math.min(list.length - 1, i + step));
+      else if (e.key === 'Home') i = 0;
+      else if (e.key === 'End') i = list.length - 1;
+      else return;
+      e.preventDefault();
+      state[key] = list[i].v;
+      scrollCol(key, i, true);
+      writeDue();
+    });
+  }
+  // Bend each number around a cylinder: the further from the middle, the more it
+  // tilts away and sinks back, like the iPhone's wheel.
+  const RADIUS = ROW * 2.6;
+  function drum(key) {
+    const col = cols[key];
+    const mid = col.scrollTop + col.clientHeight / 2;
+    col.querySelectorAll('.ios-wheel-item').forEach((el, n) => {
+      const d = (80 + n * ROW + ROW / 2 - mid) / ROW; // 80 = top spacer height
+      if (Math.abs(d) > 4) { el.style.visibility = 'hidden'; return; }
+      const a = Math.max(-80, Math.min(80, d * 22));
+      const cos = Math.cos(a * Math.PI / 180);
+      el.style.visibility = '';
+      el.style.transform = `translateZ(${-RADIUS * (1 - cos)}px) rotateX(${-a}deg)`;
+      el.style.opacity = Math.max(0.2, cos).toFixed(2);
+    });
+  }
+  function scrollCol(key, i, smooth) {
+    cols[key].scrollTo({ top: i * ROW, behavior: smooth && !reduceMotion ? 'smooth' : 'auto' });
+    paintCol(key);
+    drum(key);
+  }
+  function paintCol(key) {
+    const col = cols[key];
+    const i = ranges[key].findIndex((it) => it.v === state[key]);
+    col.setAttribute('aria-valuenow', key === 'ap' ? i : state[key]);
+    col.setAttribute('aria-valuetext', ranges[key][i].t);
+    col.querySelectorAll('.ios-wheel-item').forEach((el, n) => el.classList.toggle('on', n === i));
+  }
+  function paintWheel(smooth) {
+    Object.keys(cols).forEach((k) => scrollCol(k, ranges[k].findIndex((it) => it.v === state[k]), smooth));
+  }
+
+  // Day chips: Today, Tomorrow, the next 5 days, then "Other date"
+  const chipsBox = $('dayChips');
+  function buildChips() {
+    const today = startOfDay(new Date());
+    let html = '';
+    for (let n = 0; n < 7; n++) {
+      const d = new Date(today); d.setDate(d.getDate() + n);
+      const label = n === 0 ? 'Today' : n === 1 ? 'Tomorrow' : d.toLocaleDateString([], { weekday: 'short', day: 'numeric' });
+      html += `<button type="button" class="ios-day" role="radio" data-day="${toLocal(d).slice(0, 10)}">${label}</button>`;
+    }
+    html += `<label class="ios-day ios-day-other" role="radio"><span id="otherDayText">Other date</span><input type="date" id="otherDay" aria-label="Pick another date"></label>`;
+    chipsBox.innerHTML = html;
+    chipsBox.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-day]');
+      if (!b) return;
+      const [y, mo, d] = b.dataset.day.split('-').map(Number);
+      state.day = new Date(y, mo - 1, d);
+      writeDue();
+    });
+    const other = $('otherDay');
+    other.closest('label').addEventListener('click', (e) => {
+      // Desktop browsers don't open the calendar when you click the box itself
+      if (e.target === other && typeof other.showPicker === 'function') {
+        try { other.showPicker(); e.preventDefault(); } catch (err) { /* falls back to the normal input */ }
+      }
+    });
+    other.addEventListener('change', () => {
+      if (!other.value) return;
+      const [y, mo, d] = other.value.split('-').map(Number);
+      state.day = new Date(y, mo - 1, d);
+      writeDue();
+    });
+  }
+  function paintChips() {
+    const key = toLocal(state.day).slice(0, 10);
+    let matched = false;
+    chipsBox.querySelectorAll('[data-day]').forEach((b) => {
+      const on = b.dataset.day === key;
+      matched = matched || on;
+      b.setAttribute('aria-checked', String(on));
+    });
+    const otherChip = chipsBox.querySelector('.ios-day-other');
+    otherChip.setAttribute('aria-checked', String(!matched));
+    $('otherDayText').textContent = matched ? 'Other date' : dayText(state.day);
+    $('otherDay').value = key;
+  }
+
+  function paintSummary() {
+    if (!due.value) { summary.textContent = 'No date'; return; }
+    const d = new Date(due.value);
+    summary.textContent = `${dayText(d)}, ${timeText(d)}`;
+  }
+
+  function writeDue() {
+    due.value = state ? toLocal(dateFromState()) : '';
+    if (state) paintChips();
     due.dispatchEvent(new Event('change'));
-  }));
+  }
 
+  // Read the due box into the wheel (on load, and after voice fills it)
+  function readDue(smooth) {
+    whenOn.checked = !!due.value;
+    whenBody.hidden = !due.value;
+    if (due.value) {
+      state = stateFromDate(new Date(due.value));
+      paintChips();
+      paintWheel(smooth);
+    } else {
+      state = null;
+    }
+    paintSummary();
+  }
+
+  function setWhen(on) {
+    whenOn.checked = on;
+    whenBody.hidden = !on;
+    if (on) {
+      state = stateFromDate(due.value ? new Date(due.value) : defaultDate());
+      writeDue();
+      paintWheel(false);
+    } else {
+      state = null;
+      writeDue();
+    }
+  }
+
+  let wheelReady = false;
+  try {
+    ['h', 'm', 'ap'].forEach(buildCol);
+    buildChips();
+    form.classList.add('ios-enhanced'); // hides the plain date box
+    whenOn.addEventListener('change', () => setWhen(whenOn.checked));
+    readDue(false);
+    wheelReady = true;
+  } catch (err) {
+    // If anything goes wrong, the plain date box is still there and still works
+    console.error('Time wheel failed to load', err);
+    form.classList.remove('ios-enhanced');
+  }
+  due.addEventListener('change', () => { paintSummary(); syncRepeat(); syncAlarm(); });
+
+  // ---------------------------------------------------------------
   // Repeat
+  // ---------------------------------------------------------------
   const repeat = $('id_is_recurring'), freq = $('id_recurring_frequency'), interval = $('id_recurring_interval');
   const repeatPreview = $('repeatPreview');
   const words = { daily: 'every day', weekly: 'every week', biweekly: 'every 2 weeks', monthly: 'every month', yearly: 'every year' };
   function syncRepeat() {
-    $('repeatOptions').hidden = !repeat.checked;
-    if (repeat.checked && freq.value === 'none') freq.value = 'daily';
+    repeat.checked = freq.value !== 'none';
     $('intervalField').hidden = freq.value !== 'custom';
     const n = Number(interval.value) || 1;
     const text = freq.value === 'custom' ? `every ${n} day${n > 1 ? 's' : ''}` : (words[freq.value] || '');
-    repeatPreview.textContent = text ? `Repeats ${text}, starting from the due date${due.value ? '' : ' (tomorrow 9 AM if you leave it empty)'}.` : '';
+    repeatPreview.textContent = text ? `Repeats ${text}, starting from the date above${due.value ? '' : ' (tomorrow 9 AM if you leave it empty)'}.` : '';
+    repeatPreview.hidden = !text;
   }
-  repeat.addEventListener('change', syncRepeat);
-  freq.addEventListener('change', () => { if (freq.value === 'none') repeat.checked = false; syncRepeat(); });
+  freq.addEventListener('change', syncRepeat);
   interval.addEventListener('input', syncRepeat);
   syncRepeat();
 
-  // Alarm
+  // ---------------------------------------------------------------
+  // Alarm: tied to the due date. Pick "how early" once.
+  // ---------------------------------------------------------------
   const alarmOn = $('id_alarm_enabled');
+  const offset = $('alarmOffset');
+  // Editing a task: keep its current gap, even if it isn't one of the usual choices
+  if (due.value && alarmTime.value) {
+    const diff = Math.round((new Date(due.value) - new Date(alarmTime.value)) / 60000);
+    if (diff > 0 && !Array.from(offset.options).some((o) => Number(o.value) === diff)) {
+      const label = diff % 60 === 0 ? `${diff / 60} hours before` : `${diff} min before`;
+      offset.add(new Option(label, String(diff)));
+    }
+    if (diff >= 0) offset.value = String(diff);
+  }
+  function computeAlarmTime() {
+    if (!due.value) { alarmTime.value = ''; return; }
+    const d = new Date(due.value);
+    d.setMinutes(d.getMinutes() - Number(offset.value || 0));
+    alarmTime.value = toLocal(d);
+  }
+  const alarmHint = $('alarmHint'), ringHint = alarmHint.textContent;
   function syncAlarm() {
     $('alarmOptions').hidden = !alarmOn.checked;
+    // An alarm with no time can't ring, so say so instead of failing quietly
+    const needsTime = alarmOn.checked && !due.value;
+    alarmHint.textContent = needsTime ? 'Turn on Date & time above so the alarm knows when to ring.' : ringHint;
+    alarmHint.classList.toggle('warn', needsTime);
+    computeAlarmTime();
   }
   alarmOn.addEventListener('change', () => {
+    // An alarm needs a time: switch the wheel on for them instead of nagging
+    if (alarmOn.checked && !due.value) {
+      if (wheelReady) setWhen(true);
+      else QM.toast('Add a due date so the alarm knows when to ring.', 'info');
+    }
     syncAlarm();
-    if (alarmOn.checked && !due.value && !alarmTime.value) QM.toast('Pick a due date or an alarm time so it knows when to ring.', 'info');
   });
-  due.addEventListener('change', () => { syncRepeat(); });
-  document.querySelectorAll('[data-alarm]').forEach((b) => b.addEventListener('click', () => {
-    if (!due.value) { QM.toast('Set a due date first, then pick how early to ring.', 'warning'); due.focus(); return; }
-    const d = new Date(due.value);
-    d.setMinutes(d.getMinutes() - Number(b.dataset.alarm));
-    alarmTime.value = toLocal(d);
-    QM.toast(`Alarm set for ${d.toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' })}`, 'success');
-  }));
+  offset.addEventListener('change', computeAlarmTime);
   syncAlarm();
 
-  // Custom sound
-  const file = $('custom-tone-upload');
-  $('pickTone').addEventListener('click', (e) => { e.preventDefault(); file.click(); });
-  file.addEventListener('change', () => {
-    const f = file.files && file.files[0];
-    if (!f) return;
-    if (!f.type.startsWith('audio/')) { QM.toast('Please choose an audio file', 'warning'); file.value = ''; return; }
-    if (f.size > 2 * 1024 * 1024) { QM.toast('That file is bigger than 2 MB', 'warning'); file.value = ''; return; }
-    $('tone-custom').checked = true;
-    $('customToneName').textContent = f.name;
+  // ---------------------------------------------------------------
+  // Save: check the title here, then show a saving state
+  // ---------------------------------------------------------------
+  const title = $('id_title'), titleError = $('titleError'), saveBtn = $('saveBtn');
+  title.addEventListener('input', () => {
+    if (title.value.trim()) { titleError.hidden = true; title.closest('.ios-row').classList.remove('has-error'); }
+  });
+  form.addEventListener('submit', (e) => {
+    if (!title.value.trim()) {
+      e.preventDefault();
+      titleError.hidden = false;
+      title.closest('.ios-row').classList.add('has-error');
+      title.focus();
+      return;
+    }
+    computeAlarmTime();
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    form.setAttribute('aria-busy', 'true');
+  });
+  // Coming back with the Back button can restore a frozen "Saving…" page
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted) { saveBtn.disabled = false; saveBtn.textContent = 'Save'; form.removeAttribute('aria-busy'); }
   });
 
-  // Say it instead (speech to text), fills title, date and priority
+  // ---------------------------------------------------------------
+  // Say it instead (speech to text): fills title, date and priority
+  // ---------------------------------------------------------------
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const voiceBtn = $('voiceBtn'), status = $('voiceStatus');
   if (SR) {
@@ -263,23 +510,31 @@
     rec.lang = navigator.language || 'en-US';
     rec.interimResults = false;
     let listening = false;
-    const say = (text, cls) => { status.hidden = false; status.className = `voice-status ${cls || ''}`; status.textContent = text; };
+    const say = (text, cls) => { status.hidden = false; status.className = `ios-foot voice-status ${cls || ''}`; status.textContent = text; };
     voiceBtn.addEventListener('click', () => (listening ? rec.stop() : rec.start()));
     rec.onstart = () => { listening = true; voiceBtn.classList.add('listening'); say('Listening… say something like "Pay rent tomorrow, important"'); };
     rec.onend = () => { listening = false; voiceBtn.classList.remove('listening'); };
     rec.onerror = (e) => say(e.error === 'not-allowed' ? 'Microphone access is blocked.' : 'Didn\'t catch that. Try again.', 'err');
     rec.onresult = (e) => {
       const text = e.results[0][0].transcript;
-      $('id_title').value = text;
+      title.value = text;
+      title.dispatchEvent(new Event('input'));
       const lower = text.toLowerCase();
       const setPriority = (v) => { const r = document.querySelector(`input[name="priority"][value="${v}"]`); if (r) r.checked = true; };
       if (/urgent|asap|emergency/.test(lower)) setPriority('urgent');
       else if (/important|high priority/.test(lower)) setPriority('high');
       else if (/low priority|whenever/.test(lower)) setPriority('low');
       const d = new Date();
-      if (/tomorrow/.test(lower)) { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); due.value = toLocal(d); }
-      else if (/next week/.test(lower)) { d.setDate(d.getDate() + 7); d.setHours(9, 0, 0, 0); due.value = toLocal(d); }
-      else if (/today|tonight/.test(lower)) { d.setHours(/tonight/.test(lower) ? 21 : 17, 0, 0, 0); due.value = toLocal(d); }
+      let heard = true;
+      if (/tomorrow/.test(lower)) { d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); }
+      else if (/next week/.test(lower)) { d.setDate(d.getDate() + 7); d.setHours(9, 0, 0, 0); }
+      else if (/today|tonight/.test(lower)) { d.setHours(/tonight/.test(lower) ? 21 : 17, 0, 0, 0); }
+      else heard = false;
+      if (heard) {
+        due.value = toLocal(d);
+        if (wheelReady) readDue(true);
+        due.dispatchEvent(new Event('change'));
+      }
       say(`Got it: "${text}"`, 'ok');
     };
   }

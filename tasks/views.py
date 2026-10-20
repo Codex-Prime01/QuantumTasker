@@ -4,6 +4,8 @@ import logging
 import re
 import uuid
 from datetime import timedelta
+from functools import wraps
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -17,6 +19,7 @@ from django.core.files.storage import default_storage
 from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.db.models import Case, Count, IntegerField, Q, When
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -44,6 +47,7 @@ from .models import (
     Category,
     Note,
     PushSubscription,
+    SyncReceipt,
     Task,
     TaskTemplate,
     TemplateItem,
@@ -62,6 +66,33 @@ ALLOWED_TONE_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a', 'aac', 'webm'}
 
 # ===========================================================================
 # Helpers
+# ===========================================================================
+def replay_safe(view):
+    """
+    Changes made offline are sent again later by the app, each with a unique
+    X-QM-Op header. If the same id shows up twice (the first reply got lost),
+    say "done" without doing it again.
+    """
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        op = request.headers.get('X-QM-Op', '')[:64]
+        if request.method != 'POST' or not op or not request.user.is_authenticated:
+            return view(request, *args, **kwargs)
+        if SyncReceipt.objects.filter(user=request.user, op_id=op).exists():
+            return JsonResponse({'success': True, 'duplicate': True})
+        response = view(request, *args, **kwargs)
+        # Only remember it if it actually worked: a redirect after a form, or a JSON reply
+        worked = response.status_code == 302 or (
+            response.status_code < 400 and response.get('Content-Type', '').startswith('application/json')
+        )
+        if worked:
+            SyncReceipt.objects.get_or_create(user=request.user, op_id=op)
+            SyncReceipt.objects.filter(user=request.user, created__lt=timezone.now() - timedelta(days=14)).delete()
+        return response
+    return wrapper
+
+
+# ===========================================================================
 # ===========================================================================
 def _form_errors_to_messages(request, form):
     for field, errors in form.errors.items():
@@ -85,13 +116,32 @@ def _save_custom_tone(request, task):
         return None
 
     if upload.size > settings.MAX_TONE_UPLOAD_BYTES:
-        messages.warning(request, '⚠️ Sound file is too big (max 2 MB), using the classic tone.')
+        max_mb = settings.MAX_TONE_UPLOAD_BYTES // (1024 * 1024)
+        messages.warning(request, f'⚠️ Sound file is too big (max {max_mb} MB), using the classic tone.')
         return None
 
     ext = upload.name.rsplit('.', 1)[-1].lower() if '.' in upload.name else ''
     if ext not in ALLOWED_TONE_EXTENSIONS:
         messages.warning(request, '⚠️ Unsupported sound format, using the classic tone.')
         return None
+
+    if settings.CLOUDINARY_URL:
+        # Cloudinary files sounds under "video". Raw files are capped at
+        # 10 MB on the free plan, video at 100 MB, so songs fit.
+        import cloudinary.uploader
+        try:
+            result = cloudinary.uploader.upload_large(
+                upload,
+                resource_type='video',
+                folder=f'alarm_tones/{request.user.id}',
+                public_id=f'task_{task.id}_{uuid.uuid4().hex[:8]}',
+                filename=upload.name,
+            )
+        except Exception:
+            logger.exception('Ringtone upload failed')
+            messages.warning(request, '⚠️ Could not upload that sound, using the classic tone.')
+            return None
+        return result.get('secure_url') or result.get('url')
 
     filename = f'alarm_tones/{request.user.id}/task_{task.id}_{uuid.uuid4().hex[:8]}.{ext}'
     saved_name = default_storage.save(filename, upload)
@@ -201,6 +251,7 @@ def _quick_add(request):
 
 
 @login_required
+@replay_safe
 def index(request):
     if request.method == 'POST':
         _quick_add(request)
@@ -302,6 +353,7 @@ def index(request):
 
 
 @login_required
+@replay_safe
 def create_task(request):
     if request.method == 'POST':
         form = TaskForm(request.POST, request.FILES)
@@ -335,12 +387,26 @@ def create_task(request):
             'alarm_tone': profile.default_alarm_tone if profile.default_alarm_tone != 'default' else 'classic',
             'alarm_enabled': profile.alarm_enabled,
             'title': request.GET.get('title', '')[:200],
+            'description': request.GET.get('notes', '')[:2000],
         })
 
     return render(request, 'tasks/create.html', {'form': form})
 
 
 @login_required
+def share_target(request):
+    """Text or links shared from another app (the phone's Share menu) open as a new task."""
+    title = (request.GET.get('title') or '').strip()
+    text = (request.GET.get('text') or '').strip()
+    link = (request.GET.get('url') or '').strip()
+    if not title:
+        title = text.splitlines()[0] if text else link
+    notes = '\n'.join(part for part in (text if text != title else '', link if link != title else '') if part)
+    return redirect(f"{reverse('create')}?{urlencode({'title': title[:200], 'notes': notes[:2000]})}")
+
+
+@login_required
+@replay_safe
 def updateTask(request, pk):
     task = get_object_or_404(Task, id=pk, user=request.user)
 
@@ -375,6 +441,7 @@ def updateTask(request, pk):
 
 
 @login_required
+@replay_safe
 def deleteTask(request, pk):
     item = get_object_or_404(Task, id=pk, user=request.user)
     if request.method == 'POST':
@@ -387,11 +454,17 @@ def deleteTask(request, pk):
 
 @login_required
 @require_POST
+@replay_safe
 def quick_toggle_complete(request, pk):
     """Tick / untick a task (AJAX). Points are only ever awarded once per task."""
     with transaction.atomic():
         task = get_object_or_404(Task.objects.select_for_update(), id=pk, user=request.user)
-        task.complete = not task.complete
+        # The app sends the state it wants ({"complete": true}); old callers just flip it
+        wanted = _json_body(request).get('complete')
+        new_state = wanted if isinstance(wanted, bool) else not task.complete
+        if new_state == task.complete:
+            return JsonResponse({'success': True, 'complete': task.complete})
+        task.complete = new_state
         response_data = {'success': True, 'complete': task.complete}
         new_achievements = []
 
@@ -1025,6 +1098,7 @@ def notes_list(request):
 
 
 @login_required
+@replay_safe
 def create_note(request):
     if request.method == 'POST':
         form = NoteForm(request.POST)
@@ -1041,6 +1115,7 @@ def create_note(request):
 
 
 @login_required
+@replay_safe
 def update_note(request, pk):
     note = get_object_or_404(Note, id=pk, user=request.user)
     if request.method == 'POST':
@@ -1229,6 +1304,66 @@ def dismiss_alarm(request, pk):
     task.alarm_snoozed_until = None
     task.save(update_fields=['alarm_dismissed', 'alarm_snoozed_until'])
     return JsonResponse({'success': True})
+
+
+def _alarm_day_label(local):
+    """'Today', 'Tomorrow', 'Wednesday' (this week) or '28 Oct'."""
+    days = (local.date() - timezone.localdate()).days
+    if days == 0:
+        return 'Today'
+    if days == 1:
+        return 'Tomorrow'
+    if 1 < days < 7:
+        return local.strftime('%A')
+    return f'{local.day} {local.strftime("%b")}'
+
+
+@login_required
+def alarms_list(request):
+    """iPhone Clock-style page: every upcoming task with a time, each with an on/off switch."""
+    start, _ = _today_bounds()
+    now = timezone.now()
+    tasks = list(
+        Task.objects.filter(user=request.user, complete=False)
+        .annotate(ring=Coalesce('alarm_time', 'due_date'))
+        .filter(ring__gte=start)
+        .order_by('ring')
+    )
+    for task in tasks:
+        task.day_label = _alarm_day_label(timezone.localtime(task.ring))
+        task.is_past = task.ring <= now
+    return render(request, 'tasks/alarms.html', {
+        'alarms': tasks,
+        'on_count': sum(1 for t in tasks if t.alarm_enabled and not t.is_past),
+    })
+
+
+@login_required
+@require_POST
+@replay_safe
+def toggle_alarm(request, pk):
+    """Flip one alarm on or off from the Alarms page (AJAX)."""
+    enabled = _json_body(request).get('enabled')
+    if not isinstance(enabled, bool):
+        return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+    task = get_object_or_404(Task, id=pk, user=request.user, complete=False)
+    if enabled:
+        if not task.alarm_time:
+            if not task.due_date:
+                return JsonResponse({'success': False, 'error': 'Give this task a time first.'}, status=400)
+            minutes = request.user.profile.alarm_minutes_before or 0
+            task.alarm_time = task.due_date - timedelta(minutes=minutes)
+        if task.alarm_time <= timezone.now():
+            return JsonResponse(
+                {'success': False, 'error': 'That time has already passed. Tap the alarm to pick a new time.'},
+                status=400,
+            )
+        # Turning it back on should ring again, even if it was dismissed before
+        task.alarm_dismissed = False
+        task.alarm_snoozed_until = None
+    task.alarm_enabled = enabled
+    task.save(update_fields=['alarm_enabled', 'alarm_time', 'alarm_dismissed', 'alarm_snoozed_until'])
+    return JsonResponse({'success': True, 'enabled': task.alarm_enabled})
 
 
 # ===========================================================================

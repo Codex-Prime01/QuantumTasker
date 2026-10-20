@@ -1,0 +1,173 @@
+{% extends 'tasks/base.html' %}
+{% block title %}Alarms · Quantum Manager{% endblock %}
+{% block topbar_title %}{% endblock %}
+{% block body_class %}ios-bg hero-3d{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div class="page page-narrow ios-page">
+  <div class="ios-navbar plain">
+    <button class="ios-link" type="button" id="alarmEditBtn" aria-pressed="false" {% if not alarms %}hidden{% endif %}>Edit</button>
+    <span></span>
+    <a class="ios-link ios-plus" href="{% url 'create' %}" aria-label="New alarm"><svg class="icon"><use href="#i-plus"/></svg></a>
+  </div>
+  <h1 class="ios-large-title">Alarms</h1>
+  <p class="ios-meta" id="alarmCount" aria-live="polite">{% if alarms %}{{ on_count }} on{% endif %}</p>
+
+  {% if push_public_key %}
+  <div class="banner accent" data-push-show="off" hidden>
+    <svg class="icon"><use href="#i-bell"/></svg>
+    <div class="banner-body">
+      <div class="banner-title">Alarms are off on this device</div>
+      <div class="banner-text">Turn them on so they ring even when the app is closed.</div>
+    </div>
+    <button class="btn btn-primary btn-sm" type="button" data-push-enable>Turn on</button>
+  </div>
+  <div class="banner danger" data-push-show="blocked" hidden>
+    <svg class="icon"><use href="#i-bell-off"/></svg>
+    <div class="banner-body"><div class="banner-title">Notifications are blocked</div><div class="banner-text">Allow notifications for this site in your browser settings.</div></div>
+  </div>
+  {% endif %}
+
+  {% if alarms %}
+  <ul class="ios-alarms" id="alarmList">
+    {% for t in alarms %}
+    <li class="ios-alarm {% if not t.alarm_enabled or t.is_past %}off{% endif %}" style="--i: {{ forloop.counter0 }}">
+      <a class="ios-swipe-del" href="{% url 'delete' t.id %}" tabindex="-1" aria-hidden="true">Delete</a>
+      <div class="ios-alarm-slide">
+        <a class="ios-alarm-del" href="{% url 'delete' t.id %}" aria-label="Delete “{{ t.title }}”"><span></span></a>
+        <a class="ios-alarm-main" href="{% url 'update' t.id %}">
+          <span class="ios-time">{{ t.ring|date:"g:i" }}<span class="ios-ampm">{{ t.ring|date:"A" }}</span></span>
+          <span class="ios-label">{{ t.title }}<span class="ios-when-text">, {{ t.day_label }}{% if t.is_recurring and t.recurring_frequency != 'none' %} · repeats{% endif %}{% if t.is_past %} · passed{% endif %}</span></span>
+        </a>
+        <label class="switch ios-green">
+          <input type="checkbox" data-alarm-toggle="{% url 'toggle_alarm' t.id %}" {% if t.alarm_enabled %}checked{% endif %} {% if t.is_past and not t.alarm_enabled %}disabled{% endif %} aria-label="Alarm for “{{ t.title }}”">
+          <span class="track"></span>
+        </label>
+        <svg class="icon icon-sm ios-chev ios-edit-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  <p class="ios-foot">Tap an alarm to change it. Swipe left to delete.</p>
+  {% else %}
+  <div class="empty">
+    <div class="empty-art"><svg class="icon"><use href="#i-clock"/></svg></div>
+    <h3>No alarms yet</h3>
+    <p>Give a task a time and it shows up here, with a switch to turn its alarm on or off.</p>
+    <div class="btn-row"><a class="btn btn-primary" href="{% url 'create' %}"><svg class="icon icon-sm"><use href="#i-plus"/></svg>New task</a></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const list = document.getElementById('alarmList');
+  if (!list) return;
+  const countEl = document.getElementById('alarmCount');
+
+  function updateCount() {
+    const on = list.querySelectorAll('.ios-alarm:not(.off)').length;
+    countEl.textContent = `${on} on`;
+  }
+
+  // Flip an alarm on or off right away, then save. If saving fails, flip it back.
+  list.addEventListener('change', async (e) => {
+    const input = e.target.closest('[data-alarm-toggle]');
+    if (!input) return;
+    const row = input.closest('.ios-alarm');
+    const want = input.checked;
+    row.classList.toggle('off', !want);
+    row.setAttribute('aria-busy', 'true');
+    input.disabled = true;
+    try {
+      const res = await QM.post(input.dataset.alarmToggle, { enabled: want });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || (res.status >= 500 ? 'The server is waking up. Try again in a moment.' : 'Could not change that alarm. Try again.'));
+      }
+      updateCount();
+    } catch (err) {
+      // No connection: keep the switch where they put it and sync later
+      const title = row.querySelector('.ios-label').firstChild.textContent.trim();
+      if (err instanceof TypeError && await QM.queue(input.dataset.alarmToggle, { enabled: want }, `Alarm ${want ? 'on' : 'off'}: ${title}`)) {
+        updateCount();
+        QM.toast("Saved on this device. It will sync when you're back online.", 'info');
+        return;
+      }
+      input.checked = !want;
+      row.classList.toggle('off', want);
+      QM.toast(err instanceof TypeError ? 'You seem to be offline. The alarm wasn\'t changed.' : err.message, 'error');
+    } finally {
+      input.disabled = false;
+      row.removeAttribute('aria-busy');
+    }
+  });
+
+  // Edit mode, like the iPhone: red minus buttons appear, switches hide
+  const editBtn = document.getElementById('alarmEditBtn');
+  editBtn.addEventListener('click', () => {
+    const on = !list.classList.contains('editing');
+    list.classList.toggle('editing', on);
+    editBtn.textContent = on ? 'Done' : 'Edit';
+    editBtn.setAttribute('aria-pressed', String(on));
+    closeSwiped();
+  });
+
+  // Swipe left on a row to show Delete (touch only; Edit does the same for mouse and keyboard)
+  const OPEN = -88;
+  let openRow = null;
+  function setX(row, x, animate) {
+    const slide = row.querySelector('.ios-alarm-slide');
+    slide.style.transition = animate ? '' : 'none';
+    slide.style.transform = x ? `translateX(${x}px)` : '';
+    row.classList.toggle('dragging', !animate);
+    row.style.setProperty('--swipe', `${-x}px`);
+    row.classList.toggle('swiped', x === OPEN);
+    row.querySelector('.ios-swipe-del').tabIndex = x === OPEN ? 0 : -1;
+  }
+  function closeSwiped() { if (openRow) { setX(openRow, 0, true); openRow = null; } }
+
+  list.querySelectorAll('.ios-alarm').forEach((row) => {
+    let startX = 0, startY = 0, base = 0, dx = 0, dragging = false, decided = false;
+    const slide = row.querySelector('.ios-alarm-slide');
+    slide.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch' || list.classList.contains('editing')) return;
+      if (openRow && openRow !== row) closeSwiped();
+      startX = e.clientX; startY = e.clientY; base = row.classList.contains('swiped') ? OPEN : 0;
+      dx = 0; dragging = true; decided = false;
+    });
+    slide.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      const mx = e.clientX - startX, my = e.clientY - startY;
+      if (!decided) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        decided = true;
+        // Mostly vertical? That's a page scroll, not a swipe.
+        if (Math.abs(my) > Math.abs(mx)) { dragging = false; return; }
+      }
+      dx = mx;
+      setX(row, Math.max(OPEN - 30, Math.min(0, base + dx)), false);
+    });
+    const end = () => {
+      if (!dragging) return;
+      dragging = false;
+      const x = base + dx;
+      if (x < OPEN / 2) { setX(row, OPEN, true); openRow = row; } else { setX(row, 0, true); if (openRow === row) openRow = null; }
+    };
+    slide.addEventListener('pointerup', end);
+    slide.addEventListener('pointercancel', end);
+    // A swipe shouldn't also count as a tap that opens the task
+    slide.addEventListener('click', (e) => {
+      if (Math.abs(dx) > 8 || row.classList.contains('swiped')) {
+        if (!e.target.closest('input, .switch')) e.preventDefault();
+        if (row.classList.contains('swiped') && Math.abs(dx) <= 8) closeSwiped();
+        dx = 0;
+      }
+    });
+  });
+  document.addEventListener('pointerdown', (e) => { if (openRow && !openRow.contains(e.target)) closeSwiped(); });
+})();
+</script>
+{% endblock %}

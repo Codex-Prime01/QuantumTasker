@@ -5,7 +5,7 @@
   <title>{% block title %}Quantum Manager{% endblock %}</title>
   {% block extra_head %}{% endblock %}
 </head>
-<body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-push-key="{{ push_public_key }}" class="{% block body_class %}{% endblock %}">
+<body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-push-key="{{ push_public_key }}" data-badge="{{ nav_counts.due|default:0 }}" class="{% block body_class %}{% endblock %}">
 {% include 'tasks/_icons.html' %}
 {% csrf_token %}
 <a class="sr-only" href="#main">Skip to content</a>
@@ -39,6 +39,9 @@
       <a class="nav-item {% if url_name == 'list' %}active{% endif %}" href="{% url 'list' %}" {% if url_name == 'list' %}aria-current="page"{% endif %}>
         <svg class="icon"><use href="#i-tasks"/></svg>My Tasks
         {% if nav_counts.tasks %}<span class="count">{{ nav_counts.tasks }}</span>{% endif %}
+      </a>
+      <a class="nav-item {% if url_name == 'alarms' %}active{% endif %}" href="{% url 'alarms' %}" {% if url_name == 'alarms' %}aria-current="page"{% endif %}>
+        <svg class="icon"><use href="#i-clock"/></svg>Alarms
       </a>
       <a class="nav-item {% if url_name == 'notes_list' %}active{% endif %}" href="{% url 'notes_list' %}" {% if url_name == 'notes_list' %}aria-current="page"{% endif %}>
         <svg class="icon"><use href="#i-note"/></svg>Notes
@@ -114,7 +117,7 @@
         </a>
         <details class="menu">
           <summary aria-label="Account menu">{% include 'tasks/_avatar.html' %}</summary>
-          <div class="menu-panel">
+          <div class="menu-panel glass">
             <div class="menu-head">
               <div class="name">{{ user.get_full_name|default:user.username }}</div>
               <div class="email">{{ user.email }}</div>
@@ -152,6 +155,9 @@
     <a href="{% url 'list' %}" class="{% if url_name == 'list' %}active{% endif %}">
       <svg class="icon"><use href="#i-tasks"/></svg>Tasks
     </a>
+    <a href="{% url 'alarms' %}" class="{% if url_name == 'alarms' %}active{% endif %}">
+      <svg class="icon"><use href="#i-clock"/></svg>Alarms
+    </a>
     <a href="{% url 'notes_list' %}" class="{% if url_name == 'notes_list' or url_name == 'archived_notes' %}active{% endif %}">
       <svg class="icon"><use href="#i-note"/></svg>Notes
     </a>
@@ -174,6 +180,8 @@
   {% endfor %}
 </div>
 
+{% if user.is_authenticated %}{{ tone_catalog|json_script:"qm-tones" }}{% endif %}
+<script src="{% static 'tasks/outbox.js' %}"></script>
 <script src="{% static 'tasks/app.js' %}"></script>
 {% block scripts %}{% endblock %}
 </body>

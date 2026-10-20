@@ -156,8 +156,13 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = '/login/'
 LOGIN_REDIRECT_URL = '/'
 
-# Max upload size for custom ringtones (bytes)
-MAX_TONE_UPLOAD_BYTES = 2 * 1024 * 1024
+# Max upload size for custom ringtones (bytes). Songs are usually 3-10 MB.
+# On Cloudinary, sounds are stored as 'video' files (that's how Cloudinary
+# treats audio), which allows up to 100 MB on the free plan.
+MAX_TONE_UPLOAD_BYTES = 25 * 1024 * 1024
+
+# Big uploads: keep them on disk instead of in memory while they come in
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024
 
 # ---------------------------------------------------------------------------
 # REST framework
