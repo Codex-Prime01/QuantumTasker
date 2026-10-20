@@ -76,6 +76,14 @@ phone/computer notifications with **Snooze** and **Got it** buttons while the ap
 is closed. Each person turns this on per device (home screen banner, or
 Settings → Reminders). On iPhone, the app must be added to the Home Screen first.
 
+## Alarm sounds
+
+The 19 built-in sounds live in `tasks/static/tasks/tones/` and are listed in
+`tasks/tones.py`. They were made from scratch by `python manage.py make_tones`
+(needs numpy and ffmpeg, only on your own computer). People can also upload their
+own song (up to 25 MB). With Cloudinary set up, it's stored there as a "video"
+file, because that's how Cloudinary handles audio.
+
 ## Quick add
 
 The box on the home screen understands plain phrases (see `tasks/nlp.py`):

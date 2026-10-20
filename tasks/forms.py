@@ -5,6 +5,8 @@ from .models import Task, Category, UserProfile
 from django.contrib.auth.models import User
 from django.contrib.auth.forms import UserCreationForm
 
+from .tones import TONES, tone_choices
+
 
 # Create your forms here.
 class CustomUserForm(UserCreationForm):
@@ -35,12 +37,8 @@ class CustomUserForm(UserCreationForm):
 DATETIME_LOCAL_FORMAT = '%Y-%m-%dT%H:%M'
 DATETIME_LOCAL_INPUTS = ['%Y-%m-%dT%H:%M', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d %H:%M:%S']
 
-ALARM_TONE_CHOICES = [
-    ('classic', '⏰ Classic Alarm'),
-    ('chime', '🎵 Soft Chime'),
-    ('urgent', '🚨 Urgent Alert'),
-    ('custom', '📁 Upload Custom'),
-]
+# Built-in sounds (grouped) plus "upload your own". See tasks/tones.py
+ALARM_TONE_CHOICES = tone_choices() + [('Your own', [('custom', 'Upload your own sound')])]
 
 
 class TaskForm(forms.ModelForm):
@@ -137,11 +135,11 @@ class TaskForm(forms.ModelForm):
         self.fields['alarm_time'].required = False
 
         # Keep a previously uploaded custom tone selectable when editing
-        tone_choices = list(ALARM_TONE_CHOICES)
+        choices = list(ALARM_TONE_CHOICES)
         current_tone = getattr(self.instance, 'alarm_tone', '') or ''
-        if current_tone and current_tone not in dict(tone_choices) and current_tone != 'default':
-            tone_choices.insert(0, (current_tone, '📁 My uploaded tone'))
-        self.fields['alarm_tone'].widget.choices = tone_choices
+        if current_tone.startswith(('/', 'http')):
+            choices.insert(0, (current_tone, 'My uploaded sound'))
+        self.fields['alarm_tone'].widget.choices = choices
         self.fields['alarm_tone'].required = False
 
     def clean(self):
@@ -153,7 +151,8 @@ class TaskForm(forms.ModelForm):
             else:
                 # Nothing to ring for yet: quietly leave the alarm off
                 cleaned['alarm_enabled'] = False
-        if not cleaned.get('alarm_tone') or cleaned.get('alarm_tone') == 'default':
+        tone = cleaned.get('alarm_tone') or ''
+        if not (tone in TONES or tone == 'custom' or tone.startswith(('/', 'http'))):
             cleaned['alarm_tone'] = 'classic'
         if cleaned.get('recurring_frequency') and cleaned['recurring_frequency'] != 'none':
             cleaned['is_recurring'] = True
@@ -330,9 +329,7 @@ class TaskDefaultsForm(forms.ModelForm):
                 (0, 'At the due time'), (5, '5 minutes before'), (15, '15 minutes before'),
                 (30, '30 minutes before'), (60, '1 hour before'), (1440, '1 day before'),
             ], attrs={'class': 'form-select'}),
-            'default_alarm_tone': forms.Select(choices=[
-                ('classic', 'Classic alarm'), ('chime', 'Soft chime'), ('urgent', 'Urgent alert'),
-            ], attrs={'class': 'form-select'}),
+            'default_alarm_tone': forms.Select(choices=tone_choices(), attrs={'class': 'form-select', 'data-tone-select': ''}),
             'default_priority': forms.Select(attrs={'class': 'form-select'}),
             'default_category': forms.Select(attrs={'class': 'form-select'}),
             'tasks_per_page': forms.NumberInput(attrs={

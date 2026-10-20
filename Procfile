@@ -1,1 +1,1 @@
-web: gunicorn djangoTodo.wsgi:application --bind 0.0.0.0:$PORT
+web: gunicorn djangoTodo.wsgi:application --bind 0.0.0.0:$PORT --timeout 120

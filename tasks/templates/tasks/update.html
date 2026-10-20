@@ -1,20 +1,10 @@
 {% extends 'tasks/base.html' %}
-{% load qm_tags %}
 {% block title %}Edit task · Quantum Manager{% endblock %}
-{% block topbar_title %}Edit task{% endblock %}
+{% block topbar_title %}{% endblock %}
+{% block body_class %}ios-bg{% endblock %}
 {% block fab %}{% endblock %}
 {% block content %}
-<div class="page page-narrow">
-  <a class="back-link" href="{% url 'list' %}"><svg class="icon icon-sm"><use href="#i-arrow-left"/></svg>Tasks</a>
-  <div class="page-head">
-    <div>
-      <h1 class="page-title">Edit task</h1>
-      <p class="page-sub">
-        {% if task.complete %}<span class="pill success"><svg class="icon icon-xs"><use href="#i-check"/></svg>Done</span>{% endif %}
-        Created {% fmt_date task.created %}{% if task.is_overdue %} · <span style="color:var(--danger); font-weight:600">overdue</span>{% endif %}
-      </p>
-    </div>
-  </div>
+<div class="page page-narrow ios-page">
   {% include 'tasks/_task_form.html' %}
 </div>
 {% endblock %}

@@ -17,6 +17,7 @@ from django.core.files.storage import default_storage
 from django.core.mail import EmailMultiAlternatives
 from django.db import transaction
 from django.db.models import Case, Count, IntegerField, Q, When
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -85,13 +86,32 @@ def _save_custom_tone(request, task):
         return None
 
     if upload.size > settings.MAX_TONE_UPLOAD_BYTES:
-        messages.warning(request, '⚠️ Sound file is too big (max 2 MB), using the classic tone.')
+        max_mb = settings.MAX_TONE_UPLOAD_BYTES // (1024 * 1024)
+        messages.warning(request, f'⚠️ Sound file is too big (max {max_mb} MB), using the classic tone.')
         return None
 
     ext = upload.name.rsplit('.', 1)[-1].lower() if '.' in upload.name else ''
     if ext not in ALLOWED_TONE_EXTENSIONS:
         messages.warning(request, '⚠️ Unsupported sound format, using the classic tone.')
         return None
+
+    if settings.CLOUDINARY_URL:
+        # Cloudinary files sounds under "video". Raw files are capped at
+        # 10 MB on the free plan, video at 100 MB, so songs fit.
+        import cloudinary.uploader
+        try:
+            result = cloudinary.uploader.upload_large(
+                upload,
+                resource_type='video',
+                folder=f'alarm_tones/{request.user.id}',
+                public_id=f'task_{task.id}_{uuid.uuid4().hex[:8]}',
+                filename=upload.name,
+            )
+        except Exception:
+            logger.exception('Ringtone upload failed')
+            messages.warning(request, '⚠️ Could not upload that sound, using the classic tone.')
+            return None
+        return result.get('secure_url') or result.get('url')
 
     filename = f'alarm_tones/{request.user.id}/task_{task.id}_{uuid.uuid4().hex[:8]}.{ext}'
     saved_name = default_storage.save(filename, upload)
@@ -1229,6 +1249,65 @@ def dismiss_alarm(request, pk):
     task.alarm_snoozed_until = None
     task.save(update_fields=['alarm_dismissed', 'alarm_snoozed_until'])
     return JsonResponse({'success': True})
+
+
+def _alarm_day_label(local):
+    """'Today', 'Tomorrow', 'Wednesday' (this week) or '28 Oct'."""
+    days = (local.date() - timezone.localdate()).days
+    if days == 0:
+        return 'Today'
+    if days == 1:
+        return 'Tomorrow'
+    if 1 < days < 7:
+        return local.strftime('%A')
+    return f'{local.day} {local.strftime("%b")}'
+
+
+@login_required
+def alarms_list(request):
+    """iPhone Clock-style page: every upcoming task with a time, each with an on/off switch."""
+    start, _ = _today_bounds()
+    now = timezone.now()
+    tasks = list(
+        Task.objects.filter(user=request.user, complete=False)
+        .annotate(ring=Coalesce('alarm_time', 'due_date'))
+        .filter(ring__gte=start)
+        .order_by('ring')
+    )
+    for task in tasks:
+        task.day_label = _alarm_day_label(timezone.localtime(task.ring))
+        task.is_past = task.ring <= now
+    return render(request, 'tasks/alarms.html', {
+        'alarms': tasks,
+        'on_count': sum(1 for t in tasks if t.alarm_enabled and not t.is_past),
+    })
+
+
+@login_required
+@require_POST
+def toggle_alarm(request, pk):
+    """Flip one alarm on or off from the Alarms page (AJAX)."""
+    enabled = _json_body(request).get('enabled')
+    if not isinstance(enabled, bool):
+        return JsonResponse({'success': False, 'error': 'Invalid request'}, status=400)
+    task = get_object_or_404(Task, id=pk, user=request.user, complete=False)
+    if enabled:
+        if not task.alarm_time:
+            if not task.due_date:
+                return JsonResponse({'success': False, 'error': 'Give this task a time first.'}, status=400)
+            minutes = request.user.profile.alarm_minutes_before or 0
+            task.alarm_time = task.due_date - timedelta(minutes=minutes)
+        if task.alarm_time <= timezone.now():
+            return JsonResponse(
+                {'success': False, 'error': 'That time has already passed. Tap the alarm to pick a new time.'},
+                status=400,
+            )
+        # Turning it back on should ring again, even if it was dismissed before
+        task.alarm_dismissed = False
+        task.alarm_snoozed_until = None
+    task.alarm_enabled = enabled
+    task.save(update_fields=['alarm_enabled', 'alarm_time', 'alarm_dismissed', 'alarm_snoozed_until'])
+    return JsonResponse({'success': True, 'enabled': task.alarm_enabled})
 
 
 # ===========================================================================

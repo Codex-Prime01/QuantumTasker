@@ -1,5 +1,7 @@
 from django.conf import settings
 
+from .tones import TONE_GROUPS, tone_catalog
+
 
 def app_context(request):
     """Values every page needs: theme, push key and the sidebar counts."""
@@ -19,6 +21,8 @@ def app_context(request):
         }
     match = getattr(request, 'resolver_match', None)
     return {
+        'tone_groups': TONE_GROUPS,
+        'tone_catalog': tone_catalog() if user is not None and user.is_authenticated else {},
         'qm_theme': theme,
         'qm_profile': profile,
         'push_public_key': settings.VAPID_PUBLIC_KEY,

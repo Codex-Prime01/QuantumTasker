@@ -54,6 +54,8 @@ urlpatterns = [
     path('notes/<int:pk>/convert-to-task/', views.convert_note_to_task, name='convert_note_to_task'),
 
     # Alarms
+    path('alarms/', views.alarms_list, name='alarms'),
+    path('api/toggle-alarm/<int:pk>/', views.toggle_alarm, name='toggle_alarm'),
     path('api/check-due-tasks/', views.check_due_tasks, name='check_due_tasks'),
     path('api/snooze-alarm/<int:pk>/', views.snooze_alarm, name='snooze_alarm'),
     path('api/dismiss-alarm/<int:pk>/', views.dismiss_alarm, name='dismiss_alarm'),

@@ -9,7 +9,7 @@
  *   - Static files (/static/...): cache first. They have hashed names in
  *     production, so a new deploy means new URLs.
  */
-const CACHE_VERSION = 'qm-v4';
+const CACHE_VERSION = 'qm-v8';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline/';
 
@@ -85,7 +85,7 @@ self.addEventListener('push', (event) => {
     const options = {
         body: data.body || '',
         icon: '/static/tasks/icons/icon-192x192.png',
-        badge: '/static/tasks/icons/icon-96x96.png',
+        badge: '/static/tasks/icons/logo-mark.png',
         tag: data.tag || undefined,
         renotify: !!data.tag,
         requireInteraction: !!data.requireInteraction,
