@@ -295,8 +295,10 @@
     const row = input.closest('.task');
     const wanted = input.checked;
     row.classList.toggle('done', wanted);
+    const url = `/quick-toggle/${row.dataset.id}/`;
     try {
-      const res = await QM.post(`/quick-toggle/${row.dataset.id}/`);
+      // Send the state we want, so a change replayed later can't flip it back
+      const res = await QM.post(url, { complete: wanted });
       if (!res.ok) throw new Error('Request failed');
       const data = await res.json();
       row.classList.toggle('done', data.complete);
@@ -307,6 +309,13 @@
       else if (data.message) QM.toast(data.message.split('\n')[0], 'success');
       if (data.complete && row.dataset.recurring === '1') setTimeout(() => window.location.reload(), 1600);
     } catch (err) {
+      // No connection: keep the tick and send it when we're back online
+      const title = row.querySelector('.task-title').textContent.trim();
+      if (err instanceof TypeError && await QM.queue(url, { complete: wanted }, `${wanted ? 'Done' : 'Not done'}: ${title}`)) {
+        updateProgress(row, wanted);
+        QM.toast("Saved on this device. It will sync when you're back online.", 'info');
+        return;
+      }
       input.checked = !wanted;
       row.classList.toggle('done', !wanted);
       QM.toast('Could not update that task. Check your connection.', 'error');

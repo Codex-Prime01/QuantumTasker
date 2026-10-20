@@ -6,6 +6,7 @@ urlpatterns = [
     # Tasks
     path('', views.index, name='list'),
     path('create/', views.create_task, name='create'),
+    path('share/', views.share_target, name='share_target'),
     path('update/<int:pk>/', views.updateTask, name='update'),
     path('delete/<int:pk>/', views.deleteTask, name='delete'),
     path('quick-toggle/<int:pk>/', views.quick_toggle_complete, name='quick_toggle'),

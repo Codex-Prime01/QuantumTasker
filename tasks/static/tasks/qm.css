@@ -1655,3 +1655,18 @@ body[data-auth="0"] .auth-main { background: transparent; }
   @view-transition { navigation: none; }
   .tilt { transform: none; }
 }
+
+/* ---------- Offline pill + changes waiting to sync ---------- */
+.net-pill {
+  position: fixed; z-index: 90; left: 50%; top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px) + 6px); transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 99px;
+  background: color-mix(in srgb, var(--bg-elev) 80%, transparent); border: 1px solid var(--ios-sep);
+  backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: var(--depth-2); font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  animation: toast-in 0.3s var(--ease-spring) both;
+}
+.net-pill.offline { color: var(--warning); }
+.net-pill .spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.pending-group .task { opacity: 0.75; }
+.pending-group .task-check .box { border-style: dashed; }

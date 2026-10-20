@@ -89,6 +89,13 @@
       }
       updateCount();
     } catch (err) {
+      // No connection: keep the switch where they put it and sync later
+      const title = row.querySelector('.ios-label').firstChild.textContent.trim();
+      if (err instanceof TypeError && await QM.queue(input.dataset.alarmToggle, { enabled: want }, `Alarm ${want ? 'on' : 'off'}: ${title}`)) {
+        updateCount();
+        QM.toast("Saved on this device. It will sync when you're back online.", 'info');
+        return;
+      }
       input.checked = !want;
       row.classList.toggle('off', want);
       QM.toast(err instanceof TypeError ? 'You seem to be offline. The alarm wasn\'t changed.' : err.message, 'error');

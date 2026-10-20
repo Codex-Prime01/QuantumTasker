@@ -567,3 +567,20 @@ class PushSubscription(models.Model):
 
     def as_webpush_info(self):
         return {'endpoint': self.endpoint, 'keys': {'p256dh': self.p256dh, 'auth': self.auth}}
+
+
+class SyncReceipt(models.Model):
+    """
+    A change made offline and replayed later carries a unique id. We keep the
+    id for a while so the same change is never applied twice (e.g. when the
+    phone sent it, the server saved it, but the reply got lost).
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sync_receipts')
+    op_id = models.CharField(max_length=64)
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['user', 'op_id'], name='unique_sync_op')]
+
+    def __str__(self):
+        return f'{self.user.username} {self.op_id}'

@@ -189,6 +189,12 @@
   const pad = (n) => String(n).padStart(2, '0');
   const toLocal = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Opened from the Share menu while offline: the saved page can't know the
+  // shared text, so take it from the address bar instead
+  const shared = new URLSearchParams(location.search);
+  if (!$('id_title').value && shared.get('title')) $('id_title').value = shared.get('title');
+  if (!$('id_description').value && shared.get('notes')) $('id_description').value = shared.get('notes');
   const startOfDay = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
   const dayDiff = (a, b) => Math.round((startOfDay(a) - startOfDay(b)) / 86400000);
   const timeText = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });

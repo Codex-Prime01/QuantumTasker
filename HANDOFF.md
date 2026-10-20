@@ -44,8 +44,22 @@ If a chat runs out, start a new one and say: "continue from HANDOFF.md in my Qua
 - **Drum wheel:** `drum()` in `_task_form.html`, plus a vibration tick on Android.
 - Service worker cache is now `qm-v8`.
 
+## Done (Phase 2) ✅ Offline app
+- **Saved pages:** `sw.js` (cache `qm-v9`) saves every page you open, and warms `/`, `/alarms/`, `/create/`, `/notes/`, `/notes/create/` and `/dashboard/` after login. Offline, you get the saved copy.
+- **Outbox:** `tasks/static/tasks/outbox.js` (IndexedDB), used by both the pages and the service worker.
+  - Forms sent offline are caught by the service worker: add, edit and delete a task, quick add, and new or edited notes.
+  - Ticks and alarm switches are queued with `QM.queue` in `app.js`.
+  - It replays on reconnect, on page load, and through Background Sync on Chrome/Android.
+- **No double changes:** every replayed change sends an `X-QM-Op` header. The `@replay_safe` decorator plus the `SyncReceipt` model (migration 0018) apply each one only once. `quick_toggle` now takes `{"complete": bool}` so a replayed tick can't flip back.
+- **Installed-app extras:**
+  - Share target at `/share/`: Android Chrome only, not iPhone.
+  - App badge: `nav_counts.due`, set with `navigator.setAppBadge`.
+  - Shortcuts: New task, Alarms, New note, Templates.
+- **Log out** wipes the saved pages and the outbox, and warns first if changes haven't synced.
+- **Tests:** `tasks/tests/test_offline.py`. 98 tests total pass.
+- **Limit:** alarms created offline only ring with the app closed after they sync.
+
 ## Next phases (agreed order)
-2. Offline PWA (IndexedDB copy of tasks, an outbox that syncs, share-to-Quantum, badge)
 3. Calendar: per-task .ics "Add to Calendar" + a private subscribe feed
 4. Siri / Android shortcuts (personal API key + add-task endpoint)
 5. Extra features: calendar view, "prove you're awake" alarms, subtasks, bedtime mode, shared lists, streak heatmap (NOT the focus timer)

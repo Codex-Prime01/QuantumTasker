@@ -78,13 +78,40 @@
     "shortcuts": [
         {
             "name": "New task",
-            "short_name": "New Task",
-            "description": "Create a new task",
+            "short_name": "New task",
+            "description": "Add a task with a time and alarm",
             "url": "/create/",
             "icons": [
                 {
                     "src": "/static/tasks/icons/icon-96x96.png",
-                    "sizes": "96x96"
+                    "sizes": "96x96",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "Alarms",
+            "short_name": "Alarms",
+            "description": "See and switch your alarms on or off",
+            "url": "/alarms/",
+            "icons": [
+                {
+                    "src": "/static/tasks/icons/icon-96x96.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
+                }
+            ]
+        },
+        {
+            "name": "New note",
+            "short_name": "New note",
+            "description": "Write a quick note",
+            "url": "/notes/create/",
+            "icons": [
+                {
+                    "src": "/static/tasks/icons/icon-96x96.png",
+                    "sizes": "96x96",
+                    "type": "image/png"
                 }
             ]
         },
@@ -96,23 +123,21 @@
             "icons": [
                 {
                     "src": "/static/tasks/icons/icon-96x96.png",
-                    "sizes": "96x96"
-                }
-            ]
-        },
-        {
-            "name": "Achievements",
-            "short_name": "Achievements",
-            "description": "View your achievements",
-            "url": "/achievements/",
-            "icons": [
-                {
-                    "src": "/static/tasks/icons/icon-96x96.png",
-                    "sizes": "96x96"
+                    "sizes": "96x96",
+                    "type": "image/png"
                 }
             ]
         }
     ],
     "id": "/",
-    "scope": "/"
+    "scope": "/",
+    "share_target": {
+        "action": "/share/",
+        "method": "GET",
+        "params": {
+            "title": "title",
+            "text": "text",
+            "url": "url"
+        }
+    }
 }

@@ -752,6 +752,167 @@
   document.querySelectorAll('select[data-tone-select]').forEach((sel) => QM.tonePicker(sel));
 
   // ------------------------------------------------------------------
+  // Offline: changes wait in the outbox (outbox.js) and sync later.
+  // A small pill at the top says how many are waiting.
+  // ------------------------------------------------------------------
+  const Outbox = window.QMOutbox;
+  const SYNC_TAG = 'qm-outbox';
+  let pill = null;
+
+  async function paintPill(state) {
+    if (!loggedIn || !Outbox) return;
+    const waiting = await Outbox.count();
+    const offline = !navigator.onLine;
+    if (!offline && !waiting && state !== 'syncing') { if (pill) pill.hidden = true; return; }
+    if (!pill) {
+      pill = document.createElement('div');
+      pill.className = 'net-pill';
+      pill.setAttribute('role', 'status');
+      pill.setAttribute('aria-live', 'polite');
+      document.body.appendChild(pill);
+    }
+    pill.hidden = false;
+    pill.classList.toggle('offline', offline);
+    const n = waiting ? ` · ${waiting} waiting` : '';
+    pill.innerHTML = state === 'syncing'
+      ? `${icon('refresh', 'icon-xs spin')}Syncing${n}`
+      : offline ? `${icon('wifi-off', 'icon-xs')}Offline${n}` : `${icon('refresh', 'icon-xs')}${waiting} change${waiting === 1 ? '' : 's'} waiting`;
+  }
+  QM.paintPill = paintPill;
+
+  // Save a change for later (used when a tap fails because there's no connection)
+  QM.queue = async function (url, body, label) {
+    if (!Outbox) return false;
+    try {
+      await Outbox.add({ url, kind: 'json', body, csrf: QM.csrf(), label });
+    } catch (err) {
+      console.error('Could not save change offline', err);
+      return false;
+    }
+    if (QM.swReady) {
+      QM.swReady.then((reg) => reg && reg.sync && reg.sync.register(SYNC_TAG)).catch(() => {});
+    }
+    paintPill();
+    return true;
+  };
+
+  function reportSync(report, reload) {
+    if (report.synced) QM.toast(`Synced ${report.synced} change${report.synced === 1 ? '' : 's'} you made offline.`, 'success');
+    report.failed.forEach((f) => QM.toast(`${f.label} couldn't be saved: ${f.error}`, 'error'));
+    if (report.stopped === 'auth') QM.toast('Log in again to send your offline changes.', 'warning');
+    // Show the fresh data, but never yank someone out of a form they're filling in
+    if (reload && (report.synced || report.failed.length) && !document.querySelector('form.ios-form, form.form')) {
+      setTimeout(() => window.location.reload(), 900);
+    }
+  }
+
+  let syncing = false;
+  QM.syncNow = async function () {
+    if (!loggedIn || !Outbox || syncing || !navigator.onLine) return;
+    if (!(await Outbox.count())) { paintPill(); return; }
+    syncing = true;
+    paintPill('syncing');
+    try {
+      reportSync(await Outbox.replay({ csrf: QM.csrf() }), true);
+    } catch (err) {
+      console.error('Sync failed', err);
+    } finally {
+      syncing = false;
+      paintPill();
+    }
+  };
+
+  if (loggedIn && Outbox) {
+    window.addEventListener('online', () => { paintPill(); QM.syncNow(); });
+    window.addEventListener('offline', () => paintPill());
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'OUTBOX_SYNCED') { reportSync(e.data.report, true); paintPill(); }
+      });
+    }
+
+    // Just saved something offline (the service worker sent us here)
+    const params = new URLSearchParams(location.search);
+    if (params.get('queued') === '1') {
+      QM.toast('Saved on this device. It will sync when you\'re back online.', 'info');
+      params.delete('queued');
+      history.replaceState(null, '', location.pathname + (params.toString() ? `?${params}` : '') + location.hash);
+    }
+
+    paintPill();
+    QM.syncNow();
+
+    // Show offline changes on the page straight away, before they sync
+    Outbox.all().then((items) => {
+      const pendingNew = [];
+      items.forEach((op) => {
+        const path = new URL(op.url, location.origin).pathname;
+        const body = op.body || {};
+        let m;
+        if ((m = path.match(/^\/quick-toggle\/(\d+)\/$/))) {
+          const box = document.querySelector(`.task[data-id="${m[1]}"] .task-check input`);
+          if (box) { box.checked = !!body.complete; box.closest('.task').classList.toggle('done', !!body.complete); }
+        } else if ((m = path.match(/^\/delete\/(\d+)\/$/))) {
+          const row = document.querySelector(`.task[data-id="${m[1]}"]`);
+          if (row) row.hidden = true;
+        } else if (path.startsWith('/api/toggle-alarm/')) {
+          const sw = document.querySelector(`[data-alarm-toggle="${path}"]`);
+          if (sw) { sw.checked = !!body.enabled; sw.closest('.ios-alarm').classList.toggle('off', !body.enabled); }
+        } else if ((path === '/' || path === '/create/') && op.kind === 'form') {
+          const title = (op.body.find(([k]) => k === 'title') || [])[1];
+          if (title) pendingNew.push(String(title));
+        }
+      });
+      const anchor = document.querySelector('.task-group, .toolbar');
+      if (pendingNew.length && anchor && location.pathname === '/') {
+        const box = document.createElement('section');
+        box.className = 'task-group pending-group';
+        box.innerHTML = `<h2 class="task-group-head accent">${icon('refresh', 'icon-xs')}Waiting to sync <span class="count">${pendingNew.length}</span></h2>
+          <div class="task-list">${pendingNew.map((t) => `<article class="task pending"><span class="task-check"><span class="box"></span></span>
+          <div class="task-body"><div class="task-title">${escapeHtml(t)}</div><div class="task-meta"><span>Saved on this device</span></div></div></article>`).join('')}</div>`;
+        anchor.parentNode.insertBefore(box, anchor.classList.contains('toolbar') ? anchor.nextSibling : anchor);
+      }
+    }).catch(() => {});
+
+    // Keep the main pages saved so the app opens offline (once per visit)
+    if (navigator.onLine && QM.swReady && !sessionStorage.getItem('qm-warm')) {
+      QM.swReady.then((reg) => {
+        const worker = reg && (reg.active || navigator.serviceWorker.controller);
+        if (!worker) return;
+        worker.postMessage({ type: 'WARM_PAGES', urls: ['/', '/alarms/', '/create/', '/notes/', '/notes/create/', '/dashboard/'] });
+        try { sessionStorage.setItem('qm-warm', '1'); } catch (e) { /* private mode */ }
+      }).catch(() => {});
+    }
+
+    // Log out: wipe the saved pages so the next person on this device can't see them.
+    // Unsynced changes would be lost, so warn first (a second tap goes ahead).
+    document.addEventListener('click', async (e) => {
+      const link = e.target.closest('a[href$="/logout/"]');
+      if (!link) return;
+      e.preventDefault();
+      const waiting = await Outbox.count();
+      if (waiting && !link.dataset.confirmed) {
+        link.dataset.confirmed = '1';
+        QM.toast(`${waiting} offline change${waiting === 1 ? ' hasn\'t' : 's haven\'t'} synced yet. Go online first, or tap Log out again to throw ${waiting === 1 ? 'it' : 'them'} away.`, 'warning');
+        return;
+      }
+      try {
+        await Outbox.clear();
+        const keys = await caches.keys();
+        await Promise.all(keys.filter((k) => k.endsWith('-pages')).map((k) => caches.delete(k)));
+      } catch (err) { console.warn('Could not clear offline data', err); }
+      try { sessionStorage.removeItem('qm-warm'); } catch (err) { /* private mode */ }
+      window.location.href = link.href;
+    });
+  }
+
+  // App icon badge: overdue + due today (Chrome desktop, iPhone home-screen app, some Android)
+  if (loggedIn && 'setAppBadge' in navigator) {
+    const n = Number(body.dataset.badge || 0);
+    (n ? navigator.setAppBadge(n) : navigator.clearAppBadge()).catch(() => {});
+  }
+
+  // ------------------------------------------------------------------
   // 3D depth: cards lean toward the mouse. Mouse only (on touch they
   // press in with CSS instead) and never with "reduce motion" on.
   // ------------------------------------------------------------------

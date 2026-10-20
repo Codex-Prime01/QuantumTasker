@@ -1,17 +1,23 @@
-/*
+{% load static %}/*
  * Quantum Manager service worker.
  *
  * Served from /sw.js (the site root) so it controls every page.
  * Strategy:
- *   - Pages (HTML): network first. Fresh tasks always win; the cached
- *     offline page only shows when there is no connection.
- *   - /api/..., POSTs, admin, auth pages: never cached, always network.
+ *   - Pages (HTML): network first, and a copy is saved. With no connection
+ *     the saved copy shows instead, so the app still opens offline.
+ *   - Forms sent with no connection (add / edit / delete a task, notes):
+ *     saved in the outbox (outbox.js) and sent later, in order.
+ *   - /api/..., admin, auth pages: never cached, always network.
  *   - Static files (/static/...): cache first. They have hashed names in
  *     production, so a new deploy means new URLs.
  */
-const CACHE_VERSION = 'qm-v8';
+importScripts('{% static "tasks/outbox.js" %}');
+
+const CACHE_VERSION = 'qm-v9';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
+const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 const OFFLINE_URL = '/offline/';
+const SYNC_TAG = 'qm-outbox';
 
 self.addEventListener('install', (event) => {
     event.waitUntil(
@@ -37,12 +43,74 @@ function isNeverCached(url) {
         || url.pathname.startsWith('/media/');
 }
 
+// Pages that are about logging in or one-time links: never saved for offline
+const NO_SAVE = /^\/(login|logout|register|verify-email|verification-sent|resend-verification|forgot-password|reset-password|reset-link-sent|share|offline)\b/;
+
+// Forms that can be sent later, and where to land after saving one offline
+const QUEUEABLE = [
+    { path: /^\/$/, label: 'New task', land: '/' },
+    { path: /^\/create\/$/, label: 'New task', land: '/' },
+    { path: /^\/update\/\d+\/$/, label: 'Task edit', land: '/' },
+    { path: /^\/delete\/\d+\/$/, label: 'Delete task', land: '/' },
+    { path: /^\/notes\/create\/$/, label: 'New note', land: '/notes/' },
+    { path: /^\/notes\/\d+\/update\/$/, label: 'Note edit', land: '/notes/' },
+];
+
+function savePage(request, response) {
+    // Only real pages (not a bounce to the login page, not someone else's redirect)
+    const finalUrl = new URL(response.url || request.url);
+    if (!response.ok || response.type !== 'basic' || NO_SAVE.test(finalUrl.pathname)) return;
+    const copy = response.clone();
+    caches.open(PAGES_CACHE).then((cache) => cache.put(request.url, copy));
+}
+
+async function offlinePage(request) {
+    const cache = await caches.open(PAGES_CACHE);
+    // The exact page first, then the same page without filters (?category=...)
+    return (await cache.match(request.url))
+        || (await cache.match(request.url, { ignoreSearch: true }))
+        || (await caches.match(OFFLINE_URL))
+        || new Response('<h1>Offline</h1><p>Check your internet connection and try again.</p>',
+            { headers: { 'Content-Type': 'text/html' } });
+}
+
+async function queueForm(request, rule) {
+    const form = await request.formData();
+    const body = [];
+    form.forEach((value, name) => {
+        // An empty file box isn't worth saving
+        if (value instanceof File && !value.size) return;
+        body.push([name, value]);
+    });
+    const title = form.get('title');
+    await self.QMOutbox.add({
+        url: request.url,
+        kind: 'form',
+        body,
+        csrf: form.get('csrfmiddlewaretoken') || '',
+        label: title ? `${rule.label}: ${String(title).slice(0, 60)}` : rule.label,
+    });
+    if (self.registration.sync) {
+        try { await self.registration.sync.register(SYNC_TAG); } catch (e) { /* the page will sync instead */ }
+    }
+    return Response.redirect(new URL(`${rule.land}?queued=1`, self.location.origin).href, 303);
+}
+
 self.addEventListener('fetch', (event) => {
     const request = event.request;
-    if (request.method !== 'GET') return;
-
     const url = new URL(request.url);
     if (url.origin !== self.location.origin) return;
+
+    // A form sent with no connection: keep it and send it later
+    if (request.method === 'POST' && request.mode === 'navigate') {
+        const rule = QUEUEABLE.find((r) => r.path.test(url.pathname));
+        if (!rule) return;
+        const copy = request.clone();
+        event.respondWith(fetch(request).catch(() => queueForm(copy, rule)));
+        return;
+    }
+
+    if (request.method !== 'GET') return;
     if (isNeverCached(url)) return;
 
     // Static assets: cache first
@@ -59,14 +127,47 @@ self.addEventListener('fetch', (event) => {
         return;
     }
 
-    // Pages: network first, offline page as the fallback
     if (request.mode === 'navigate') {
+        // Shared from another app while offline: open the saved New task page with the text
+        if (url.pathname === '/share/') {
+            event.respondWith(fetch(request).catch(() => {
+                const text = url.searchParams.get('text') || '';
+                const title = url.searchParams.get('title') || text.split('\n')[0] || url.searchParams.get('url') || '';
+                return Response.redirect(new URL(`/create/?${new URLSearchParams({ title, notes: text })}`, self.location.origin).href, 303);
+            }));
+            return;
+        }
+        // Pages: network first (and save a copy), the saved copy when offline
         event.respondWith(
-            fetch(request).catch(() => caches.match(OFFLINE_URL).then((cached) => cached || new Response(
-                '<h1>Offline</h1><p>Check your internet connection and try again.</p>',
-                { headers: { 'Content-Type': 'text/html' } }
-            )))
+            fetch(request).then((response) => { savePage(request, response); return response; })
+                .catch(() => offlinePage(request))
         );
+    }
+});
+
+// Background Sync (Chrome / Edge / Android): send the outbox when the
+// connection comes back, even if the app was closed by then.
+self.addEventListener('sync', (event) => {
+    if (event.tag !== SYNC_TAG) return;
+    event.waitUntil(self.QMOutbox.replay().then(async (report) => {
+        const windows = await self.clients.matchAll({ type: 'window' });
+        windows.forEach((win) => win.postMessage({ type: 'OUTBOX_SYNCED', report }));
+        // Still no connection: throwing asks the browser to try again later
+        if (report.stopped === 'offline' || report.stopped === 'server') throw new Error('retry later');
+    }));
+});
+
+// Pages talk to the worker: save pages for offline use, or wipe them on log out
+self.addEventListener('message', (event) => {
+    const data = event.data || {};
+    if (data.type === 'WARM_PAGES' && Array.isArray(data.urls)) {
+        event.waitUntil(Promise.all(data.urls.map((path) => {
+            const request = new Request(new URL(path, self.location.origin).href, { credentials: 'same-origin' });
+            return fetch(request).then((response) => savePage(request, response)).catch(() => {});
+        })));
+    }
+    if (data.type === 'CLEAR_PAGES') {
+        event.waitUntil(caches.delete(PAGES_CACHE));
     }
 });
 

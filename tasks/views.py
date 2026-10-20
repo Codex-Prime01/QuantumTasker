@@ -4,6 +4,8 @@ import logging
 import re
 import uuid
 from datetime import timedelta
+from functools import wraps
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -45,6 +47,7 @@ from .models import (
     Category,
     Note,
     PushSubscription,
+    SyncReceipt,
     Task,
     TaskTemplate,
     TemplateItem,
@@ -63,6 +66,33 @@ ALLOWED_TONE_EXTENSIONS = {'mp3', 'wav', 'ogg', 'm4a', 'aac', 'webm'}
 
 # ===========================================================================
 # Helpers
+# ===========================================================================
+def replay_safe(view):
+    """
+    Changes made offline are sent again later by the app, each with a unique
+    X-QM-Op header. If the same id shows up twice (the first reply got lost),
+    say "done" without doing it again.
+    """
+    @wraps(view)
+    def wrapper(request, *args, **kwargs):
+        op = request.headers.get('X-QM-Op', '')[:64]
+        if request.method != 'POST' or not op or not request.user.is_authenticated:
+            return view(request, *args, **kwargs)
+        if SyncReceipt.objects.filter(user=request.user, op_id=op).exists():
+            return JsonResponse({'success': True, 'duplicate': True})
+        response = view(request, *args, **kwargs)
+        # Only remember it if it actually worked: a redirect after a form, or a JSON reply
+        worked = response.status_code == 302 or (
+            response.status_code < 400 and response.get('Content-Type', '').startswith('application/json')
+        )
+        if worked:
+            SyncReceipt.objects.get_or_create(user=request.user, op_id=op)
+            SyncReceipt.objects.filter(user=request.user, created__lt=timezone.now() - timedelta(days=14)).delete()
+        return response
+    return wrapper
+
+
+# ===========================================================================
 # ===========================================================================
 def _form_errors_to_messages(request, form):
     for field, errors in form.errors.items():
@@ -221,6 +251,7 @@ def _quick_add(request):
 
 
 @login_required
+@replay_safe
 def index(request):
     if request.method == 'POST':
         _quick_add(request)
@@ -322,6 +353,7 @@ def index(request):
 
 
 @login_required
+@replay_safe
 def create_task(request):
     if request.method == 'POST':
         form = TaskForm(request.POST, request.FILES)
@@ -355,12 +387,26 @@ def create_task(request):
             'alarm_tone': profile.default_alarm_tone if profile.default_alarm_tone != 'default' else 'classic',
             'alarm_enabled': profile.alarm_enabled,
             'title': request.GET.get('title', '')[:200],
+            'description': request.GET.get('notes', '')[:2000],
         })
 
     return render(request, 'tasks/create.html', {'form': form})
 
 
 @login_required
+def share_target(request):
+    """Text or links shared from another app (the phone's Share menu) open as a new task."""
+    title = (request.GET.get('title') or '').strip()
+    text = (request.GET.get('text') or '').strip()
+    link = (request.GET.get('url') or '').strip()
+    if not title:
+        title = text.splitlines()[0] if text else link
+    notes = '\n'.join(part for part in (text if text != title else '', link if link != title else '') if part)
+    return redirect(f"{reverse('create')}?{urlencode({'title': title[:200], 'notes': notes[:2000]})}")
+
+
+@login_required
+@replay_safe
 def updateTask(request, pk):
     task = get_object_or_404(Task, id=pk, user=request.user)
 
@@ -395,6 +441,7 @@ def updateTask(request, pk):
 
 
 @login_required
+@replay_safe
 def deleteTask(request, pk):
     item = get_object_or_404(Task, id=pk, user=request.user)
     if request.method == 'POST':
@@ -407,11 +454,17 @@ def deleteTask(request, pk):
 
 @login_required
 @require_POST
+@replay_safe
 def quick_toggle_complete(request, pk):
     """Tick / untick a task (AJAX). Points are only ever awarded once per task."""
     with transaction.atomic():
         task = get_object_or_404(Task.objects.select_for_update(), id=pk, user=request.user)
-        task.complete = not task.complete
+        # The app sends the state it wants ({"complete": true}); old callers just flip it
+        wanted = _json_body(request).get('complete')
+        new_state = wanted if isinstance(wanted, bool) else not task.complete
+        if new_state == task.complete:
+            return JsonResponse({'success': True, 'complete': task.complete})
+        task.complete = new_state
         response_data = {'success': True, 'complete': task.complete}
         new_achievements = []
 
@@ -1045,6 +1098,7 @@ def notes_list(request):
 
 
 @login_required
+@replay_safe
 def create_note(request):
     if request.method == 'POST':
         form = NoteForm(request.POST)
@@ -1061,6 +1115,7 @@ def create_note(request):
 
 
 @login_required
+@replay_safe
 def update_note(request, pk):
     note = get_object_or_404(Note, id=pk, user=request.user)
     if request.method == 'POST':
@@ -1285,6 +1340,7 @@ def alarms_list(request):
 
 @login_required
 @require_POST
+@replay_safe
 def toggle_alarm(request, pk):
     """Flip one alarm on or off from the Alarms page (AJAX)."""
     enabled = _json_body(request).get('enabled')

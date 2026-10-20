@@ -5,7 +5,7 @@
   <title>{% block title %}Quantum Manager{% endblock %}</title>
   {% block extra_head %}{% endblock %}
 </head>
-<body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-push-key="{{ push_public_key }}" class="{% block body_class %}{% endblock %}">
+<body data-auth="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-push-key="{{ push_public_key }}" data-badge="{{ nav_counts.due|default:0 }}" class="{% block body_class %}{% endblock %}">
 {% include 'tasks/_icons.html' %}
 {% csrf_token %}
 <a class="sr-only" href="#main">Skip to content</a>
@@ -181,6 +181,7 @@
 </div>
 
 {% if user.is_authenticated %}{{ tone_catalog|json_script:"qm-tones" }}{% endif %}
+<script src="{% static 'tasks/outbox.js' %}"></script>
 <script src="{% static 'tasks/app.js' %}"></script>
 {% block scripts %}{% endblock %}
 </body>
