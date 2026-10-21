@@ -1,15 +1,20 @@
 from django.urls import path
 
-from . import views
+from . import list_views, views
 
 urlpatterns = [
     # Tasks
     path('', views.index, name='list'),
     path('create/', views.create_task, name='create'),
     path('share/', views.share_target, name='share_target'),
+    path('calendar/', views.calendar_view, name='calendar_view'),
+    path('api/shortcut/add/', views.shortcut_add, name='shortcut_add'),
+    path('task/<int:pk>/calendar.ics', views.task_ics, name='task_ics'),
+    path('calendar/<str:token>.ics', views.calendar_feed, name='calendar_feed'),
     path('update/<int:pk>/', views.updateTask, name='update'),
     path('delete/<int:pk>/', views.deleteTask, name='delete'),
     path('quick-toggle/<int:pk>/', views.quick_toggle_complete, name='quick_toggle'),
+    path('subtask/<int:pk>/toggle/', views.subtask_toggle, name='subtask_toggle'),
 
     # Auth
     path('register/', views.registerUser, name='register'),
@@ -56,6 +61,18 @@ urlpatterns = [
 
     # Alarms
     path('alarms/', views.alarms_list, name='alarms'),
+    path('bedtime/', views.bedtime, name='bedtime'),
+
+    # Shared lists
+    path('lists/', list_views.lists_index, name='lists'),
+    path('lists/<int:pk>/', list_views.list_detail, name='list_detail'),
+    path('lists/<int:pk>/state/', list_views.list_state, name='list_state'),
+    path('lists/<int:pk>/items/', list_views.list_add_item, name='list_add_item'),
+    path('lists/<int:pk>/clear-done/', list_views.list_clear_done, name='list_clear_done'),
+    path('lists/<int:pk>/manage/', list_views.list_manage, name='list_manage'),
+    path('lists/item/<int:item_id>/toggle/', list_views.list_toggle_item, name='list_toggle_item'),
+    path('lists/item/<int:item_id>/delete/', list_views.list_delete_item, name='list_delete_item'),
+    path('lists/join/<str:token>/', list_views.list_join, name='list_join'),
     path('api/toggle-alarm/<int:pk>/', views.toggle_alarm, name='toggle_alarm'),
     path('api/check-due-tasks/', views.check_due_tasks, name='check_due_tasks'),
     path('api/snooze-alarm/<int:pk>/', views.snooze_alarm, name='snooze_alarm'),

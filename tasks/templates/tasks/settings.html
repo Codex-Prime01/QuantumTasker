@@ -14,6 +14,8 @@
     <button class="tab" role="tab" type="button" id="tab-notifications" data-tab="notifications" aria-controls="panel-notifications" aria-selected="{% if active_tab == 'notifications' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-bell"/></svg>Reminders</button>
     <button class="tab" role="tab" type="button" id="tab-appearance" data-tab="appearance" aria-controls="panel-appearance" aria-selected="{% if active_tab == 'appearance' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-palette"/></svg>Look</button>
     <button class="tab" role="tab" type="button" id="tab-task_defaults" data-tab="task_defaults" aria-controls="panel-task_defaults" aria-selected="{% if active_tab == 'task_defaults' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-sliders"/></svg>New tasks</button>
+    <button class="tab" role="tab" type="button" id="tab-calendar" data-tab="calendar" aria-controls="panel-calendar" aria-selected="{% if active_tab == 'calendar' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-calendar"/></svg>Calendar</button>
+    <button class="tab" role="tab" type="button" id="tab-shortcuts" data-tab="shortcuts" aria-controls="panel-shortcuts" aria-selected="{% if active_tab == 'shortcuts' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-mic"/></svg>Siri &amp; shortcuts</button>
     <button class="tab" role="tab" type="button" id="tab-privacy" data-tab="privacy" aria-controls="panel-privacy" aria-selected="{% if active_tab == 'privacy' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-shield"/></svg>Privacy</button>
     <button class="tab" role="tab" type="button" id="tab-account" data-tab="account" aria-controls="panel-account" aria-selected="{% if active_tab == 'account' %}true{% else %}false{% endif %}"><svg class="icon icon-sm"><use href="#i-user"/></svg>Account</button>
   </div>
@@ -104,16 +106,114 @@
     </form>
   </section>
 
+  <!-- Calendar -->
+  <section class="tab-panel {% if active_tab == 'calendar' %}active{% endif %}" id="panel-calendar" role="tabpanel" aria-labelledby="tab-calendar">
+    <div class="card">
+      <h2 class="card-title"><svg class="icon icon-sm"><use href="#i-calendar"/></svg>Show tasks in your calendar</h2>
+      <p class="card-sub">Subscribe once and every task with a date shows up in your phone's calendar, Google Calendar or Outlook. It keeps itself up to date.</p>
+      {% if calendar_https_url %}
+      <div class="btn-row" style="margin-top:16px">
+        <a class="btn btn-primary" href="{{ calendar_webcal_url }}"><svg class="icon icon-sm"><use href="#i-phone"/></svg>iPhone / Mac Calendar</a>
+        <a class="btn" href="{{ calendar_google_url }}" target="_blank" rel="noopener">Google Calendar</a>
+        <a class="btn" href="{{ calendar_outlook_url }}" target="_blank" rel="noopener">Outlook</a>
+      </div>
+      <div class="field" style="margin-top:16px">
+        <label class="label" for="calendarLink">Or copy your private link</label>
+        <div style="display:flex; gap:8px">
+          <input class="input mono" id="calendarLink" type="text" value="{{ calendar_https_url }}" readonly>
+          <button class="btn" type="button" id="copyCalendarLink">Copy</button>
+        </div>
+        <p class="hint">Anyone with this link can see your task names and times. Don't share it. If you did, make a new one below.</p>
+      </div>
+      <ul class="calendar-notes">
+        <li><strong>How fast it updates:</strong> iPhone checks every 15 minutes to an hour. Google can take several hours. That's up to them, not Quantum.</li>
+        <li><strong>Alarms:</strong> subscribed calendars usually don't ring. For a task that must ring even with no internet, open it and tap <em>Add to Calendar</em>: that copy keeps its alarm.</li>
+      </ul>
+      <form method="post" style="margin-top:16px">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="calendar_reset">
+        <button class="btn btn-danger-ghost btn-sm" type="submit"><svg class="icon icon-sm"><use href="#i-refresh"/></svg>Make a new link (the old one stops working)</button>
+      </form>
+      {% else %}
+      <div class="btn-row" style="margin-top:16px">
+        <a class="btn btn-primary" href="?tab=calendar"><svg class="icon icon-sm"><use href="#i-calendar"/></svg>Get my calendar link</a>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Siri & shortcuts -->
+  <section class="tab-panel {% if active_tab == 'shortcuts' %}active{% endif %}" id="panel-shortcuts" role="tabpanel" aria-labelledby="tab-shortcuts">
+    <div class="card">
+      <h2 class="card-title"><svg class="icon icon-sm"><use href="#i-mic"/></svg>Add tasks by voice</h2>
+      <p class="card-sub">Say <strong>"Hey Siri, add to Quantum"</strong>, then something like <em>"pay rent Friday 6pm, important"</em>. It's saved with the date, time and alarm, just like the box on the home screen.</p>
+
+      {% if new_shortcut_key %}
+      <div class="banner accent" role="status">
+        <svg class="icon"><use href="#i-lock"/></svg>
+        <div class="banner-body">
+          <div class="banner-title">Your shortcut key (shown only once)</div>
+          <div class="banner-text">Copy it now. Quantum only keeps a scrambled version, so it can't show it again.</div>
+        </div>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:10px">
+        <input class="input mono" id="shortcutKey" type="text" value="{{ new_shortcut_key }}" readonly>
+        <button class="btn btn-primary" type="button" data-copy-target="shortcutKey">Copy</button>
+      </div>
+      {% endif %}
+
+      <form method="post" class="btn-row" style="margin-top:16px">
+        {% csrf_token %}
+        {% if has_shortcut_key and not new_shortcut_key %}
+          <span class="pill success"><svg class="icon icon-xs"><use href="#i-check"/></svg>Key is set up</span>
+          <button class="btn btn-sm" type="submit" name="form_type" value="shortcut_create">Make a new key</button>
+          <button class="btn btn-sm btn-danger-ghost" type="submit" name="form_type" value="shortcut_revoke">Remove key</button>
+        {% elif not new_shortcut_key %}
+          <button class="btn btn-primary" type="submit" name="form_type" value="shortcut_create"><svg class="icon icon-sm"><use href="#i-plus"/></svg>Create my shortcut key</button>
+        {% endif %}
+      </form>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title"><svg class="icon icon-sm"><use href="#i-phone"/></svg>iPhone: set it up once</h2>
+      <ol class="steps-plain">
+        <li>Open the <strong>Shortcuts</strong> app and tap <strong>+</strong>.</li>
+        <li>Add <strong>Ask for Input</strong>. Set the question to "What's the task?"</li>
+        <li>Add <strong>Get Contents of URL</strong>. Paste this address:</li>
+      </ol>
+      <div style="display:flex; gap:8px; margin:10px 0 0 38px">
+        <input class="input mono" id="shortcutUrl" type="text" value="{{ shortcut_url }}" readonly>
+        <button class="btn" type="button" data-copy-target="shortcutUrl">Copy</button>
+      </div>
+      <ol class="steps-plain" start="4">
+        <li>Tap <strong>Show More</strong>. Method: <strong>POST</strong>.</li>
+        <li>Headers: add <code>Authorization</code> with the value <code>Bearer</code>, a space, then your key.</li>
+        <li>Request Body: <strong>JSON</strong>. Add a text field named <code>text</code> and pick <strong>Provided Input</strong>.</li>
+        <li>Add <strong>Get Dictionary Value</strong> for the key <code>message</code>, then <strong>Speak Text</strong>.</li>
+        <li>Name the shortcut <strong>Add to Quantum</strong>. Now say "Hey Siri, add to Quantum".</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h2 class="card-title">Android</h2>
+      <ul class="calendar-notes">
+        <li><strong>Share to Quantum:</strong> in any app, tap Share and pick Quantum Manager. It opens as a new task. (Install the app first.)</li>
+        <li><strong>Long-press the app icon</strong> for New task, Alarms and New note.</li>
+        <li><strong>By voice:</strong> apps like <em>HTTP Shortcuts</em> or <em>Tasker</em> can send text to the same address with the same key, and you can start them with "Hey Google".</li>
+      </ul>
+    </div>
+  </section>
+
   <!-- Privacy -->
   <section class="tab-panel {% if active_tab == 'privacy' %}active{% endif %}" id="panel-privacy" role="tabpanel" aria-labelledby="tab-privacy">
     <form method="post" class="card">
       {% csrf_token %}
       <input type="hidden" name="form_type" value="privacy">
       <h2 class="card-title">Privacy</h2>
-      <p class="card-sub">Your tasks and notes are only ever visible to you. These are for sharing features that are on the way.</p>
+      <p class="card-sub">Your tasks and notes are only ever visible to you. These decide what people in your shared lists can see.</p>
       <div style="margin-top:8px">
-        {% include 'tasks/_switch_setting.html' with field=privacy_form.show_email soon=True %}
-        {% include 'tasks/_switch_setting.html' with field=privacy_form.allow_shared_lists soon=True %}
+        {% include 'tasks/_switch_setting.html' with field=privacy_form.show_email %}
+        {% include 'tasks/_switch_setting.html' with field=privacy_form.allow_shared_lists %}
       </div>
       <div class="btn-row" style="margin-top:12px"><button class="btn btn-primary" type="submit">Save</button></div>
     </form>
@@ -187,6 +287,23 @@
     test.classList.remove('loading');
     const data = res ? await res.json().catch(() => ({})) : {};
     QM.toast(data.success ? 'Test sent. It should pop up in a few seconds.' : (data.error || 'Could not send the test'), data.success ? 'success' : 'error');
+  });
+})();
+</script>
+<script>
+// Copy buttons: the calendar link, the shortcut address and key
+(function () {
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('#copyCalendarLink, [data-copy-target]');
+    if (!btn) return;
+    const input = document.getElementById(btn.dataset.copyTarget || 'calendarLink');
+    try {
+      await navigator.clipboard.writeText(input.value);
+      QM.toast('Copied', 'success');
+    } catch (err) {
+      input.select();
+      QM.toast('Press and hold to copy it', 'info');
+    }
   });
 })();
 </script>

@@ -1,0 +1,197 @@
+{% extends 'tasks/base.html' %}
+{% block title %}{{ shared.name }} · Quantum Manager{% endblock %}
+{% block topbar_title %}{% endblock %}
+{% block body_class %}ios-bg{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div class="page page-narrow ios-page">
+  <div class="ios-navbar plain">
+    <a class="ios-link" href="{% url 'lists' %}"><svg class="icon icon-sm"><use href="#i-chevron-left"/></svg>Lists</a>
+    <span></span>
+    <button class="ios-link strong" type="button" id="inviteBtn"><svg class="icon icon-sm"><use href="#i-share"/></svg>&nbsp;Invite</button>
+  </div>
+  <h1 class="ios-large-title"><span aria-hidden="true">{{ shared.emoji }}</span> {{ shared.name }}</h1>
+  <p class="ios-meta" id="listMeta" aria-live="polite"></p>
+
+  <div class="ios-group">
+    <div id="items" aria-label="Items"></div>
+    <form class="ios-row list-add" id="addForm" autocomplete="off">
+      <span class="ios-ico" style="--ico: #30D158"><svg class="icon icon-sm"><use href="#i-plus"/></svg></span>
+      <label class="sr-only" for="newItem">Add an item</label>
+      <input type="text" id="newItem" maxlength="200" placeholder="Add an item" enterkeyhint="done">
+    </form>
+  </div>
+  <div class="btn-row" style="margin-top:10px; justify-content:flex-end">
+    <button class="btn btn-sm btn-ghost" type="button" id="clearDone" hidden>Clear ticked items</button>
+  </div>
+
+  <h2 class="ios-section">People</h2>
+  <div class="ios-group" id="people"></div>
+
+  <h2 class="ios-section">List settings</h2>
+  <div class="ios-group">
+    {% if state.is_owner %}
+    <form method="post" action="{% url 'list_manage' shared.pk %}" class="ios-row list-rename">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="rename">
+      <input type="hidden" name="emoji" value="{{ shared.emoji }}">
+      <label class="sr-only" for="renameList">List name</label>
+      <input type="text" id="renameList" name="name" class="ios-title-input" value="{{ shared.name }}" maxlength="80" style="font-size:16px; font-weight:500">
+      <button class="btn btn-sm" type="submit">Rename</button>
+    </form>
+    <form method="post" action="{% url 'list_manage' shared.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="reset_link">
+      <button class="ios-row ios-add-row" type="submit"><span class="ios-ico" style="--ico: #FF9F0A"><svg class="icon icon-sm"><use href="#i-refresh"/></svg></span><span class="ios-row-label">New invite link<span class="ios-row-sub">The old link stops working</span></span></button>
+    </form>
+    <form method="post" action="{% url 'list_manage' shared.pk %}" id="deleteForm">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="delete">
+      <button class="ios-row ios-danger" type="submit" style="width:100%; border:0; background:transparent; font:inherit">Delete list for everyone</button>
+    </form>
+    {% else %}
+    <form method="post" action="{% url 'list_manage' shared.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="leave">
+      <button class="ios-row ios-danger" type="submit" style="width:100%; border:0; background:transparent; font:inherit">Leave this list</button>
+    </form>
+    {% endif %}
+  </div>
+  {% if state.is_owner %}<p class="ios-foot">Anyone with the invite link can ask to join. Make a new link if it got shared too widely.</p>{% endif %}
+</div>
+
+{{ state|json_script:"listState" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const LIST_ID = {{ shared.pk }};
+  const INVITE_URL = "{{ invite_url|escapejs }}";
+  const MANAGE_URL = "{% url 'list_manage' shared.pk %}";
+  const itemsEl = document.getElementById('items'), peopleEl = document.getElementById('people');
+  const meta = document.getElementById('listMeta'), clearBtn = document.getElementById('clearDone');
+  let state = JSON.parse(document.getElementById('listState').textContent);
+  let busy = 0; // don't let a background refresh overwrite a tap that's still saving
+
+  function render() {
+    itemsEl.textContent = '';
+    state.items.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = `ios-row list-item${item.done ? ' done' : ''}${item.pending ? ' pending' : ''}`;
+      row.innerHTML = `<label class="list-check"><input type="checkbox"><span class="sub-box" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span></label>
+        <span class="ios-row-label"><span class="t"></span><span class="ios-row-sub"></span></span>
+        <button type="button" class="sub-del" aria-label="Remove"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-x"/></svg></button>`;
+      const box = row.querySelector('input');
+      box.checked = item.done;
+      box.disabled = !!item.pending;
+      box.setAttribute('aria-label', item.text);
+      row.querySelector('.t').textContent = item.text; // text, never HTML: it's typed by other people
+      row.querySelector('.ios-row-sub').textContent = item.pending ? 'Saved on this device, waiting to sync' : (item.by ? `${item.done ? 'Ticked' : 'Added'} by ${item.by}` : '');
+      row.querySelector('.sub-del').hidden = !!item.pending;
+      box.addEventListener('change', () => toggle(item, box.checked));
+      row.querySelector('.sub-del').addEventListener('click', () => remove(item));
+      itemsEl.appendChild(row);
+    });
+    const done = state.items.filter((i) => i.done).length;
+    meta.textContent = state.items.length ? `${done} of ${state.items.length} done · ${state.members.length} ${state.members.length === 1 ? 'person' : 'people'}` : 'Nothing here yet. Add the first item below.';
+    clearBtn.hidden = !done;
+
+    peopleEl.textContent = '';
+    state.members.forEach((p) => {
+      const row = document.createElement('div');
+      row.className = 'ios-row';
+      row.innerHTML = `<span class="avatar avatar-sm" aria-hidden="true"></span><span class="ios-row-label"><span class="n"></span><span class="ios-row-sub"></span></span>`;
+      row.querySelector('.avatar').textContent = (p.name || '?').charAt(0).toUpperCase();
+      row.querySelector('.n').textContent = p.name;
+      row.querySelector('.ios-row-sub').textContent = [p.owner ? 'Made this list' : 'Member', p.email].filter(Boolean).join(' · ');
+      if (state.is_owner && !p.owner) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = MANAGE_URL;
+        form.innerHTML = `<input type="hidden" name="csrfmiddlewaretoken"><input type="hidden" name="action" value="remove_member"><input type="hidden" name="user_id"><button class="btn btn-sm btn-danger-ghost" type="submit">Remove</button>`;
+        form.querySelector('[name=csrfmiddlewaretoken]').value = QM.csrf();
+        form.querySelector('[name=user_id]').value = p.id;
+        row.appendChild(form);
+      }
+      peopleEl.appendChild(row);
+    });
+  }
+
+  // Send a change; if there's no connection, keep it in the outbox and show it right away
+  async function send(url, body, label, optimistic) {
+    busy += 1;
+    optimistic();
+    render();
+    try {
+      const res = await QM.post(url, body);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || 'Could not save that. Try again.');
+      if (data.state) state = data.state;
+    } catch (err) {
+      if (!(err instanceof TypeError && await QM.queue(url, body, label))) {
+        QM.toast(err instanceof TypeError ? 'You seem to be offline.' : err.message, 'error');
+        await refresh(true);
+      }
+    } finally {
+      busy -= 1;
+      render();
+    }
+  }
+
+  function toggle(item, done) {
+    if (done) QM.haptic(8);
+    send(`/lists/item/${item.id}/toggle/`, { done }, `${done ? 'Ticked' : 'Unticked'}: ${item.text}`, () => { item.done = done; });
+  }
+  function remove(item) {
+    send(`/lists/item/${item.id}/delete/`, {}, `Removed: ${item.text}`, () => { state.items = state.items.filter((i) => i !== item); });
+  }
+
+  document.getElementById('addForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('newItem');
+    const text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    send(`/lists/${LIST_ID}/items/`, { text }, `Added to list: ${text}`, () => { state.items.push({ id: `new-${Date.now()}`, text, done: false, by: '', pending: true }); });
+  });
+
+  clearBtn.addEventListener('click', () => {
+    send(`/lists/${LIST_ID}/clear-done/`, {}, 'Cleared ticked items', () => { state.items = state.items.filter((i) => !i.done); });
+  });
+
+  document.getElementById('inviteBtn').addEventListener('click', () => {
+    QM.share(`Join my list "${state.name}" on Quantum`, `Tap to join "${state.name}" so we can tick it together:`, INVITE_URL.replace(location.origin, ''));
+  });
+
+  const deleteForm = document.getElementById('deleteForm');
+  if (deleteForm) {
+    // Deleting removes it for everyone: ask for a second tap instead of a pop-up
+    deleteForm.addEventListener('submit', (e) => {
+      const btn = deleteForm.querySelector('button');
+      if (btn.dataset.sure) return;
+      e.preventDefault();
+      btn.dataset.sure = '1';
+      btn.textContent = 'Tap again to delete for everyone';
+      setTimeout(() => { delete btn.dataset.sure; btn.textContent = 'Delete list for everyone'; }, 4000);
+    });
+  }
+
+  // See other people's changes: check every 10 seconds while this page is visible
+  async function refresh(force) {
+    if (busy && !force) return;
+    try {
+      const res = await fetch(`/lists/${LIST_ID}/state/`, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+      if (res.status === 404) { QM.toast('This list was deleted, or you were removed from it.', 'warning'); setTimeout(() => (location.href = '/lists/'), 1500); return; }
+      if (!res.ok) return;
+      const fresh = await res.json();
+      if (fresh.version !== state.version && !busy) { state = fresh; render(); }
+    } catch (err) { /* offline: keep showing what we have */ }
+  }
+  setInterval(() => { if (!document.hidden) refresh(); }, 10000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+
+  render();
+})();
+</script>
+{% endblock %}

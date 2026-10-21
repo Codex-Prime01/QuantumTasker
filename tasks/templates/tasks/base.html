@@ -43,6 +43,12 @@
       <a class="nav-item {% if url_name == 'alarms' %}active{% endif %}" href="{% url 'alarms' %}" {% if url_name == 'alarms' %}aria-current="page"{% endif %}>
         <svg class="icon"><use href="#i-clock"/></svg>Alarms
       </a>
+      <a class="nav-item {% if url_name == 'calendar_view' %}active{% endif %}" href="{% url 'calendar_view' %}" {% if url_name == 'calendar_view' %}aria-current="page"{% endif %}>
+        <svg class="icon"><use href="#i-calendar"/></svg>Calendar
+      </a>
+      <a class="nav-item {% if url_name|among:"lists list_detail list_join" %}active{% endif %}" href="{% url 'lists' %}">
+        <svg class="icon"><use href="#i-layers"/></svg>Shared lists
+      </a>
       <a class="nav-item {% if url_name == 'notes_list' %}active{% endif %}" href="{% url 'notes_list' %}" {% if url_name == 'notes_list' %}aria-current="page"{% endif %}>
         <svg class="icon"><use href="#i-note"/></svg>Notes
         {% if nav_counts.notes %}<span class="count">{{ nav_counts.notes }}</span>{% endif %}

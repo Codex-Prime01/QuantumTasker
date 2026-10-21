@@ -1,0 +1,36 @@
+{% extends 'tasks/base.html' %}
+{% block title %}Shared lists · Quantum Manager{% endblock %}
+{% block topbar_title %}{% endblock %}
+{% block body_class %}ios-bg{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div class="page page-narrow ios-page">
+  <h1 class="ios-large-title" style="margin-top:8px">Shared lists</h1>
+  <p class="ios-meta">Lists you can tick together with family, friends or housemates.</p>
+
+  {% if lists %}
+  <div class="ios-group">
+    {% for item in lists %}
+    <a class="ios-row list-row" href="{% url 'list_detail' item.obj.pk %}">
+      <span class="list-emoji" aria-hidden="true">{{ item.obj.emoji }}</span>
+      <span class="ios-row-label">{{ item.obj.name }}<span class="ios-row-sub">{% if item.total %}{{ item.done }} of {{ item.total }} done{% else %}Empty{% endif %} · {{ item.people }} {% if item.people == 1 %}person{% else %}people{% endif %}{% if not item.mine %} · shared with you{% endif %}</span></span>
+      <svg class="icon icon-sm ios-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <h2 class="ios-section">New list</h2>
+  <form method="post" class="ios-group">
+    {% csrf_token %}
+    <div class="ios-row list-new">
+      <label class="sr-only" for="newListEmoji">Icon</label>
+      <select name="emoji" id="newListEmoji" class="list-emoji-pick" aria-label="Icon">{% for e in emojis %}<option value="{{ e }}">{{ e }}</option>{% endfor %}</select>
+      <label class="sr-only" for="newListName">List name</label>
+      <input type="text" name="name" id="newListName" class="ios-title-input" maxlength="80" placeholder="e.g. Groceries, Lagos trip" required autocomplete="off" enterkeyhint="go">
+      <button class="btn btn-primary btn-sm" type="submit">Create</button>
+    </div>
+  </form>
+  <p class="ios-foot">After you make it, tap <strong>Invite</strong> inside the list to share a link.</p>
+</div>
+{% endblock %}

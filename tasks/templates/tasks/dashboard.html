@@ -44,6 +44,25 @@
     </div>
   </div>
 
+  <section class="card heatmap-card" style="margin-top:16px">
+    <div class="card-head"><div>
+      <h2 class="card-title"><svg class="icon icon-sm" style="color:var(--ios-green)"><use href="#i-flame"/></svg>Your last 20 weeks</h2>
+      <p class="card-sub">{{ heatmap.total }} task{{ heatmap.total|pluralize }} done on {{ heatmap.active_days }} day{{ heatmap.active_days|pluralize }}. Each square is a day.</p>
+    </div></div>
+    <div class="heatmap-scroll">
+      <div class="heatmap" role="img" aria-label="{{ heatmap.total }} tasks finished over the last 20 weeks, on {{ heatmap.active_days }} different days">
+        <div class="hm-days" aria-hidden="true"><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span><span></span></div>
+        {% for week in heatmap.weeks %}
+        <div class="hm-week" style="--w: {{ forloop.counter0 }}">
+          <span class="hm-month" aria-hidden="true">{{ week.month }}</span>
+          {% for day in week.days %}<span class="hm-day l{{ day.level }}{% if day.future %} future{% endif %}{% if day.today %} today{% endif %}" title="{% if not day.future %}{{ day.count }} done · {{ day.date|date:'D j M' }}{% endif %}"></span>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="hm-legend" aria-hidden="true">Less <span class="hm-day l0"></span><span class="hm-day l1"></span><span class="hm-day l2"></span><span class="hm-day l3"></span><span class="hm-day l4"></span> More</div>
+  </section>
+
   <div class="grid-2" style="margin-top:16px">
     <section class="card">
       <div class="card-head"><div>

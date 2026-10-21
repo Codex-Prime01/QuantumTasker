@@ -295,6 +295,7 @@
     const row = input.closest('.task');
     const wanted = input.checked;
     row.classList.toggle('done', wanted);
+    if (wanted) QM.haptic(10);
     const url = `/quick-toggle/${row.dataset.id}/`;
     try {
       // Send the state we want, so a change replayed later can't flip it back
@@ -322,10 +323,37 @@
     }
   });
 
+  // Tick a checklist item inside a task (works offline too)
+  document.addEventListener('change', async (e) => {
+    const box = e.target.closest('[data-subtask]');
+    if (!box) return;
+    const row = box.closest('.task');
+    const wanted = box.checked;
+    if (wanted) QM.haptic(6);
+    const paint = () => {
+      const all = row.querySelectorAll('[data-subtask]');
+      const done = row.querySelectorAll('[data-subtask]:checked').length;
+      const badge = row.querySelector('[data-sub-progress]');
+      if (badge) { badge.querySelector('span').textContent = `${done}/${all.length}`; badge.classList.toggle('all', done === all.length); }
+    };
+    paint();
+    const url = `/subtask/${box.dataset.subtask}/toggle/`;
+    try {
+      const res = await QM.post(url, { done: wanted });
+      if (!res.ok) throw new Error('Request failed');
+    } catch (err) {
+      const label = box.closest('label').querySelector('.t').textContent.trim();
+      if (err instanceof TypeError && await QM.queue(url, { done: wanted }, `${wanted ? 'Ticked' : 'Unticked'}: ${label}`)) return;
+      box.checked = !wanted;
+      paint();
+      QM.toast('Could not update that item. Check your connection.', 'error');
+    }
+  });
+
   // Open a task to see notes and actions
   document.addEventListener('click', (e) => {
     const body = e.target.closest('.task-body');
-    if (!body || e.target.closest('a, button')) return;
+    if (!body || e.target.closest('a, button, .task-checklist')) return;
     const row = body.closest('.task');
     const open = !row.classList.contains('open');
     row.classList.toggle('open', open);

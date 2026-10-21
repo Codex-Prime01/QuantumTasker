@@ -13,6 +13,21 @@
   <h1 class="ios-large-title">Alarms</h1>
   <p class="ios-meta" id="alarmCount" aria-live="polite">{% if alarms %}{{ on_count }} on{% endif %}</p>
 
+  <h2 class="ios-section">Sleep | Wake Up</h2>
+  <div class="ios-group">
+    <a class="ios-row" href="{% url 'bedtime' %}">
+      <span class="ios-ico" style="--ico: #5E5CE6"><svg class="icon icon-sm"><use href="#i-moon"/></svg></span>
+      {% if bedtime_profile.bedtime_enabled %}
+      <span class="ios-row-label">{{ bedtime_profile.bedtime|time:"g:i A" }} – {{ bedtime_profile.wake_time|time:"g:i A" }}<span class="ios-row-sub">Every day{% if bedtime_profile.wind_down_minutes %} · wind down {{ bedtime_profile.wind_down_minutes }} min before{% endif %}</span></span>
+      <span class="pill success">On</span>
+      {% else %}
+      <span class="ios-row-label">Set up bedtime<span class="ios-row-sub">A wind-down reminder and a daily wake-up alarm</span></span>
+      {% endif %}
+      <svg class="icon icon-sm ios-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+    </a>
+  </div>
+  {% if alarms %}<h2 class="ios-section">Other</h2>{% endif %}
+
   {% if push_public_key %}
   <div class="banner accent" data-push-show="off" hidden>
     <svg class="icon"><use href="#i-bell"/></svg>
@@ -79,6 +94,7 @@
     const row = input.closest('.ios-alarm');
     const want = input.checked;
     row.classList.toggle('off', !want);
+    QM.haptic(8);
     row.setAttribute('aria-busy', 'true');
     input.disabled = true;
     try {
@@ -129,32 +145,51 @@
   }
   function closeSwiped() { if (openRow) { setX(openRow, 0, true); openRow = null; } }
 
+  // Past the edge the row still moves, but less and less (like iOS), instead of a hard stop
+  function rubberband(over, size) { return (over * size * 0.55) / (size + 0.55 * Math.abs(over)); }
+  // Where a flick would come to rest, from its speed (Apple's scroll-style projection)
+  function project(velocity) { const d = 0.998; return (velocity / 1000) * d / (1 - d); }
+
   list.querySelectorAll('.ios-alarm').forEach((row) => {
     let startX = 0, startY = 0, base = 0, dx = 0, dragging = false, decided = false;
+    let samples = []; // recent [time, x] points, to work out the finger's speed at release
     const slide = row.querySelector('.ios-alarm-slide');
     slide.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch' || list.classList.contains('editing')) return;
       if (openRow && openRow !== row) closeSwiped();
       startX = e.clientX; startY = e.clientY; base = row.classList.contains('swiped') ? OPEN : 0;
-      dx = 0; dragging = true; decided = false;
+      dx = 0; dragging = true; decided = false; samples = [[e.timeStamp, e.clientX]];
     });
     slide.addEventListener('pointermove', (e) => {
       if (!dragging) return;
       const mx = e.clientX - startX, my = e.clientY - startY;
       if (!decided) {
-        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        if (Math.abs(mx) < 10 && Math.abs(my) < 10) return; // ~10px before picking a direction
         decided = true;
         // Mostly vertical? That's a page scroll, not a swipe.
         if (Math.abs(my) > Math.abs(mx)) { dragging = false; return; }
+        slide.setPointerCapture(e.pointerId); // keep following the finger even off the row
       }
       dx = mx;
-      setX(row, Math.max(OPEN - 30, Math.min(0, base + dx)), false);
+      samples.push([e.timeStamp, e.clientX]);
+      if (samples.length > 5) samples.shift();
+      // 1:1 with the finger inside the range, soft resistance outside it
+      let x = base + dx;
+      if (x > 0) x = rubberband(x, 120);
+      else if (x < OPEN) x = OPEN - rubberband(OPEN - x, 120);
+      setX(row, x, false);
     });
     const end = () => {
       if (!dragging) return;
       dragging = false;
-      const x = base + dx;
-      if (x < OPEN / 2) { setX(row, OPEN, true); openRow = row; } else { setX(row, 0, true); if (openRow === row) openRow = null; }
+      if (!decided) return;
+      const [t0, x0] = samples[0], [t1, x1] = samples[samples.length - 1];
+      const velocity = t1 > t0 ? ((x1 - x0) / (t1 - t0)) * 1000 : 0; // px per second
+      // Land where the flick was heading, not where the finger let go
+      const landing = base + dx + project(velocity);
+      const open = landing < OPEN / 2;
+      setX(row, open ? OPEN : 0, true);
+      if (open) { openRow = row; QM.haptic(6); } else if (openRow === row) openRow = null;
     };
     slide.addEventListener('pointerup', end);
     slide.addEventListener('pointercancel', end);

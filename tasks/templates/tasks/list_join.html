@@ -1,0 +1,28 @@
+{% extends 'tasks/base.html' %}
+{% block title %}Join a list · Quantum Manager{% endblock %}
+{% block topbar_title %}{% endblock %}
+{% block body_class %}ios-bg{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div class="page page-narrow ios-page">
+  <div class="confirm">
+    <div class="list-join-emoji" aria-hidden="true">{{ shared.emoji }}</div>
+    <h1>Join "{{ shared.name }}"?</h1>
+    <p>{{ shared.owner.get_full_name|default:shared.owner.username }} invited you to tick this list together.</p>
+    {% if allowed %}
+    <form method="post" class="btn-row">
+      {% csrf_token %}
+      <a class="btn" href="{% url 'lists' %}">Not now</a>
+      <button class="btn btn-primary" type="submit"><svg class="icon icon-sm"><use href="#i-check"/></svg>Join list</button>
+    </form>
+    {% else %}
+    <div class="banner warning" style="text-align:left">
+      <svg class="icon"><use href="#i-shield"/></svg>
+      <div class="banner-body"><div class="banner-title">Shared lists are off for you</div>
+      <div class="banner-text">Turn on "Shared lists" in Settings → Privacy, then open the link again.</div></div>
+      <a class="btn btn-sm" href="{% url 'userp_settings' %}?tab=privacy">Settings</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
