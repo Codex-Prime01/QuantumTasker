@@ -87,6 +87,8 @@ def alarm_payload(task):
         'tag': f'task-{task.id}',
         'actionToken': make_action_token(task.id, task.user_id),
         'requireInteraction': True,
+        # No "Got it" button on the notification: it has to be stopped in the app
+        'wakeCheck': task.wake_check,
     }
 
 

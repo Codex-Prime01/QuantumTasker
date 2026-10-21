@@ -26,12 +26,21 @@
         <span><span class="cdot" style="--c: {{ category.color }}"></span>{{ category.name }}</span>
       {% endfor %}
       {% if task.description %}<span><svg class="icon icon-xs"><use href="#i-file"/></svg>Notes</span>{% endif %}
+      {% with cl=task.checklist %}{% if cl.total %}<span class="sub-progress {% if cl.done == cl.total %}all{% endif %}" data-sub-progress><svg class="icon icon-xs"><use href="#i-check-circle"/></svg><span>{{ cl.done }}/{{ cl.total }}</span></span>{% endif %}{% endwith %}
     </div>
 
     <div class="task-more" id="more-{{ task.id }}">
+      {% with cl=task.checklist %}{% if cl.total %}
+      <ul class="task-checklist" aria-label="Checklist">
+        {% for s in cl.items %}
+        <li><label><input type="checkbox" data-subtask="{{ s.id }}" {% if s.done %}checked{% endif %}><span class="sub-box" aria-hidden="true"><svg class="icon"><use href="#i-check"/></svg></span><span class="t">{{ s.title }}</span></label></li>
+        {% endfor %}
+      </ul>
+      {% endif %}{% endwith %}
       {% if task.description %}<div class="task-desc">{{ task.description }}</div>{% endif %}
       <div class="task-actions">
         <a class="btn btn-sm" href="{% url 'update' task.id %}"><svg class="icon icon-sm"><use href="#i-edit"/></svg>Edit</a>
+        {% if task.due_date %}<a class="btn btn-sm" href="{% url 'task_ics' task.id %}" download><svg class="icon icon-sm"><use href="#i-calendar"/></svg>Add to Calendar</a>{% endif %}
         <button class="btn btn-sm" type="button"
           data-share-title="A task from Quantum Manager"
           data-share-text="{{ task.title }}{% if task.due_date %} · due {% when task.due_date %}{% endif %}"

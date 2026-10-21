@@ -49,7 +49,8 @@ class TaskForm(forms.ModelForm):
         fields = ['title', 'description','due_date','priority', 'categories',  'is_recurring', 'recurring_frequency', 'recurring_interval',
         'alarm_enabled',    
         'alarm_time',   
-        'alarm_tone']
+        'alarm_tone',
+        'wake_check']
         widgets = {
             'categories': forms.CheckboxSelectMultiple(attrs={'class': 'chip-input'}),
             'description' : forms.Textarea(attrs={
@@ -93,6 +94,7 @@ class TaskForm(forms.ModelForm):
                 'class': 'form-select',
                 'id': 'id_alarm_tone'
             }),
+            'wake_check': forms.CheckboxInput(attrs={'id': 'id_wake_check'}),
 
             
         }
@@ -374,12 +376,12 @@ class PrivacySettingsForm(forms.ModelForm):
             'allow_shared_lists': forms.CheckboxInput(attrs={'class': 'toggle-checkbox'}),
         }
         labels = {
-            'show_email': 'Show Email Publicly',
-            'allow_shared_lists': 'Allow Shared Lists',
+            'show_email': 'Show my email',
+            'allow_shared_lists': 'Shared lists',
         }
         help_texts = {
-            'show_email': 'Make your email visible to other users',
-            'allow_shared_lists': 'Enable collaboration features',
+            'show_email': 'People in your shared lists can see your email',
+            'allow_shared_lists': 'Let people add you to their shared lists',
         }
         
 
@@ -406,4 +408,4 @@ class NoteForm(forms.ModelForm):
             'is_pinned': forms.CheckboxInput(attrs={
                 'class': 'form-checkbox'
             })
-        }
+        }

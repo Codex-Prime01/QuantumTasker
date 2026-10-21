@@ -2,9 +2,23 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
 import uuid
-from datetime import timedelta
+from datetime import time as dt_time, timedelta
 
 # Create your models here.
+class Subtask(models.Model):
+    """One line of a task's checklist (e.g. "Eggs" inside "Shopping")."""
+    task = models.ForeignKey('Task', on_delete=models.CASCADE, related_name='subtasks')
+    title = models.CharField(max_length=200)
+    done = models.BooleanField(default=False)
+    position = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['position', 'id']
+
+    def __str__(self):
+        return self.title
+
+
 class Category(models.Model):
     name = models.CharField(max_length=50, unique=True)
     color = models.CharField(max_length=7, default='#00f5ff')
@@ -72,6 +86,11 @@ class Task(models.Model):
     alarm_tone = models.CharField(max_length=500, default='classic', help_text="Built-in tone name or URL of an uploaded sound")
     alarm_snoozed_until = models.DateTimeField(null=True, blank=True)
     alarm_dismissed = models.BooleanField(default=False)
+    # "Prove you're awake": the alarm only stops after solving a quick sum
+    wake_check = models.BooleanField(default=False)
+    # Normal task, or one of the daily alarms Bedtime mode looks after for you
+    KIND_CHOICES = [('task', 'Task'), ('bedtime', 'Bedtime reminder'), ('wake', 'Wake-up alarm')]
+    kind = models.CharField(max_length=10, choices=KIND_CHOICES, default='task')
     # The ring time we last sent a push/email for, so each ring is sent once
     last_reminded_ring = models.DateTimeField(null=True, blank=True)
 
@@ -95,6 +114,12 @@ class Task(models.Model):
         return False
 
     
+    @property
+    def checklist(self):
+        """Checklist items plus how many are ticked (uses prefetched subtasks if loaded)."""
+        items = list(self.subtasks.all())
+        return {'items': items, 'done': sum(1 for s in items if s.done), 'total': len(items)}
+
     def create_next_occurrence(self):
         """Create the next occurrence of this recurring task"""
         if not self.is_recurring or self.recurring_frequency == 'none':
@@ -124,8 +149,14 @@ class Task(models.Model):
             alarm_enabled=self.alarm_enabled and next_alarm_time is not None,
             alarm_time=next_alarm_time,
             alarm_tone=self.alarm_tone,
+            wake_check=self.wake_check,
+            kind=self.kind,
         )
         next_task.categories.set(self.categories.all())
+        # The checklist comes along, all unticked again
+        Subtask.objects.bulk_create([
+            Subtask(task=next_task, title=s.title, position=s.position) for s in self.subtasks.all()
+        ])
 
         self.next_occurrence_created = True
         self.save(update_fields=['next_occurrence_created'])
@@ -282,6 +313,26 @@ class UserProfile(models.Model):
     # The user's timezone (from their browser), used for daily summary emails
     timezone = models.CharField(max_length=64, blank=True, default='')
     last_summary_date = models.DateField(null=True, blank=True)
+
+    # Secret part of the private calendar link. Made the first time it's needed
+    # (a default here would give every existing user the SAME link in the migration).
+    calendar_token = models.CharField(max_length=64, null=True, blank=True, unique=True)
+    # Hash of the personal key used by Siri / Android shortcuts (the key itself is shown once)
+    shortcut_key_hash = models.CharField(max_length=64, null=True, blank=True, unique=True)
+
+    # Bedtime mode (like the iPhone's Sleep | Wake Up)
+    bedtime_enabled = models.BooleanField(default=False)
+    bedtime = models.TimeField(default=dt_time(23, 0))
+    wake_time = models.TimeField(default=dt_time(7, 0))
+    wind_down_minutes = models.PositiveIntegerField(default=30)
+    wake_check_on_wake = models.BooleanField(default=False)
+
+    def get_calendar_token(self, reset=False):
+        import secrets
+        if reset or not self.calendar_token:
+            self.calendar_token = secrets.token_urlsafe(24)
+            self.save(update_fields=['calendar_token'])
+        return self.calendar_token
 
     THEME_CHOICES = [
         ('blue', 'Blue'),
@@ -567,6 +618,51 @@ class PushSubscription(models.Model):
 
     def as_webpush_info(self):
         return {'endpoint': self.endpoint, 'keys': {'p256dh': self.p256dh, 'auth': self.auth}}
+
+
+def _invite_token():
+    import secrets
+    return secrets.token_urlsafe(18)
+
+
+class SharedList(models.Model):
+    """A checklist several people can see and tick (groceries, a trip, chores)."""
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_lists')
+    name = models.CharField(max_length=80)
+    emoji = models.CharField(max_length=8, default='🛒')
+    members = models.ManyToManyField(User, related_name='shared_lists', blank=True)
+    # Secret part of the invite link; resetting it makes old links stop working
+    invite_token = models.CharField(max_length=40, unique=True, default=_invite_token)
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated']
+
+    def __str__(self):
+        return self.name
+
+    def can_use(self, user):
+        return user.is_authenticated and (self.owner_id == user.id or self.members.filter(id=user.id).exists())
+
+    @classmethod
+    def visible_to(cls, user):
+        return cls.objects.filter(models.Q(owner=user) | models.Q(members=user)).distinct()
+
+
+class ListItem(models.Model):
+    shared_list = models.ForeignKey(SharedList, on_delete=models.CASCADE, related_name='items')
+    text = models.CharField(max_length=200)
+    done = models.BooleanField(default=False)
+    added_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='+')
+    done_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    created = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['done', 'created']
+
+    def __str__(self):
+        return self.text
 
 
 class SyncReceipt(models.Model):

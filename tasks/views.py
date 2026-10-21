@@ -1,9 +1,12 @@
+import hashlib
 import hmac
 import json
 import logging
 import re
+import secrets
 import uuid
-from datetime import timedelta
+import zoneinfo
+from datetime import date, datetime, timedelta
 from functools import wraps
 from urllib.parse import urlencode
 
@@ -25,6 +28,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import date_format
 from django.utils.html import strip_tags
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
@@ -41,12 +45,13 @@ from .forms import (
     TaskForm,
     UserUpdateForm,
 )
-from . import nlp, notify
+from . import ical, nlp, notify
 from .models import (
     Achievement,
     Category,
     Note,
     PushSubscription,
+    Subtask,
     SyncReceipt,
     Task,
     TaskTemplate,
@@ -210,20 +215,17 @@ def _today_bounds():
     return start, start + timedelta(days=1)
 
 
-def _quick_add(request):
+def _create_from_text(user, raw):
     """
-    The one-line "Add a task" box on the home screen. Understands phrases like
-    "Call mum tomorrow 7pm", "Pay rent every month !!" (see nlp.py).
+    Turn one line like "Call mum tomorrow 7pm" or "Pay rent every month !!"
+    into a task (see nlp.py). Returns (task, a sentence describing it).
+    Used by the home screen box and by Siri / Android shortcuts.
     """
-    raw = request.POST.get('title', '').strip()
-    if not raw:
-        messages.error(request, 'Type something to add first.')
-        return
-    profile = request.user.profile
+    profile = user.profile
     parsed = nlp.parse(raw[:300], timezone.localtime())
 
     task = Task(
-        user=request.user,
+        user=user,
         title=parsed.title[:200],
         priority=parsed.priority or profile.default_priority or 'medium',
         due_date=parsed.due,
@@ -247,6 +249,16 @@ def _quick_add(request):
     message = ' · '.join(bits)
     if task.alarm_enabled:
         message += '. I\'ll remind you.'
+    return task, message
+
+
+def _quick_add(request):
+    """The one-line "Add a task" box on the home screen."""
+    raw = request.POST.get('title', '').strip()
+    if not raw:
+        messages.error(request, 'Type something to add first.')
+        return
+    _task, message = _create_from_text(request.user, raw)
     messages.success(request, message)
 
 
@@ -257,7 +269,7 @@ def index(request):
         _quick_add(request)
         return redirect(request.get_full_path())
 
-    all_tasks = Task.objects.filter(user=request.user)
+    all_tasks = Task.objects.filter(user=request.user, kind='task')
     tasks = all_tasks
     profile = request.user.profile
     start_today, start_tomorrow = _today_bounds()
@@ -310,7 +322,7 @@ def index(request):
         tasks = tasks.order_by('created') if order == 'asc' else tasks.order_by('-created')
 
     from django.core.paginator import Paginator
-    paginator = Paginator(tasks.prefetch_related('categories'), max(5, profile.tasks_per_page or 20))
+    paginator = Paginator(tasks.prefetch_related('categories', 'subtasks'), max(5, profile.tasks_per_page or 20))
     page = paginator.get_page(request.GET.get('page'))
 
     # Today's numbers for the header
@@ -352,6 +364,14 @@ def index(request):
     return render(request, 'tasks/index.html', context)
 
 
+def _due_from_query(value):
+    """?due=2026-10-21T09:00 (from the calendar) -> an aware datetime, or None."""
+    try:
+        return timezone.make_aware(datetime.fromisoformat(value)) if value else None
+    except ValueError:
+        return None
+
+
 @login_required
 @replay_safe
 def create_task(request):
@@ -367,6 +387,7 @@ def create_task(request):
                     task.alarm_time = task.due_date - timedelta(minutes=profile.alarm_minutes_before or 0)
                 task.save()  # need an id before naming the ringtone file
                 form.save_m2m()
+                _save_subtasks(task, request.POST.get('subtasks_json'))
 
                 if task.alarm_tone == 'custom':
                     tone_url = _save_custom_tone(request, task)
@@ -388,9 +409,158 @@ def create_task(request):
             'alarm_enabled': profile.alarm_enabled,
             'title': request.GET.get('title', '')[:200],
             'description': request.GET.get('notes', '')[:2000],
+            'due_date': _due_from_query(request.GET.get('due', '')),
         })
 
-    return render(request, 'tasks/create.html', {'form': form})
+    return render(request, 'tasks/create.html', {
+        'form': form,
+        'subtasks_initial': _subtasks_from_post(request) if request.method == 'POST' else [],
+    })
+
+
+MAX_SUBTASKS = 50
+
+
+def _subtasks_from_post(request):
+    """The checklist the form sent, as a clean list (bad or missing data -> empty)."""
+    try:
+        items = json.loads(request.POST.get('subtasks_json') or '[]')
+    except ValueError:
+        return []
+    clean = []
+    for item in items if isinstance(items, list) else []:
+        if not isinstance(item, dict):
+            continue
+        title = str(item.get('title') or '').strip()[:200]
+        if title:
+            sid = item.get('id')
+            clean.append({'id': sid if isinstance(sid, int) else None, 'title': title, 'done': bool(item.get('done'))})
+    return clean[:MAX_SUBTASKS]
+
+
+def _save_subtasks(task, raw):
+    """
+    Make the task's checklist match what the form sent: update the ones it
+    kept, add new ones, delete the ones that were removed.
+    `raw` is None when the form had no checklist at all; then nothing changes.
+    """
+    if raw is None:
+        return
+    try:
+        items = json.loads(raw or '[]')
+    except ValueError:
+        return
+    existing = {s.id: s for s in task.subtasks.all()}
+    keep = set()
+    for position, item in enumerate(items if isinstance(items, list) else []):
+        if not isinstance(item, dict) or position >= MAX_SUBTASKS:
+            continue
+        title = str(item.get('title') or '').strip()[:200]
+        if not title:
+            continue
+        sub = existing.get(item.get('id')) if isinstance(item.get('id'), int) else None
+        if sub is None:
+            sub = Subtask(task=task)
+        sub.title, sub.done, sub.position = title, bool(item.get('done')), position
+        sub.save()
+        keep.add(sub.id)
+    task.subtasks.exclude(id__in=keep).delete()
+
+
+@login_required
+@require_POST
+@replay_safe
+def subtask_toggle(request, pk):
+    """Tick one checklist item from the task list (AJAX). Sends the state it wants."""
+    sub = get_object_or_404(Subtask.objects.select_related('task'), id=pk, task__user=request.user)
+    wanted = _json_body(request).get('done')
+    sub.done = wanted if isinstance(wanted, bool) else not sub.done
+    sub.save(update_fields=['done'])
+    items = list(sub.task.subtasks.values_list('done', flat=True))
+    return JsonResponse({'success': True, 'done': sub.done, 'progress': f'{sum(items)}/{len(items)}'})
+
+
+def _site_url(request):
+    """https://your-site.com, with no trailing slash (for links inside calendar files)."""
+    return request.build_absolute_uri('/').rstrip('/')
+
+
+def _calendar_response(body, filename=None):
+    response = HttpResponse(body, content_type='text/calendar; charset=utf-8')
+    if filename:
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+@login_required
+def task_ics(request, pk):
+    """One task as a calendar file: the phone's calendar adds it with its own alarm."""
+    task = get_object_or_404(Task, id=pk, user=request.user)
+    if not task.due_date:
+        messages.info(request, 'Give this task a date and time first, then add it to your calendar.')
+        return redirect('update', pk=task.id)
+    slug = re.sub(r'[^a-z0-9]+', '-', task.title.lower()).strip('-')[:40] or 'task'
+    return _calendar_response(ical.build_calendar([task], _site_url(request)), f'{slug}.ics')
+
+
+def calendar_feed(request, token):
+    """
+    The private feed a phone or Google/Outlook calendar subscribes to.
+    No login here (calendar apps can't log in), so the long random token in
+    the link is the key. It can be reset from Settings.
+    """
+    profile = get_object_or_404(UserProfile.objects.select_related('user'), calendar_token=token)
+    since = timezone.now() - timedelta(days=30)
+    tasks = Task.objects.filter(user=profile.user, kind='task', complete=False, due_date__isnull=False).filter(
+        Q(due_date__gte=since) | Q(is_recurring=True)
+    ).order_by('due_date')[:1000]
+    response = _calendar_response(ical.build_calendar(tasks, _site_url(request), feed=True))
+    response['Cache-Control'] = 'private, max-age=300'
+    return response
+
+
+def _key_hash(key):
+    return hashlib.sha256(key.encode('utf-8')).hexdigest()
+
+
+@csrf_exempt
+@require_POST
+def shortcut_add(request):
+    """
+    "Hey Siri, add to Quantum": the iPhone Shortcuts app (or an Android
+    automation app) sends the spoken text here with the user's personal key:
+        Authorization: Bearer qm_...
+        {"text": "Pay rent Friday 6pm !!"}
+    No session or CSRF (Shortcuts can't log in); the key is the login. Only a
+    hash of the key is stored, so a database leak doesn't leak working keys.
+    """
+    auth = request.headers.get('Authorization', '')
+    key = auth[7:].strip() if auth.lower().startswith('bearer ') else ''
+    profile = (
+        UserProfile.objects.select_related('user').filter(shortcut_key_hash=_key_hash(key)).first()
+        if key.startswith('qm_') else None
+    )
+    if profile is None or not profile.user.is_active:
+        return JsonResponse({'success': False, 'message': 'That shortcut key is not valid. Make a new one in Quantum settings.'}, status=401)
+
+    body = _json_body(request)
+    text = str(body.get('text') or request.POST.get('text') or '').strip()
+    if not text:
+        return JsonResponse({'success': False, 'message': 'I did not catch a task. Try again.'}, status=400)
+
+    # Times like "7pm" mean the user's 7pm, not the server's
+    try:
+        timezone.activate(zoneinfo.ZoneInfo(profile.timezone or settings.DEFAULT_USER_TIMEZONE))
+    except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+        pass
+    task, message = _create_from_text(profile.user, text)
+    return JsonResponse({
+        'success': True,
+        'message': message,  # Siri reads this out
+        'title': task.title,
+        'due': task.due_date.isoformat() if task.due_date else None,
+        'id': task.id,
+    })
 
 
 @login_required
@@ -427,6 +597,7 @@ def updateTask(request, pk):
                 task.alarm_tone = tone_url or (old_tone if _is_uploaded_tone(old_tone) else 'classic')
             task.save()
             form.save_m2m()
+            _save_subtasks(task, request.POST.get('subtasks_json'))
             messages.success(request, f'✅ Task "{task.title}" updated successfully!')
             return redirect('list')
         _form_errors_to_messages(request, form)
@@ -437,6 +608,9 @@ def updateTask(request, pk):
         'form': form,
         'task': task,
         'has_custom_tone': _is_uploaded_tone(old_tone),
+        'subtasks_initial': _subtasks_from_post(request) if request.method == 'POST' else [
+            {'id': s.id, 'title': s.title, 'done': s.done} for s in task.subtasks.all()
+        ],
     })
 
 
@@ -687,6 +861,172 @@ def reset_password(request, token):
 # Dashboard / profile / settings
 # ===========================================================================
 @login_required
+def calendar_view(request):
+    """
+    A month grid like the iPhone Calendar: dots on days with tasks, today
+    circled, and the chosen day's tasks listed underneath.
+    ?month=2026-10 picks the month, ?day=2026-10-21 picks the day.
+    """
+    today = timezone.localdate()
+    try:
+        year, month = (int(x) for x in request.GET.get('month', '').split('-'))
+        first = date(year, month, 1)
+    except (ValueError, TypeError):
+        first = today.replace(day=1)
+    try:
+        selected = date.fromisoformat(request.GET.get('day', ''))
+    except ValueError:
+        selected = today if (today.year, today.month) == (first.year, first.month) else first
+
+    # Six full weeks, Monday first, so every month has the same shape
+    grid_start = first - timedelta(days=first.weekday())
+    grid_end = grid_start + timedelta(days=42)
+    start_dt = timezone.make_aware(datetime.combine(grid_start, datetime.min.time()))
+    end_dt = timezone.make_aware(datetime.combine(grid_end, datetime.min.time()))
+    tasks = Task.objects.filter(user=request.user, kind='task', due_date__gte=start_dt, due_date__lt=end_dt).order_by('due_date')
+
+    by_day = {}
+    for task in tasks:
+        by_day.setdefault(timezone.localtime(task.due_date).date(), []).append(task)
+
+    weeks = []
+    for w in range(6):
+        row = []
+        for d in range(7):
+            day = grid_start + timedelta(days=w * 7 + d)
+            items = by_day.get(day, [])
+            open_items = [t for t in items if not t.complete]
+            row.append({
+                'date': day,
+                'in_month': day.month == first.month,
+                'today': day == today,
+                'selected': day == selected,
+                'count': len(items),
+                # Up to three dots, coloured by priority (done ones are grey)
+                'dots': [t.priority for t in open_items[:3]] + ['done'] * min(3 - len(open_items[:3]), len(items) - len(open_items)),
+            })
+        weeks.append(row)
+
+    prev_month = (first - timedelta(days=1)).replace(day=1)
+    next_month = (first + timedelta(days=32)).replace(day=1)
+    return render(request, 'tasks/calendar.html', {
+        'month_first': first,
+        'weeks': weeks,
+        'selected': selected,
+        'selected_tasks': by_day.get(selected, []),
+        'prev_month': prev_month.strftime('%Y-%m'),
+        'next_month': next_month.strftime('%Y-%m'),
+        'this_month': today.strftime('%Y-%m'),
+        'is_this_month': (first.year, first.month) == (today.year, today.month),
+        'weekday_names': ['M', 'T', 'W', 'T', 'F', 'S', 'S'],
+        'today': today,
+    })
+
+
+WIND_DOWN_CHOICES = [0, 15, 30, 45, 60]
+GENTLE_TONE = 'sunrise'
+
+
+def _next_at(clock_time):
+    """The next time the clock shows `clock_time` (today if still ahead, else tomorrow)."""
+    now = timezone.localtime()
+    when = timezone.make_aware(datetime.combine(now.date(), clock_time))
+    return when if when > now else when + timedelta(days=1)
+
+
+def _sync_bedtime(user):
+    """
+    Bedtime mode is two daily repeating alarms we look after for the user:
+    a wind-down reminder before bed and the wake-up alarm. Any change wipes
+    the upcoming ones and makes fresh ones with the new times.
+    """
+    profile = user.profile
+    Task.objects.filter(user=user, kind__in=('bedtime', 'wake'), complete=False).delete()
+    if not profile.bedtime_enabled:
+        return
+    tone = profile.default_alarm_tone if profile.default_alarm_tone not in ('', 'default') else 'classic'
+    wind_at = _next_at(profile.bedtime)
+    Task.objects.create(
+        user=user, kind='bedtime', title='🌙 Time to wind down', priority='low',
+        description=f'Bedtime is {date_format(timezone.localtime(wind_at), "g:i A")}. Screens down, lights low.',
+        due_date=wind_at, alarm_enabled=True,
+        alarm_time=wind_at - timedelta(minutes=profile.wind_down_minutes),
+        alarm_tone=GENTLE_TONE, is_recurring=True, recurring_frequency='daily',
+    )
+    wake_at = _next_at(profile.wake_time)
+    Task.objects.create(
+        user=user, kind='wake', title='⏰ Wake up', priority='high',
+        due_date=wake_at, alarm_enabled=True, alarm_time=wake_at, alarm_tone=tone,
+        wake_check=profile.wake_check_on_wake, is_recurring=True, recurring_frequency='daily',
+    )
+
+
+@login_required
+def bedtime(request):
+    """The Sleep | Wake Up screen: set bedtime and wake-up once, every day."""
+    profile = request.user.profile
+    if request.method == 'POST':
+        def read_time(name, fallback):
+            try:
+                return datetime.strptime(request.POST.get(name, ''), '%H:%M').time()
+            except ValueError:
+                return fallback
+        profile.bedtime_enabled = request.POST.get('bedtime_enabled') == 'on'
+        profile.bedtime = read_time('bedtime', profile.bedtime)
+        profile.wake_time = read_time('wake_time', profile.wake_time)
+        try:
+            minutes = int(request.POST.get('wind_down_minutes', profile.wind_down_minutes))
+        except ValueError:
+            minutes = profile.wind_down_minutes
+        profile.wind_down_minutes = minutes if minutes in WIND_DOWN_CHOICES else 30
+        profile.wake_check_on_wake = request.POST.get('wake_check_on_wake') == 'on'
+        profile.save(update_fields=['bedtime_enabled', 'bedtime', 'wake_time', 'wind_down_minutes', 'wake_check_on_wake'])
+        _sync_bedtime(request.user)
+        if profile.bedtime_enabled:
+            messages.success(request, f'Bedtime set. Wind down at {date_format(datetime.combine(date.today(), profile.bedtime), "g:i A")}, wake up at {date_format(datetime.combine(date.today(), profile.wake_time), "g:i A")}.')
+        else:
+            messages.info(request, 'Bedtime is off. Its alarms were removed.')
+        return redirect('alarms')
+    return render(request, 'tasks/bedtime.html', {
+        'profile': profile,
+        'wind_down_choices': WIND_DOWN_CHOICES,
+    })
+
+
+HEATMAP_WEEKS = 20
+
+
+def _heatmap(user):
+    """
+    Tasks finished per day for the last 20 weeks, laid out like GitHub's
+    contribution squares: one column per week, Monday at the top.
+    Darker = more done that day. Days after today are left blank.
+    """
+    today = timezone.localdate()
+    # Start on the Monday 19 weeks before this week's Monday
+    start = today - timedelta(days=today.weekday() + 7 * (HEATMAP_WEEKS - 1))
+    since = timezone.make_aware(datetime.combine(start, datetime.min.time()))
+    counts = {}
+    for done in Task.objects.filter(user=user, completed_date__gte=since).values_list('completed_date', flat=True):
+        day = timezone.localtime(done).date()
+        counts[day] = counts.get(day, 0) + 1
+
+    def level(n):
+        return 0 if n == 0 else 1 if n == 1 else 2 if n <= 3 else 3 if n <= 6 else 4
+
+    weeks = []
+    for w in range(HEATMAP_WEEKS):
+        week = []
+        for d in range(7):
+            day = start + timedelta(days=w * 7 + d)
+            n = counts.get(day, 0)
+            week.append({'date': day, 'count': n, 'level': level(n), 'future': day > today, 'today': day == today})
+        weeks.append({'days': week, 'month': week[0]['date'].strftime('%b') if week[0]['date'].day <= 7 else ''})
+    active_days = sum(1 for n in counts.values() if n)
+    return {'weeks': weeks, 'total': sum(counts.values()), 'active_days': active_days}
+
+
+@login_required
 def dashboard(request):
     user_tasks = Task.objects.filter(user=request.user)
     now = timezone.now()
@@ -739,6 +1079,7 @@ def dashboard(request):
     stats, _ = UserStats.objects.get_or_create(user=request.user)
 
     context = {
+        'heatmap': _heatmap(request.user),
         'week': week,
         'week_total': sum(per_day.values()),
         'priority_rows': priority_rows,
@@ -831,6 +1172,7 @@ def userp_settings(request):
     }
     forms_by_type = {key: cls(instance=profile_obj) for key, (cls, _msg) in form_classes.items()}
     active_tab = request.GET.get('tab', 'notifications')
+    context_extra = {}
 
     if request.method == 'POST':
         form_type = request.POST.get('form_type')
@@ -845,6 +1187,25 @@ def userp_settings(request):
             forms_by_type[form_type] = form  # re-show with errors
             active_tab = form_type
             messages.error(request, '❌ Please correct the errors below.')
+
+        elif form_type in ('shortcut_create', 'shortcut_revoke'):
+            if form_type == 'shortcut_create':
+                key = 'qm_' + secrets.token_urlsafe(24)
+                profile_obj.shortcut_key_hash = _key_hash(key)
+                profile_obj.save(update_fields=['shortcut_key_hash'])
+                # Shown once on this page and never stored in plain text
+                context_extra['new_shortcut_key'] = key
+                active_tab = 'shortcuts'
+            else:
+                profile_obj.shortcut_key_hash = None
+                profile_obj.save(update_fields=['shortcut_key_hash'])
+                messages.success(request, 'Shortcut key removed. Any shortcut using it stops working.')
+                return redirect(f"{reverse('userp_settings')}?tab=shortcuts")
+
+        elif form_type == 'calendar_reset':
+            profile_obj.get_calendar_token(reset=True)
+            messages.success(request, 'New calendar link made. The old one stopped working, so subscribe again with the new one.')
+            return redirect(f"{reverse('userp_settings')}?tab=calendar")
 
         elif form_type == 'delete_account':
             if request.POST.get('confirm_delete') == request.user.username:
@@ -862,6 +1223,20 @@ def userp_settings(request):
         'privacy_form': forms_by_type['privacy'],
         'active_tab': active_tab,
     }
+    context.update(context_extra)
+    context['has_shortcut_key'] = bool(profile_obj.shortcut_key_hash)
+    context['shortcut_url'] = request.build_absolute_uri(reverse('shortcut_add'))
+    if active_tab == 'calendar':
+        # Only make the secret link once someone actually opens the Calendar tab
+        feed_path = reverse('calendar_feed', args=[profile_obj.get_calendar_token()])
+        https_url = request.build_absolute_uri(feed_path)
+        webcal_url = 'webcal://' + https_url.split('://', 1)[1]
+        context.update({
+            'calendar_https_url': https_url,
+            'calendar_webcal_url': webcal_url,
+            'calendar_google_url': 'https://calendar.google.com/calendar/render?' + urlencode({'cid': webcal_url}),
+            'calendar_outlook_url': 'https://outlook.live.com/calendar/0/addfromweb?' + urlencode({'url': https_url, 'name': 'Quantum Manager'}),
+        })
     return render(request, 'tasks/settings.html', context)
 
 
@@ -1269,6 +1644,7 @@ def check_due_tasks(request):
             # changes after every snooze, so the page knows it's a new ring
             'ring_at': task.ring_at.isoformat() if task.ring_at else None,
             'alarm_tone': task.alarm_tone or 'classic',
+            'wake_check': task.wake_check,
         }
         for task in _due_alarm_tasks(request.user)
     ]
@@ -1303,7 +1679,18 @@ def dismiss_alarm(request, pk):
     task.alarm_dismissed = True
     task.alarm_snoozed_until = None
     task.save(update_fields=['alarm_dismissed', 'alarm_snoozed_until'])
+    _roll_routine(task)
     return JsonResponse({'success': True})
+
+
+def _roll_routine(task):
+    """Bedtime / wake alarms: once stopped, today's is done and tomorrow's is set."""
+    if task.kind == 'task' or task.complete:
+        return
+    task.complete = True
+    task.completed_date = timezone.now()
+    task.save(update_fields=['complete', 'completed_date'])  # no points: it's an alarm, not a task
+    task.create_next_occurrence()
 
 
 def _alarm_day_label(local):
@@ -1324,7 +1711,7 @@ def alarms_list(request):
     start, _ = _today_bounds()
     now = timezone.now()
     tasks = list(
-        Task.objects.filter(user=request.user, complete=False)
+        Task.objects.filter(user=request.user, kind='task', complete=False)
         .annotate(ring=Coalesce('alarm_time', 'due_date'))
         .filter(ring__gte=start)
         .order_by('ring')
@@ -1333,6 +1720,7 @@ def alarms_list(request):
         task.day_label = _alarm_day_label(timezone.localtime(task.ring))
         task.is_past = task.ring <= now
     return render(request, 'tasks/alarms.html', {
+        'bedtime_profile': request.user.profile,
         'alarms': tasks,
         'on_count': sum(1 for t in tasks if t.alarm_enabled and not t.is_past),
     })
@@ -1444,9 +1832,13 @@ def alarm_action(request):
         task.alarm_snoozed_until = timezone.now() + timedelta(minutes=10)
         task.save(update_fields=['alarm_snoozed_until'])
     elif action == 'dismiss':
+        if task.wake_check:
+            # "Prove you're awake" alarms are stopped in the app, by solving the sum
+            return JsonResponse({'success': False, 'error': 'Open Quantum and solve the sum to stop this alarm.'}, status=403)
         task.alarm_dismissed = True
         task.alarm_snoozed_until = None
         task.save(update_fields=['alarm_dismissed', 'alarm_snoozed_until'])
+        _roll_routine(task)
     else:
         return JsonResponse({'success': False}, status=400)
     return JsonResponse({'success': True})

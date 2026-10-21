@@ -1,0 +1,3 @@
+# Django templates: Prettier treats {% ... %} tags as plain text and wraps them
+# across lines, which Django can't read (TemplateSyntaxError). Leave them alone.
+**/templates/**

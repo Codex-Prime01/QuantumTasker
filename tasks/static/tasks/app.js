@@ -706,18 +706,66 @@
             <span class="pill"><span class="pdot ${escapeHtml(task.priority)}"></span>${escapeHtml(task.priority.charAt(0).toUpperCase() + task.priority.slice(1))}</span>
             ${due ? `<span class="pill accent">${icon('clock', 'icon-xs')}${escapeHtml(due)}</span>` : ''}
           </div>
+          ${task.wake_check ? `<form class="wake-check" novalidate>
+            <label class="wake-q" for="wake-${task.id}">Prove you're awake: <strong data-sum></strong></label>
+            <div class="wake-row">
+              <input id="wake-${task.id}" class="input mono" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" enterkeyhint="done" aria-describedby="wake-hint-${task.id}">
+              <button class="btn btn-primary" type="submit">Stop</button>
+            </div>
+            <p class="wake-hint" id="wake-hint-${task.id}" aria-live="polite"></p>
+          </form>` : ''}
           <div class="alarm-actions">
             <button class="btn" data-a="snooze">${icon('snooze', 'icon-sm')}Snooze 10 min</button>
             <button class="btn" data-a="view">${icon('edit', 'icon-sm')}Open task</button>
-            <button class="btn btn-primary full" data-a="dismiss">${icon('check', 'icon-sm')}Got it</button>
+            ${task.wake_check ? '' : `<button class="btn btn-primary full" data-a="dismiss">${icon('check', 'icon-sm')}Got it</button>`}
           </div>
         </div>`;
       document.body.appendChild(el);
       requestAnimationFrame(() => el.classList.add('show'));
-      el.querySelector('[data-a="dismiss"]').focus();
+
+      if (task.wake_check) {
+        // A new sum each time; a wrong answer shakes and swaps the sum, and the alarm keeps ringing
+        const form = el.querySelector('.wake-check');
+        const input = form.querySelector('input');
+        const hint = form.querySelector('.wake-hint');
+        let answer = 0;
+        const newSum = () => {
+          const a = 12 + Math.floor(Math.random() * 38), b = 7 + Math.floor(Math.random() * 23);
+          answer = a + b;
+          form.querySelector('[data-sum]').textContent = `${a} + ${b} = ?`;
+          input.value = '';
+        };
+        newSum();
+        input.focus();
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (Number(input.value.trim()) === answer) {
+            QM.haptic(12);
+            await QM.post(`/api/dismiss-alarm/${task.id}/`).catch(() => {});
+            QM.toast('Good morning! Alarm stopped.', 'success');
+            this.close(task.id);
+            return;
+          }
+          QM.haptic(40);
+          hint.textContent = 'Not quite. Here\'s a new one.';
+          form.classList.remove('wrong');
+          void form.offsetWidth; // restart the shake
+          form.classList.add('wrong');
+          newSum();
+          input.focus();
+        });
+      } else {
+        el.querySelector('[data-a="dismiss"]').focus();
+      }
+
       el.addEventListener('click', async (e) => {
         const a = e.target.closest('[data-a]')?.dataset.a;
         if (!a) return;
+        if (a === 'view' && task.wake_check) {
+          // Opening the task doesn't count as being awake: it rings again there
+          window.location.href = `/update/${task.id}/`;
+          return;
+        }
         if (a === 'snooze') {
           const res = await QM.post(`/api/snooze-alarm/${task.id}/`, { minutes: 10 }).catch(() => null);
           if (res && res.ok) QM.toast('Snoozed for 10 minutes', 'info');
@@ -879,7 +927,7 @@
       QM.swReady.then((reg) => {
         const worker = reg && (reg.active || navigator.serviceWorker.controller);
         if (!worker) return;
-        worker.postMessage({ type: 'WARM_PAGES', urls: ['/', '/alarms/', '/create/', '/notes/', '/notes/create/', '/dashboard/'] });
+        worker.postMessage({ type: 'WARM_PAGES', urls: ['/', '/alarms/', '/calendar/', '/lists/', '/create/', '/notes/', '/notes/create/', '/dashboard/'] });
         try { sessionStorage.setItem('qm-warm', '1'); } catch (e) { /* private mode */ }
       }).catch(() => {});
     }
@@ -917,6 +965,15 @@
   // press in with CSS instead) and never with "reduce motion" on.
   // ------------------------------------------------------------------
   const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // A tiny buzz for meaningful moments only (done, alarm on/off, snap).
+  // Call it in the same handler that changes the screen so they land together.
+  // Android only: iPhone Safari has no vibration API.
+  QM.haptic = function (ms) {
+    if (reduceMotion || !navigator.vibrate) return;
+    try { navigator.vibrate(ms || 8); } catch (e) { /* not allowed before a tap */ }
+  };
+
   QM.depth = function (root) {
     if (reduceMotion || !window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
     const MAX = 6; // degrees
@@ -1057,13 +1114,23 @@
 
     const still = reduceMotion || (navigator.hardwareConcurrency || 4) <= 2;
     let last = 0, raf = 0;
+    // Moves for a few seconds when the page opens, then settles and stops drawing.
+    // Glass cards re-blur what's behind them every frame, so endless motion
+    // would keep the GPU busy (and drain the battery) the whole time.
+    const SETTLE_MS = 8000;
+    let stopAt = 0;
     function loop(now) {
+      if (now > stopAt) { raf = 0; return; }
       raf = requestAnimationFrame(loop);
       if (now - last < 33) return; // ~30fps is plenty for something this slow
       last = now;
       draw(now);
     }
-    function play() { if (!still && !raf && !document.hidden) raf = requestAnimationFrame(loop); }
+    function play() {
+      if (still || raf || document.hidden) return;
+      stopAt = performance.now() + SETTLE_MS;
+      raf = requestAnimationFrame(loop);
+    }
     function pause() { cancelAnimationFrame(raf); raf = 0; }
     play();
     document.addEventListener('visibilitychange', () => (document.hidden ? pause() : play()));

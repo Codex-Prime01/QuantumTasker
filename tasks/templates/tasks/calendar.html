@@ -1,0 +1,83 @@
+{% extends 'tasks/base.html' %}
+{% load qm_tags %}
+{% block title %}Calendar · Quantum Manager{% endblock %}
+{% block topbar_title %}{% endblock %}
+{% block body_class %}ios-bg{% endblock %}
+{% block content %}
+<div class="page page-narrow ios-page">
+  <div class="ios-navbar plain">
+    {% if is_this_month %}<span></span>{% else %}<a class="ios-link" href="?month={{ this_month }}">Today</a>{% endif %}
+    <span></span>
+    <a class="ios-link ios-plus" href="{% url 'create' %}?due={{ selected|date:'Y-m-d' }}T09:00" aria-label="New task on {{ selected|date:'l j F' }}"><svg class="icon"><use href="#i-plus"/></svg></a>
+  </div>
+
+  <div class="cal-head">
+    <h1 class="ios-large-title">{{ month_first|date:'F' }} <span class="cal-year">{{ month_first|date:'Y' }}</span></h1>
+    <div class="cal-arrows">
+      <a class="icon-btn" href="?month={{ prev_month }}" aria-label="Previous month" rel="prev"><svg class="icon"><use href="#i-chevron-left"/></svg></a>
+      <a class="icon-btn" href="?month={{ next_month }}" aria-label="Next month" rel="next"><svg class="icon"><use href="#i-chevron-right"/></svg></a>
+    </div>
+  </div>
+
+  <div class="cal" role="grid" aria-label="{{ month_first|date:'F Y' }}">
+    <div class="cal-row cal-weekdays" role="row">
+      {% for name in weekday_names %}<span role="columnheader" class="cal-wd">{{ name }}</span>{% endfor %}
+    </div>
+    {% for week in weeks %}
+    <div class="cal-row" role="row">
+      {% for day in week %}
+      <a role="gridcell" href="?month={{ month_first|date:'Y-m' }}&amp;day={{ day.date|date:'Y-m-d' }}"
+         class="cal-day{% if not day.in_month %} out{% endif %}{% if day.today %} today{% endif %}{% if day.selected %} selected{% endif %}"
+         {% if day.selected %}aria-selected="true"{% endif %}
+         aria-label="{{ day.date|date:'l j F' }}{% if day.count %}, {{ day.count }} task{{ day.count|pluralize }}{% endif %}">
+        <span class="cal-num">{{ day.date.day }}</span>
+        <span class="cal-dots" aria-hidden="true">{% for p in day.dots %}<i class="pdot {{ p }}"></i>{% endfor %}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <h2 class="ios-section">{% if selected == today %}Today · {% endif %}{{ selected|date:'l j F' }}</h2>
+  {% if selected_tasks %}
+  <div class="ios-group">
+    {% for task in selected_tasks %}
+    <a class="ios-row cal-task{% if task.complete %} done{% endif %}" href="{% url 'update' task.id %}">
+      <span class="cal-time">{{ task.due_date|date:'g:i' }}<small>{{ task.due_date|date:'A' }}</small></span>
+      <span class="ios-row-label">{{ task.title }}<span class="ios-row-sub"><span class="pdot {{ task.priority }}"></span> {{ task.get_priority_display }}{% if task.alarm_enabled and not task.complete %} · alarm on{% endif %}{% if task.complete %} · done{% endif %}</span></span>
+      <svg class="icon icon-sm ios-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="ios-group">
+    <a class="ios-row" href="{% url 'create' %}?due={{ selected|date:'Y-m-d' }}T09:00">
+      <span class="ios-ico" style="--ico: #0A84FF"><svg class="icon icon-sm"><use href="#i-plus"/></svg></span>
+      <span class="ios-row-label">Nothing planned<span class="ios-row-sub">Tap to add a task on this day</span></span>
+    </a>
+  </div>
+  {% endif %}
+  <p class="ios-foot">Repeating tasks show their next date only.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Swipe left / right on the month to change it (touch only; the arrows do the same)
+(function () {
+  const cal = document.querySelector('.cal');
+  if (!cal) return;
+  let x0 = null, y0 = null;
+  cal.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  cal.addEventListener('touchend', (e) => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      const link = document.querySelector(dx < 0 ? 'a[rel="next"]' : 'a[rel="prev"]');
+      if (link) { QM.haptic(6); location.href = link.href; }
+    }
+  }, { passive: true });
+})();
+</script>
+{% endblock %}

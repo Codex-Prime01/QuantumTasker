@@ -13,7 +13,7 @@
  */
 importScripts('{% static "tasks/outbox.js" %}');
 
-const CACHE_VERSION = 'qm-v9';
+const CACHE_VERSION = 'qm-v12';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 const OFFLINE_URL = '/offline/';
@@ -59,7 +59,8 @@ const QUEUEABLE = [
 function savePage(request, response) {
     // Only real pages (not a bounce to the login page, not someone else's redirect)
     const finalUrl = new URL(response.url || request.url);
-    if (!response.ok || response.type !== 'basic' || NO_SAVE.test(finalUrl.pathname)) return;
+    // Calendar files (.ics) are downloads, not pages
+    if (!response.ok || response.type !== 'basic' || NO_SAVE.test(finalUrl.pathname) || finalUrl.pathname.endsWith('.ics')) return;
     const copy = response.clone();
     caches.open(PAGES_CACHE).then((cache) => cache.put(request.url, copy));
 }
@@ -194,10 +195,13 @@ self.addEventListener('push', (event) => {
         data: { url: data.url || '/', token: data.actionToken || '' },
     };
     if (data.actionToken) {
-        options.actions = [
-            { action: 'snooze', title: 'Snooze 10 min' },
-            { action: 'dismiss', title: 'Got it' },
-        ];
+        options.actions = data.wakeCheck
+            ? [{ action: 'snooze', title: 'Snooze 10 min' }] // must be stopped in the app
+            : [
+                { action: 'snooze', title: 'Snooze 10 min' },
+                { action: 'dismiss', title: 'Got it' },
+            ];
+        if (data.wakeCheck) options.body = `${options.body} · Open Quantum to stop it`;
     }
     event.waitUntil(self.registration.showNotification(data.title || 'Quantum Manager', options));
 });

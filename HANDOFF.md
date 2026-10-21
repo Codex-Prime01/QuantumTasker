@@ -59,7 +59,39 @@ If a chat runs out, start a new one and say: "continue from HANDOFF.md in my Qua
 - **Tests:** `tasks/tests/test_offline.py`. 98 tests total pass.
 - **Limit:** alarms created offline only ring with the app closed after they sync.
 
+## Done: design pass from emilkowalski/skills ✅
+- Read: `apple-design`, `mobile-native`, `emil-design-eng`, `animation-performance`. Skipped: Swift, Expo and React-only skills.
+- All 45 `:hover` rules in `qm.css` are now behind `@media (hover: hover) and (pointer: fine)`. The script that did it is a scratch file and isn't in the repo.
+- "Feels like an installed app" section at the end of `qm.css`:
+  - no tap flash, `touch-action: manipulation`, 16px inputs on touch screens (no iPhone zoom)
+  - safe-area padding (`--topbar-total`), press-in `:active` states
+  - menus "materialize", support for reduced transparency and increased contrast
+- `QM.haptic()` fires on ticking a task done, alarm switches and swipe snaps (Android only).
+- Alarms swipe-to-delete: pointer capture, rubber-band edges, decides from flick speed (Apple's projection function).
+- **Performance:** the background gradient no longer drifts, and the WebGL shader stops after 8s. Glass re-blurs every frame anything moves behind it, which hit 100% CPU in testing.
+
+## Done (Phase 3) ✅ Calendar
+- `tasks/ical.py`: a hand-written .ics builder, with VALARM and RRULE support and 75-byte line folding.
+- `/task/<id>/calendar.ics`: "Add to Calendar" on each task row and in the edit sheet. It keeps its alarm, so it rings offline.
+- `/calendar/<token>.ics`: private subscribe feed. Settings → Calendar tab has iPhone, Google and Outlook buttons, a copy-link field and a reset button. The token is made the first time the tab opens (migration 0019).
+
+## Done (Phase 4) ✅ Siri / Android
+- `POST /api/shortcut/add/` with `Authorization: Bearer qm_...` and `{"text": ...}`. Only a sha256 of the key is stored (migration 0020). It uses `_create_from_text`, the same parser as quick add, in the user's saved timezone.
+- Settings → "Siri & shortcuts" tab: create, revoke or replace the key, plus step-by-step iPhone Shortcuts setup and Android tips.
+
+## Done (Phase 5) ✅ Extra features
+- **Streak heatmap:** dashboard, last 20 weeks (`_heatmap`).
+- **Subtasks:** `Subtask` model (0021). Checklist in the edit sheet, tickable on the task list (works offline), copied unticked to the next repeat.
+- **Calendar view:** `/calendar/`, an iOS month grid with dots and today in red. Swipe or the arrows change month; `+` opens New task with `?due=`.
+- **Prove you're awake:** `Task.wake_check` (0022). The in-app alarm needs a sum; the notification has no "Got it", and `alarm_action` refuses a dismiss.
+- **Bedtime mode:** `/bedtime/`, profile fields (0023). It manages two daily `kind='bedtime'` and `kind='wake'` tasks. These are hidden from the task list, badge, calendar and stats, and stopping one rolls on to tomorrow with no points.
+- **Shared lists:** `SharedList` and `ListItem` (0024), code in `tasks/list_views.py`. Invite link plus a Join button (a GET never joins). It polls every 10s, works offline, and the privacy switches are now real.
+- Tests: `test_calendar.py`, `test_shortcuts.py`, `test_subtasks_heatmap.py`, `test_phase5.py`.
+
 ## Next phases (agreed order)
+All agreed phases are done. Still open from the plan: the focus timer (left out for now). Google or Outlook two-way sync could come later.
+
+## Old plan notes
 3. Calendar: per-task .ics "Add to Calendar" + a private subscribe feed
 4. Siri / Android shortcuts (personal API key + add-task endpoint)
 5. Extra features: calendar view, "prove you're awake" alarms, subtasks, bedtime mode, shared lists, streak heatmap (NOT the focus timer)

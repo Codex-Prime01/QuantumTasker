@@ -1,0 +1,93 @@
+{% extends 'tasks/base.html' %}
+{% block title %}Bedtime · Quantum Manager{% endblock %}
+{% block topbar_title %}{% endblock %}
+{% block body_class %}ios-bg hero-3d{% endblock %}
+{% block fab %}{% endblock %}
+{% block content %}
+<div class="page page-narrow ios-page">
+  <form method="post" class="ios-form ios-enhanced" id="bedtimeForm">
+    {% csrf_token %}
+    <div class="ios-navbar">
+      <a class="ios-link" href="{% url 'alarms' %}">Cancel</a>
+      <span class="ios-navbar-title">Sleep | Wake Up</span>
+      <button class="ios-link strong" type="submit" id="saveBtn">Save</button>
+    </div>
+
+    <div class="sleep-hero" aria-live="polite">
+      <div class="sleep-moon" aria-hidden="true"><svg class="icon"><use href="#i-moon"/></svg></div>
+      <div class="sleep-total" id="sleepTotal"></div>
+      <p class="sleep-note" id="sleepNote"></p>
+    </div>
+
+    <div class="ios-group">
+      <label class="ios-row" for="bedtimeOn">
+        <span class="ios-ico" style="--ico: #5E5CE6"><svg class="icon icon-sm"><use href="#i-moon"/></svg></span>
+        <span class="ios-row-label">Bedtime mode<span class="ios-row-sub">Every day, including weekends</span></span>
+        <span class="switch ios-green"><input type="checkbox" name="bedtime_enabled" id="bedtimeOn" {% if profile.bedtime_enabled %}checked{% endif %}><span class="track"></span></span>
+      </label>
+    </div>
+
+    <div class="sleep-times">
+      <label class="sleep-time">
+        <span class="sleep-time-label"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-moon"/></svg>Bedtime</span>
+        <input type="time" name="bedtime" id="bedtimeAt" value="{{ profile.bedtime|time:'H:i' }}" required>
+      </label>
+      <label class="sleep-time">
+        <span class="sleep-time-label"><svg class="icon icon-sm" aria-hidden="true"><use href="#i-sun"/></svg>Wake up</span>
+        <input type="time" name="wake_time" id="wakeAt" value="{{ profile.wake_time|time:'H:i' }}" required>
+      </label>
+    </div>
+
+    <h2 class="ios-section">Before bed</h2>
+    <div class="ios-group">
+      <label class="ios-row ios-select-row" for="windDown">
+        <span class="ios-ico" style="--ico: #0A84FF"><svg class="icon icon-sm"><use href="#i-bell"/></svg></span>
+        <span class="ios-row-label">Wind-down reminder</span>
+        <select name="wind_down_minutes" id="windDown" class="ios-select">
+          {% for m in wind_down_choices %}<option value="{{ m }}" {% if m == profile.wind_down_minutes %}selected{% endif %}>{% if m == 0 %}At bedtime{% elif m == 60 %}1 hour before{% else %}{{ m }} min before{% endif %}</option>{% endfor %}
+        </select>
+        <svg class="icon icon-sm ios-chev" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+      </label>
+    </div>
+    <p class="ios-foot">A gentle sound reminds you to put the phone down.</p>
+
+    <h2 class="ios-section">Wake up</h2>
+    <div class="ios-group">
+      <label class="ios-row" for="wakeCheck">
+        <span class="ios-ico" style="--ico: #BF5AF2"><svg class="icon icon-sm"><use href="#i-zap"/></svg></span>
+        <span class="ios-row-label">Prove you're awake<span class="ios-row-sub">Solve a quick sum to stop the alarm</span></span>
+        <span class="switch ios-green"><input type="checkbox" name="wake_check_on_wake" id="wakeCheck" {% if profile.wake_check_on_wake %}checked{% endif %}><span class="track"></span></span>
+      </label>
+    </div>
+    <p class="ios-foot">Uses your default alarm sound (Settings → New tasks). Both alarms ring with the app closed once alarms are on for this device.</p>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const bed = document.getElementById('bedtimeAt'), wake = document.getElementById('wakeAt');
+  const total = document.getElementById('sleepTotal'), note = document.getElementById('sleepNote');
+  const on = document.getElementById('bedtimeOn'), form = document.getElementById('bedtimeForm');
+  const mins = (v) => { const [h, m] = (v || '0:0').split(':').map(Number); return h * 60 + m; };
+  function paint() {
+    // Wake time is the next morning when it's earlier than bedtime
+    let span = mins(wake.value) - mins(bed.value);
+    if (span <= 0) span += 24 * 60;
+    const h = Math.floor(span / 60), m = span % 60;
+    total.textContent = `${h} hr ${m} min`;
+    note.textContent = !on.checked ? 'Bedtime mode is off' : h < 7 ? 'Most adults need 7 to 9 hours' : h > 9 ? 'That\'s a long sleep. Enjoy it.' : 'A healthy amount of sleep';
+    form.classList.toggle('sleep-off', !on.checked);
+  }
+  [bed, wake, on].forEach((el) => el.addEventListener('input', paint));
+  on.addEventListener('change', paint);
+  paint();
+  form.addEventListener('submit', () => {
+    const btn = document.getElementById('saveBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  });
+})();
+</script>
+{% endblock %}

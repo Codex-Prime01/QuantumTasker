@@ -18,7 +18,7 @@ def app_context(request):
         from django.utils import timezone
         from .models import Note, Task
         start_tomorrow = timezone.localtime().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-        open_tasks = Task.objects.filter(user=user, complete=False)
+        open_tasks = Task.objects.filter(user=user, kind='task', complete=False)
         nav_counts = {
             'tasks': open_tasks.count(),
             'notes': Note.objects.filter(user=user, is_archived=False).count(),
