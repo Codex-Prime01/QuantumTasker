@@ -1865,3 +1865,33 @@ dialog.modal[open] { animation: materialize 0.28s var(--ease-out-strong); }
 #people .ios-row form { margin-left: auto; }
 .list-rename { gap: 10px; }
 .list-join-emoji { font-size: 56px; margin-bottom: 8px; }
+
+/* ---------- Worst-case data fixes (break-ui pass at 320px) ---------- */
+/* Search in the top bar may shrink, so the avatar stays on screen */
+.topbar-search, .search { min-width: 0; }
+/* A very long name or email can't push the account menu off the screen */
+.menu-panel { max-width: calc(100vw - 24px); }
+.menu-head .name, .menu-head .email { overflow-wrap: anywhere; }
+/* Bedtime time boxes shrink on narrow phones */
+.sleep-time { min-width: 0; }
+.sleep-time input { min-width: 0; font-size: clamp(22px, 8vw, 30px); }
+/* Buttons with a long label may wrap instead of sticking out */
+.btn.btn-wrap { white-space: normal; height: auto; min-height: 36px; padding-top: 8px; padding-bottom: 8px; text-align: left; }
+/* Steps whose text has bold or code words: keep them as one line of text */
+.steps-plain li > span { flex: 1; min-width: 0; }
+.steps-plain code { overflow-wrap: anywhere; }
+/* Long words and links (no spaces) wrap instead of overflowing */
+.task-title, .task-desc, .note-title, .note-content, .ios-row-label, .list-item .t, .task-checklist .t, .alarm-title, .confirm-item { overflow-wrap: anywhere; }
+/* Big text (200% zoom) on the smallest phones: titles shrink, rows wrap */
+.page-title, .ios-large-title { font-size: clamp(24px, 9vw, 34px); overflow-wrap: anywhere; }
+.hero-date { font-size: clamp(40px, 13vw, 76px); }
+.ios-navbar { grid-template-columns: minmax(0, 1fr) minmax(0, auto) minmax(0, 1fr); }
+.ios-navbar-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-head, .note-actions, .list-new, .list-rename, #people .ios-row { flex-wrap: wrap; }
+.cal-num { width: 100%; max-width: 34px; height: auto; aspect-ratio: 1; }
+.sleep-times { grid-template-columns: repeat(auto-fit, minmax(min(100%, 130px), 1fr)); }
+@media (max-width: 360px) {
+  .btn { white-space: normal; height: auto; min-height: 40px; max-width: 100%; }
+}
+.ios-select-row .ios-row-label, .ios-sound-row .ios-row-label { flex: 0 1 auto; min-width: 0; }
+select.form-select, .ios-select { max-width: 100%; }

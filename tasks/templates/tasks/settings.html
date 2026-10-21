@@ -132,7 +132,7 @@
       <form method="post" style="margin-top:16px">
         {% csrf_token %}
         <input type="hidden" name="form_type" value="calendar_reset">
-        <button class="btn btn-danger-ghost btn-sm" type="submit"><svg class="icon icon-sm"><use href="#i-refresh"/></svg>Make a new link (the old one stops working)</button>
+        <button class="btn btn-danger-ghost btn-sm btn-wrap" type="submit"><svg class="icon icon-sm"><use href="#i-refresh"/></svg>Make a new link (the old one stops working)</button>
       </form>
       {% else %}
       <div class="btn-row" style="margin-top:16px">
@@ -177,29 +177,29 @@
     <div class="card">
       <h2 class="card-title"><svg class="icon icon-sm"><use href="#i-phone"/></svg>iPhone: set it up once</h2>
       <ol class="steps-plain">
-        <li>Open the <strong>Shortcuts</strong> app and tap <strong>+</strong>.</li>
-        <li>Add <strong>Ask for Input</strong>. Set the question to "What's the task?"</li>
-        <li>Add <strong>Get Contents of URL</strong>. Paste this address:</li>
+        <li><span>Open the <strong>Shortcuts</strong> app and tap <strong>+</strong>.</span></li>
+        <li><span>Add <strong>Ask for Input</strong>. Set the question to "What's the task?"</span></li>
+        <li><span>Add <strong>Get Contents of URL</strong>. Paste this address:</span></li>
       </ol>
       <div style="display:flex; gap:8px; margin:10px 0 0 38px">
         <input class="input mono" id="shortcutUrl" type="text" value="{{ shortcut_url }}" readonly>
         <button class="btn" type="button" data-copy-target="shortcutUrl">Copy</button>
       </div>
       <ol class="steps-plain" start="4">
-        <li>Tap <strong>Show More</strong>. Method: <strong>POST</strong>.</li>
-        <li>Headers: add <code>Authorization</code> with the value <code>Bearer</code>, a space, then your key.</li>
-        <li>Request Body: <strong>JSON</strong>. Add a text field named <code>text</code> and pick <strong>Provided Input</strong>.</li>
-        <li>Add <strong>Get Dictionary Value</strong> for the key <code>message</code>, then <strong>Speak Text</strong>.</li>
-        <li>Name the shortcut <strong>Add to Quantum</strong>. Now say "Hey Siri, add to Quantum".</li>
+        <li><span>Tap <strong>Show More</strong>. Method: <strong>POST</strong>.</span></li>
+        <li><span>Headers: add <code>Authorization</code> with the value <code>Bearer</code>, a space, then your key.</span></li>
+        <li><span>Request Body: <strong>JSON</strong>. Add a text field named <code>text</code> and pick <strong>Provided Input</strong>.</span></li>
+        <li><span>Add <strong>Get Dictionary Value</strong> for the key <code>message</code>, then <strong>Speak Text</strong>.</span></li>
+        <li><span>Name the shortcut <strong>Add to Quantum</strong>. Now say "Hey Siri, add to Quantum".</span></li>
       </ol>
     </div>
 
     <div class="card">
       <h2 class="card-title">Android</h2>
       <ul class="calendar-notes">
-        <li><strong>Share to Quantum:</strong> in any app, tap Share and pick Quantum Manager. It opens as a new task. (Install the app first.)</li>
-        <li><strong>Long-press the app icon</strong> for New task, Alarms and New note.</li>
-        <li><strong>By voice:</strong> apps like <em>HTTP Shortcuts</em> or <em>Tasker</em> can send text to the same address with the same key, and you can start them with "Hey Google".</li>
+        <li><span><strong>Share to Quantum:</strong> in any app, tap Share and pick Quantum Manager. It opens as a new task. (Install the app first.)</span></li>
+        <li><span><strong>Long-press the app icon</strong> for New task, Alarms and New note.</span></li>
+        <li><span><strong>By voice:</strong> apps like <em>HTTP Shortcuts</em> or <em>Tasker</em> can send text to the same address with the same key, and you can start them with "Hey Google".</span></li>
       </ul>
     </div>
   </section>

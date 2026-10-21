@@ -102,7 +102,7 @@
       const row = document.createElement('div');
       row.className = 'ios-row';
       row.innerHTML = `<span class="avatar avatar-sm" aria-hidden="true"></span><span class="ios-row-label"><span class="n"></span><span class="ios-row-sub"></span></span>`;
-      row.querySelector('.avatar').textContent = (p.name || '?').charAt(0).toUpperCase();
+      row.querySelector('.avatar').textContent = (Array.from(p.name || '?')[0] || '?').toUpperCase(); // Array.from keeps an emoji in one piece
       row.querySelector('.n').textContent = p.name;
       row.querySelector('.ios-row-sub').textContent = [p.owner ? 'Made this list' : 'Member', p.email].filter(Boolean).join(' · ');
       if (state.is_owner && !p.owner) {

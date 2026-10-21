@@ -52,7 +52,7 @@
         <a class="ios-alarm-del" href="{% url 'delete' t.id %}" aria-label="Delete “{{ t.title }}”"><span></span></a>
         <a class="ios-alarm-main" href="{% url 'update' t.id %}">
           <span class="ios-time">{{ t.ring|date:"g:i" }}<span class="ios-ampm">{{ t.ring|date:"A" }}</span></span>
-          <span class="ios-label">{{ t.title }}<span class="ios-when-text">, {{ t.day_label }}{% if t.is_recurring and t.recurring_frequency != 'none' %} · repeats{% endif %}{% if t.is_past %} · passed{% endif %}</span></span>
+          <span class="ios-label" title="{{ t.title }}">{{ t.title }}<span class="ios-when-text">, {{ t.day_label }}{% if t.is_recurring and t.recurring_frequency != 'none' %} · repeats{% endif %}{% if t.is_past %} · passed{% endif %}</span></span>
         </a>
         <label class="switch ios-green">
           <input type="checkbox" data-alarm-toggle="{% url 'toggle_alarm' t.id %}" {% if t.alarm_enabled %}checked{% endif %} {% if t.is_past and not t.alarm_enabled %}disabled{% endif %} aria-label="Alarm for “{{ t.title }}”">

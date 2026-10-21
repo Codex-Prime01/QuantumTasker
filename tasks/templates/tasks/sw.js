@@ -13,7 +13,7 @@
  */
 importScripts('{% static "tasks/outbox.js" %}');
 
-const CACHE_VERSION = 'qm-v11';
+const CACHE_VERSION = 'qm-v12';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const PAGES_CACHE = `${CACHE_VERSION}-pages`;
 const OFFLINE_URL = '/offline/';
